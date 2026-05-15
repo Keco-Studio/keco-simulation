@@ -1,0 +1,24 @@
+.dashboard {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  background-color: #fff;
+  overflow: hidden;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: white;
+  /* 确保内容区域可以滚动 */
+  height: 100vh;
+}
+

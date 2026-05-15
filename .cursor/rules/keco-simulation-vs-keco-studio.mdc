@@ -1,0 +1,29 @@
+---
+description: Boundaries between keco-simulation and keco-studio — do not mix repos
+alwaysApply: true
+---
+
+# Keco Simulation vs Keco Studio
+
+## Two products
+
+- **`keco-simulation`** (this repo): standalone Next app for **economy / battle simulators**, local persistence, exports, and any **simulation-only** features. Default dev port is often **3001**.
+- **`keco-studio`**: main Keco Studio app (projects, libraries, Supabase, collaboration). Default dev port is often **3000**.
+
+They are **sibling projects**. They are **not** the same codebase.
+
+## Rules for agents and contributors
+
+1. **Simulation behavior, tables, battle skills UX, and simulation-specific storage** belong in **`keco-simulation`**. Implement and edit them **here**, not in `keco-studio`.
+2. **Do not add** simulation routes, battle editors, or “simulation tables” UI under `keco-studio/src/app/(dashboard)/simulation-system/` except the **minimal embed shell** already used to iframe this app (layout + `SimulationSystemEmbed` + env-driven origin). If unsure, extend **`keco-simulation`** first.
+3. **Do not refactor** Keco Studio library/table components (`LibraryAssetsTable`, `LibraryDataContext`, etc.) for simulation-only needs. If Studio data is required, integrate via **HTTP API**, **postMessage**, or **documented env URLs** from this app — not by copying Studio UI into Studio under `simulation-system`.
+4. When the user says “simulation”, assume they mean **`keco-simulation`** unless they explicitly say **Studio** or **`keco-studio`**.
+
+## Embed (allowed in Studio only as glue)
+
+Studio may point an iframe at `NEXT_PUBLIC_SIMULATION_ORIGIN` (e.g. `http://localhost:3001`). That is **navigation glue**, not where simulation features should be implemented.
+
+## Embedding Studio inside simulation (optional)
+
+When you need the **same Keco Studio project / library UI** inside this app, use the route **`/simulation-system/battle/studio-libraries`** and set **`NEXT_PUBLIC_KECO_STUDIO_ORIGIN`** (e.g. `http://localhost:3000`) in `.env.local`. This loads Studio in an iframe; do not re-implement library tables in this repo.
+

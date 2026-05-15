@@ -1,0 +1,22 @@
+export type FieldType = 'string' | 'string_array' | 'int' | 'int_array' | 'float' | 'float_array' | 'boolean' | 'enum' | 'date' | 'image' | 'file' | 'reference' | 'multimedia' | 'audio' | 'formula';
+
+export type FieldConfig = {
+  id: string;
+  label: string;
+  description?: string | null;
+  dataType?: FieldType; // Optional to allow adding empty field rows first
+  required: boolean;
+  enumOptions?: string[];
+  referenceLibraries?: string[]; // For reference type: which libraries can be referenced
+};
+
+export type SectionConfig = {
+  id: string;
+  name: string;
+  fields: FieldConfig[];
+};
+
+export function uid() {
+  return Math.random().toString(16).slice(2, 10);
+}
+

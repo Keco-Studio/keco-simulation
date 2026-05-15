@@ -1,0 +1,441 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { Modal } from 'antd';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSupabase } from '@studio/lib/SupabaseContext';
+import { queryKeys } from '@studio/lib/utils/queryKeys';
+import { getFolder, Folder } from '@studio/lib/services/folderService';
+import { listLibraries, Library, getLibrariesAssetCounts } from '@studio/lib/services/libraryService';
+import { getUserProjectRole } from '@studio/lib/services/authorizationService';
+import { LibraryCard } from '@studio/components/folders/LibraryCard';
+import { LibraryListView } from '@studio/components/folders/LibraryListView';
+import { LibraryToolbar } from '@studio/components/folders/LibraryToolbar';
+import { NewLibraryModal } from '@studio/components/libraries/NewLibraryModal';
+import { EditLibraryModal } from '@studio/components/libraries/EditLibraryModal';
+import { ExportLibraryModal } from '@studio/components/libraries/ExportLibraryModal';
+import { ContextMenuAction } from '@studio/components/layout/ContextMenu';
+import { deleteLibrary } from '@studio/lib/services/libraryService';
+import libraryEmptyIcon from '@studio/assets/images/projectEmptyIcon_2.png';
+import plusHorizontal from '@studio/assets/images/plusHorizontal.svg';
+import plusVertical from '@studio/assets/images/plusVertical.svg';
+import Image from 'next/image';
+import styles from './FolderPage.module.css';
+import {
+  studioLibrariesFolderUrl,
+  studioLibrariesHubUrl,
+  studioLibrariesLibraryUrl,
+} from '@/lib/studioLibrariesRoutes';
+
+export default function StudioFolderPageClient() {
+  const params = useParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const supabase = useSupabase();
+  const queryClient = useQueryClient();
+  const confirmDeletion = useCallback((content: string) => {
+    return new Promise<boolean>((resolve) => {
+      Modal.confirm({
+        title: 'Confirm deletion',
+        content,
+        okText: 'Delete',
+        cancelText: 'Cancel',
+        zIndex: 11000,
+        okButtonProps: { danger: true },
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
+    });
+  }, []);
+  const projectId = searchParams.get('projectId')?.trim() ?? '';
+  const folderId = params.folderId as string;
+  
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [showEditLibraryModal, setShowEditLibraryModal] = useState(false);
+  const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
+  const [exportLibraryId, setExportLibraryId] = useState<string | null>(null);
+  const [assetCounts, setAssetCounts] = useState<Record<string, number>>({});
+  const [userRole, setUserRole] = useState<'admin' | 'editor' | 'viewer' | null>(null);
+
+  // Use React Query for data fetching
+  const { data: folder, isLoading: folderLoading, error: folderError } = useQuery({
+    queryKey: queryKeys.folder(folderId),
+    queryFn: () => getFolder(supabase, folderId),
+    enabled: !!folderId,
+  });
+
+  const { data: libraries = [], isLoading: librariesLoading } = useQuery({
+    queryKey: queryKeys.folderLibraries(folderId),
+    queryFn: () => listLibraries(supabase, projectId, folderId),
+    enabled: !!projectId && !!folderId,
+  });
+
+  const loading = folderLoading || librariesLoading;
+  const error = folderError ? (folderError as any)?.message || 'Failed to load folder' : null;
+
+  // Fetch user role in current project
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!projectId) {
+        setUserRole(null);
+        return;
+      }
+      
+      try {
+        const role = await getUserProjectRole(supabase, projectId);
+        setUserRole(role);
+      } catch (error) {
+        console.error('[FolderPage] Error fetching user role:', error);
+        setUserRole(null);
+      }
+    };
+    
+    fetchUserRole();
+  }, [projectId, supabase]);
+
+  // Fetch asset counts when libraries change
+  useEffect(() => {
+    async function fetchAssetCounts() {
+      if (libraries.length > 0) {
+        const libraryIds = libraries.map(lib => lib.id);
+        const counts = await getLibrariesAssetCounts(supabase, libraryIds);
+        setAssetCounts(counts);
+      }
+    }
+    fetchAssetCounts();
+  }, [libraries, supabase]);
+
+  // Optimized: Listen for library and folder events with targeted cache invalidation
+  useEffect(() => {
+    const handleLibraryCreated = (event: CustomEvent) => {
+      const createdFolderId = event.detail?.folderId;
+      // Only invalidate if the library was created in the current folder
+      if (createdFolderId === folderId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.folderLibraries(folderId) });
+      }
+    };
+
+    const handleLibraryDeleted = (event: CustomEvent) => {
+      const deletedFolderId = event.detail?.folderId;
+      // Only invalidate if the library was deleted from the current folder
+      if (deletedFolderId === folderId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.folderLibraries(folderId) });
+      }
+    };
+
+    const handleLibraryUpdated = (event: CustomEvent) => {
+      // Invalidate libraries list to refresh the updated library
+      queryClient.invalidateQueries({ queryKey: queryKeys.folderLibraries(folderId) });
+    };
+
+    const handleFolderUpdated = (event: CustomEvent) => {
+      const updatedFolderId = event.detail?.folderId;
+      // Invalidate if the current folder was updated
+      if (updatedFolderId === folderId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.folder(folderId) });
+      }
+    };
+
+    window.addEventListener('libraryCreated' as any, handleLibraryCreated as EventListener);
+    window.addEventListener('libraryDeleted' as any, handleLibraryDeleted as EventListener);
+    window.addEventListener('libraryUpdated' as any, handleLibraryUpdated as EventListener);
+    window.addEventListener('folderUpdated' as any, handleFolderUpdated as EventListener);
+    
+    return () => {
+      window.removeEventListener('libraryCreated' as any, handleLibraryCreated as EventListener);
+      window.removeEventListener('libraryDeleted' as any, handleLibraryDeleted as EventListener);
+      window.removeEventListener('libraryUpdated' as any, handleLibraryUpdated as EventListener);
+      window.removeEventListener('folderUpdated' as any, handleFolderUpdated as EventListener);
+    };
+  }, [folderId, queryClient]);
+
+  const handleLibraryClick = (libraryId: string) => {
+    router.push(studioLibrariesLibraryUrl(projectId, libraryId));
+  };
+
+  const handleLibraryMoreClick = (libraryId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Feature not implemented yet
+  };
+
+  const handleExport = (libraryId: string) => {
+    // Feature not implemented yet
+    console.log('Export library:', libraryId);
+  };
+
+  const handleVersionHistory = (libraryId: string) => {
+    // Feature not implemented yet
+    console.log('Version history:', libraryId);
+  };
+
+  const handleCreateBranch = (libraryId: string) => {
+    // Feature not implemented yet
+    console.log('Create branch:', libraryId);
+  };
+
+  const handleRename = (libraryId: string) => {
+    // Feature not implemented yet
+    console.log('Rename:', libraryId);
+  };
+
+  const handleDuplicate = (libraryId: string) => {
+    // Feature not implemented yet
+    console.log('Duplicate:', libraryId);
+  };
+
+  const handleMoveTo = (libraryId: string) => {
+    // Feature not implemented yet
+    console.log('Move to:', libraryId);
+  };
+
+  const handleDelete = (libraryId: string) => {
+    // Feature not implemented yet
+    console.log('Delete:', libraryId);
+  };
+
+  const handleLibraryAction = async (libraryId: string, action: ContextMenuAction) => {
+    switch (action) {
+      case 'export':
+        setExportLibraryId(libraryId);
+        break;
+      case 'rename':
+        setEditingLibraryId(libraryId);
+        setShowEditLibraryModal(true);
+        break;
+      case 'delete':
+        if (await confirmDeletion('Delete this library?')) {
+          try {
+            await deleteLibrary(supabase, libraryId);
+            
+            // Dispatch event to notify other components - event handler will invalidate cache
+            window.dispatchEvent(new CustomEvent('libraryDeleted', {
+              detail: { folderId, libraryId, projectId }
+            }));
+            
+            // If viewing this library, navigate back to folder
+            if (pathname.includes(libraryId)) {
+              router.push(studioLibrariesFolderUrl(projectId, folderId));
+            }
+          } catch (err: any) {
+            console.error('Failed to delete library:', err);
+            alert(err?.message || 'Failed to delete library');
+          }
+        }
+        break;
+      default:
+        console.log('Library action not implemented:', action);
+    }
+  };
+
+  const handleCreateLibrary = () => {
+    setShowLibraryModal(true);
+  };
+
+  const handleLibraryCreated = (libraryId: string) => {
+    setShowLibraryModal(false);
+    // Dispatch event to notify other components - event handler will invalidate cache
+    window.dispatchEvent(new CustomEvent('libraryCreated', {
+      detail: { folderId, libraryId }
+    }));
+  };
+
+  // 将页面内 LibraryToolbar 的视图模式同步到 TopBar
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent('library-page-view-mode-change', {
+        detail: {
+          mode: viewMode,
+          projectId,
+          folderId,
+        },
+      })
+    );
+  }, [viewMode, projectId, folderId]);
+
+  // 让 TopBar 中的 LibraryToolbar 也能控制本页视图切换和创建 Library
+  useEffect(() => {
+    const handleTopbarCreateLibrary = (event: Event) => {
+      const custom = event as CustomEvent<{ projectId?: string; folderId?: string | null }>;
+      if (custom.detail?.projectId === projectId && custom.detail?.folderId === folderId) {
+        handleCreateLibrary();
+      }
+    };
+
+    const handleTopbarViewModeChange = (event: Event) => {
+      const custom = event as CustomEvent<{
+        mode?: 'list' | 'grid';
+        projectId?: string;
+        folderId?: string | null;
+      }>;
+      const { mode, projectId: evtProjectId, folderId: evtFolderId } = custom.detail || {};
+      if (!mode) return;
+      if (evtProjectId !== projectId) return;
+      if (evtFolderId !== folderId) return;
+      setViewMode(mode);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('library-toolbar-create-library', handleTopbarCreateLibrary as EventListener);
+      window.addEventListener('library-toolbar-view-mode-change', handleTopbarViewModeChange as EventListener);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('library-toolbar-create-library', handleTopbarCreateLibrary as EventListener);
+        window.removeEventListener('library-toolbar-view-mode-change', handleTopbarViewModeChange as EventListener);
+      }
+    };
+  }, [projectId, folderId, handleCreateLibrary, setViewMode]);
+
+  if (!projectId || !folderId) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.error}>缺少 projectId 或 folder：请使用带 ?projectId=… 的完整链接。</div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loading}>Loading folder...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.error}>{error}</div>
+      </div>
+    );
+  }
+
+  if (!folder) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.error}>Folder not found</div>
+      </div>
+    );
+  }
+
+  // Only admin can create folders and libraries
+  const canCreate = userRole === 'admin';
+
+
+  return (
+    <div className={styles.container}>
+      {/* <LibraryToolbar
+        mode="folder"
+        title={folder?.name}
+        onCreateLibrary={handleCreateLibrary}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        userRole={userRole}
+        projectId={projectId}
+      /> */}
+      {libraries.length === 0 ? (
+        <div className={styles.emptyStateWrapper}>
+          <div className={styles.emptyStateContainer}>
+            <div className={styles.emptyIcon}>
+              <Image
+                src={libraryEmptyIcon}
+                alt="Library icon"
+                width={237}
+                height={219}
+              />
+            </div>
+            <div className={styles.emptyText}>
+              There is no any library here. you need to create a library firstly
+            </div>
+            {canCreate && (
+              <button
+                className={styles.createLibraryButton}
+                onClick={handleCreateLibrary}
+              >
+                <span className={styles.plusIcon}>
+                  <Image
+                    src={plusHorizontal}
+                    alt=""
+                    width={17}
+                    height={2}
+                    className={styles.plusHorizontal}
+                  />
+                  <Image
+                    src={plusVertical}
+                    alt=""
+                    width={2}
+                    height={17}
+                    className={styles.plusVertical}
+                  />
+                </span>
+                <span className={styles.buttonText}>Create Library</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : viewMode === 'grid' ? (
+        <div className={styles.grid}>
+          {libraries.map((library) => (
+            <LibraryCard
+              key={library.id}
+              library={library}
+              projectId={projectId}
+              assetCount={assetCounts[library.id] || 0}
+              userRole={userRole}
+              onClick={handleLibraryClick}
+              onAction={handleLibraryAction}
+            />
+          ))}
+        </div>
+      ) : (
+        <LibraryListView
+          libraries={libraries.map(lib => ({
+            ...lib,
+            assetCount: assetCounts[lib.id] || 0
+          }))}
+          projectId={projectId}
+          userRole={userRole}
+          onLibraryClick={handleLibraryClick}
+          onLibraryAction={handleLibraryAction}
+        />
+      )}
+      <NewLibraryModal
+        open={showLibraryModal}
+        onClose={() => setShowLibraryModal(false)}
+        projectId={projectId}
+        folderId={folderId}
+        onCreated={handleLibraryCreated}
+      />
+      {editingLibraryId && (
+        <EditLibraryModal
+          open={showEditLibraryModal}
+          libraryId={editingLibraryId}
+          onClose={() => {
+            setShowEditLibraryModal(false);
+            setEditingLibraryId(null);
+          }}
+          onUpdated={() => {
+            // Dispatch event to notify other components - event handler will invalidate cache
+            window.dispatchEvent(new CustomEvent('libraryUpdated', {
+              detail: { libraryId: editingLibraryId, projectId }
+            }));
+          }}
+        />
+      )}
+      {exportLibraryId && (
+        <ExportLibraryModal
+          open={!!exportLibraryId}
+          libraryId={exportLibraryId}
+          libraryName={libraries.find(l => l.id === exportLibraryId)?.name}
+          onClose={() => setExportLibraryId(null)}
+        />
+      )}
+    </div>
+  );
+}
+

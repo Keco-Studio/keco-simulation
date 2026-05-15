@@ -1,0 +1,408 @@
+.fieldItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 16px;
+  padding-left: 2.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.fieldItem:hover {
+  background-color: #f3f4f6;
+}
+
+.fieldItem:active {
+  cursor: grabbing;
+}
+
+.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.dragHandle {
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+
+.fieldItem:hover .dragHandle {
+  opacity: 1;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.fieldInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.inputWrapper {
+  position: relative;
+  width: 380px;
+  min-width: 0;
+}
+
+.labelInput {
+  width: 100%;
+}
+
+.dataTypeDisplay {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.dataTypeInput {
+  width: 140px;
+}
+
+.typeSwitchButton {
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+  height: 1rem;
+}
+
+.typeSwitchButton:hover {
+  opacity: 0.7;
+}
+
+.typeSwitchButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.dataTypeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 10px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  cursor: pointer;
+  font-size: 13px;
+  color: #111827;
+  flex-shrink: 0;
+}
+
+.dataTypeButton:hover {
+  background-color: #f3f4f6;
+}
+
+.dataTypeText {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.requiredMark {
+  color: #dc2626;
+  font-size: 0.875rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.fieldActions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.configButtonWrapper {
+  position: relative;
+}
+
+.configButton {
+  padding: 0;
+  border: none;
+  padding: 0.375rem;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.configButton:hover:not(:disabled),
+.configButtonActive {
+  background-color: #0B99FF14;
+}
+
+.configButtonActive {
+  background-color: #0B99FF14;
+}
+
+.deleteButton {
+  padding: 0.25rem;
+  min-width: auto;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 0.25rem;
+}
+
+.deleteButton:hover {
+  background-color: #f3f4f6;
+}
+
+.configButton:active,
+.deleteButton:active {
+  background-color: #e5e7eb;
+}
+
+/* Slash menu styles consistent with FieldForm */
+.slashMenu {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 18.75rem;
+  padding: 0.25rem 4px;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1000;
+}
+
+.slashMenuItem {
+  height: 2.7rem;
+  padding-left: 0.625rem;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  cursor: pointer;
+  font-size: 15px;
+  border-radius: 0.375rem;
+  color: #374151;
+  transition: background-color 0.2s;
+}
+
+.slashMenuItem:hover {
+  background-color: #0B99FF14;
+}
+
+/* Config menu styles */
+.configMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 19.7rem;
+  height: 220px;
+  z-index: 1000;
+}
+
+.configMenuHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 13px;
+  width: 100%;
+  height: 45px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #0B99FF14;
+}
+
+.configMenuHeader span {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.referenceConfig {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.625rem;
+}
+
+.referenceConfigHeader {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #111827;
+}
+
+.addOptionButton {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  background: #3b82f6;
+  color: #ffffff;
+  font-size: 1.25rem;
+  line-height: 1;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.addOptionButton:hover {
+  background: #2563eb;
+}
+
+.addOptionButton:active {
+  background: #1d4ed8;
+}
+
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.625rem 10px 20px 10px;
+  height: 90%;
+}
+
+.optionsListHeaderContainer{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.optionsListHeader {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #111827;
+}
+
+.optionsListItemsContainer{
+  max-height: 110px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.optionItem {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.optionInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.removeOptionButton {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 1.25rem;
+  line-height: 1;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.removeOptionButton:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #dc2626;
+}
+
+.removeOptionButton:active {
+  background: #e5e7eb;
+}
+
+.emptyOptionsMessage {
+  padding: 1.25rem;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 15px;
+}
+
+.libraryTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 8px;
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  margin: 0.125rem;
+}
+
+.libraryTagClose {
+  border: none;
+  background: none;
+  color: #3730a3;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.25rem;
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: bold;
+  transition: color 0.2s;
+}
+
+.libraryTagClose:hover {
+  color: #1e1b4b;
+}
+
+:global(.ant-select-outlined.ant-select-multiple .ant-select-selection-item) {
+  background: #0B99FF14;
+  border: 1px solid #0B99FF6B;
+}
+
+:global(.ant-select-dropdown .ant-select-item-option-selected:not(.ant-select-item-option-disabled) .ant-select-item-option-state) {
+  color: #0B99FF;
+}
+
+/* Reference Select - Blue border on hover and focus */
+.referenceSelect :global(.ant-select-selector) {
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.referenceSelect:hover :global(.ant-select-selector) {
+  border-color: #1890ff !important;
+}
+
+.referenceSelect:global(.ant-select-focused) :global(.ant-select-selector),
+.referenceSelect:global(.ant-select-focused:hover) :global(.ant-select-selector) {
+  border-color: #1890ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+}

@@ -1,0 +1,83 @@
+/**
+ * Invite Collaborator Modal Styles
+ * 
+ * Clean, modern styles for the invitation modal.
+ * Follows design system conventions with proper spacing and typography.
+ */
+
+.content {
+  padding: 0.5rem 0;
+}
+
+.roleItem {
+  margin-bottom: 0;
+}
+
+/* 下拉框白色背景 */
+.roleItem :global(.ant-select-selector) {
+  background-color: #ffffff !important;
+}
+
+.roleDescription {
+  font-size: 0.75rem;
+  color: #737373;
+  line-height: 1.4;
+  margin-top: 0.25rem;
+}
+
+.infoBox {
+  background: #f6f9fc;
+  border: 1px solid #e6e8eb;
+  border-radius: 0.375rem;
+  padding: 0.75rem 16px;
+  margin-top: 0.5rem;
+}
+
+.infoText {
+  font-size: 13px;
+  color: #525252;
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .modal :global(.ant-modal) {
+    width: 90% !important;
+    max-width: 480px;
+  }
+}
+
+/* Ensure primary button uses blue color (not purple) */
+.modal :global(.ant-btn-primary) {
+  background-color: #0B99FF !important;
+  border-color: #0B99FF !important;
+}
+
+.modal :global(.ant-btn-primary:hover),
+.modal :global(.ant-btn-primary:focus) {
+  background-color: #0a8ae6 !important;
+  border-color: #0a8ae6 !important;
+}
+
+/* Ensure input fields use blue border on focus (not purple) */
+.modal :global(.ant-input:focus),
+.modal :global(.ant-input-focused) {
+  border-color: #0B99FF !important;
+  box-shadow: 0 0 0 2px rgba(11, 153, 255, 0.2) !important;
+}
+
+.modal :global(.ant-input:hover) {
+  border-color: #0B99FF !important;
+}
+
+/* Ensure select fields use blue border on focus (not purple) */
+.modal :global(.ant-select:not(.ant-select-disabled):hover .ant-select-selector) {
+  border-color: #0B99FF !important;
+}
+
+.modal :global(.ant-select-focused:not(.ant-select-disabled) .ant-select-selector) {
+  border-color: #0B99FF !important;
+  box-shadow: 0 0 0 2px rgba(11, 153, 255, 0.2) !important;
+}
+
+/* Responsive adjustments */

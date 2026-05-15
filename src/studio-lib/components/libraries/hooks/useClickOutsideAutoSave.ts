@@ -1,0 +1,329 @@
+import { useEffect } from 'react';
+import type React from 'react';
+import type { AssetRow, PropertyConfig } from '@studio/lib/types/libraryAssets';
+
+type YRows = {
+  toArray: () => AssetRow[];
+  delete: (index: number, count: number) => void;
+  insert: (index: number, rows: AssetRow[]) => void;
+};
+
+type OptimisticEditUpdate = { name: string; propertyValues: Record<string, any> };
+
+export type UseClickOutsideAutoSaveParams = {
+  tableContainerRef: React.RefObject<HTMLDivElement | null>;
+  /** When adding row, click outside this ref (e.g. another cell or outside table) triggers save */
+  addRowFormRef?: React.RefObject<HTMLTableRowElement | null>;
+  isAddingRow: boolean;
+  newRowData: Record<string, any>;
+  setIsAddingRow: (v: boolean | ((prev: boolean) => boolean)) => void;
+  setNewRowData: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+  isSaving: boolean;
+  setIsSaving: React.Dispatch<React.SetStateAction<boolean>>;
+  referenceModalOpen: boolean;
+  onSaveAsset?: (assetName: string, propertyValues: Record<string, any>, options?: { createdAt?: Date }) => Promise<void>;
+  library: { id: string; name: string; description?: string | null } | null;
+  properties: PropertyConfig[];
+  setOptimisticNewAssets: React.Dispatch<React.SetStateAction<Map<string, AssetRow>>>;
+  editingCell: { rowId: string; propertyKey: string } | null;
+  editingCellValue: string;
+  /** 当前正在编辑的单元格 DOM 引用，用于在校验失败时重新聚焦 */
+  editingCellRef?: React.MutableRefObject<HTMLSpanElement | null>;
+  setEditingCell: React.Dispatch<React.SetStateAction<{ rowId: string; propertyKey: string } | null>>;
+  setEditingCellValue: React.Dispatch<React.SetStateAction<string>>;
+  setCurrentFocusedCell: React.Dispatch<React.SetStateAction<{ assetId: string; propertyKey: string } | null>>;
+  onUpdateAsset?: (assetId: string, assetName: string, propertyValues: Record<string, any>) => Promise<void>;
+  rows: AssetRow[];
+  yRows: YRows;
+  setOptimisticEditUpdates: React.Dispatch<React.SetStateAction<Map<string, OptimisticEditUpdate>>>;
+  presenceTracking?: {
+    updateActiveCell: (assetId: string | null, propertyKey: string | null) => void;
+    getUsersEditingCell: (assetId: string, propertyKey: string) => unknown[];
+  };
+  /** 复用单元格编辑中的类型校验逻辑（包括数组类型的 [] 规范化） */
+  validateValueByType?: (
+    value: string,
+    dataType: string,
+  ) => {
+    isValid: boolean;
+    error: string | null;
+    normalizedValue: string | number | null;
+  };
+  /** 设置当前编辑单元格的错误信息，用于在点击表外时也能展示校验错误 */
+  setTypeValidationError?: React.Dispatch<React.SetStateAction<string | null>>;
+};
+
+/**
+ * useClickOutsideAutoSave
+ * Listens for mousedown outside the table container when adding a row or editing a cell.
+ * - Add row: auto-save new asset (or create blank) / cancel; then remove listener.
+ * - Edit cell: auto-save edited cell; then remove listener.
+ */
+export function useClickOutsideAutoSave(params: UseClickOutsideAutoSaveParams) {
+  const {
+    tableContainerRef,
+    addRowFormRef,
+    isAddingRow,
+    newRowData,
+    setIsAddingRow,
+    setNewRowData,
+    isSaving,
+    setIsSaving,
+    referenceModalOpen,
+    onSaveAsset,
+    library,
+    properties,
+    setOptimisticNewAssets,
+    editingCell,
+    editingCellValue,
+    editingCellRef,
+    setEditingCell,
+    setEditingCellValue,
+    setCurrentFocusedCell,
+    onUpdateAsset,
+    rows,
+    yRows,
+    setOptimisticEditUpdates,
+    presenceTracking,
+    validateValueByType,
+    setTypeValidationError,
+  } = params;
+
+  useEffect(() => {
+    const handleClickOutside = async (event: MouseEvent) => {
+      if (isSaving) return;
+      if (referenceModalOpen) return;
+
+      const target = event.target as Node;
+      const el = target as Element;
+      if (
+        el.closest &&
+        (el.closest('[role="dialog"]') ||
+          el.closest('.ant-modal') ||
+          el.closest('[class*="modal"]') ||
+          el.closest('[class*="Modal"]') ||
+          el.closest('.ant-select-dropdown') ||
+          el.closest('[class*="select-dropdown"]') ||
+          el.closest('.rc-select-dropdown'))
+      ) {
+        return;
+      }
+
+      // When editing a cell: only react to clicks outside the whole table
+      if (editingCell && (!tableContainerRef.current || tableContainerRef.current.contains(target))) return;
+      // When adding a row: react to clicks outside the add-row form (including other table cells)
+      if (isAddingRow && addRowFormRef?.current?.contains(target)) return;
+
+      if (isAddingRow) {
+        const hasData = Object.keys(newRowData).some((key) => {
+          const v = newRowData[key];
+          return v != null && v !== '';
+        });
+
+        if (hasData && onSaveAsset && library) {
+          // Find the name field (identified by label='name' and dataType='string')
+          const nameField = properties.find(p => p.name === 'name' && p.dataType === 'string');
+          const assetName = nameField ? (newRowData[nameField.id] ?? newRowData[nameField.key] ?? 'Untitled') : 'Untitled';
+          const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const optimisticAsset: AssetRow = {
+            id: tempId,
+            libraryId: library.id,
+            name: String(assetName),
+            propertyValues: { ...newRowData },
+          };
+          setOptimisticNewAssets((prev) => {
+            const next = new Map(prev);
+            next.set(tempId, optimisticAsset);
+            return next;
+          });
+          setIsAddingRow(false);
+          const saved = { ...newRowData };
+          setNewRowData({});
+          setIsSaving(true);
+          try {
+            await onSaveAsset(assetName, saved);
+            setTimeout(() => {
+              setOptimisticNewAssets((prev) => {
+                if (!prev.has(tempId)) return prev;
+                const next = new Map(prev);
+                next.delete(tempId);
+                return next;
+              });
+            }, 2000);
+          } catch (e) {
+            console.error('Failed to save asset:', e);
+            setOptimisticNewAssets((prev) => {
+              const next = new Map(prev);
+              next.delete(tempId);
+              return next;
+            });
+            setIsAddingRow(true);
+            setNewRowData(saved);
+          } finally {
+            setIsSaving(false);
+          }
+          return;
+        }
+
+        if (!hasData && onSaveAsset && library) {
+          const assetName = 'Untitled';
+          const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const optimisticAsset: AssetRow = {
+            id: tempId,
+            libraryId: library.id,
+            name: assetName,
+            propertyValues: {},
+          };
+          setOptimisticNewAssets((prev) => {
+            const next = new Map(prev);
+            next.set(tempId, optimisticAsset);
+            return next;
+          });
+          setIsAddingRow(false);
+          setNewRowData({});
+          setIsSaving(true);
+          try {
+            await onSaveAsset(assetName, {});
+            setTimeout(() => {
+              setOptimisticNewAssets((prev) => {
+                if (!prev.has(tempId)) return prev;
+                const next = new Map(prev);
+                next.delete(tempId);
+                return next;
+              });
+            }, 2000);
+          } catch (e) {
+            console.error('Failed to save blank asset:', e);
+            setOptimisticNewAssets((prev) => {
+              const next = new Map(prev);
+              next.delete(tempId);
+              return next;
+            });
+            setIsAddingRow(true);
+          } finally {
+            setIsSaving(false);
+          }
+          return;
+        }
+
+        setIsAddingRow(false);
+        setNewRowData({});
+        return;
+      }
+
+      if (editingCell && onUpdateAsset) {
+        const { rowId, propertyKey } = editingCell;
+        const row = rows.find((r) => r.id === rowId);
+        if (!row) return;
+
+        const prop = properties.find((p) => p.key === propertyKey);
+        const isNameField =
+          prop && prop.name === 'name' && prop.dataType === 'string';
+
+        // 当点击表格外自动保存时，也复用与双击编辑保存相同的校验逻辑：
+        // - 对数组类型自动补全 [] 并做格式校验
+        // - 对数值类型做类型校验
+        let normalizedValue: string | number | null = editingCellValue;
+        if (!isNameField && prop && validateValueByType) {
+          const validation = validateValueByType(editingCellValue, prop.dataType);
+          if (!validation.isValid) {
+            // 校验失败：展示错误并阻止自动保存，保持编辑状态
+            setTypeValidationError?.(validation.error);
+            setTimeout(() => {
+              if (editingCellRef?.current) {
+                editingCellRef.current.focus();
+              }
+            }, 100);
+            return;
+          }
+          // 校验通过：使用规范化后的值（包括数组类型自动转成 "[]" 或标准格式）
+          normalizedValue = validation.normalizedValue;
+          setTypeValidationError?.(null);
+        }
+
+        const updatedPropertyValues = {
+          ...row.propertyValues,
+          [propertyKey]: normalizedValue,
+        };
+        const assetName = isNameField ? editingCellValue : (row.name || 'Untitled');
+
+        const allRows = yRows.toArray();
+        const rowIndex = allRows.findIndex((r) => r.id === rowId);
+        if (rowIndex >= 0) {
+          const existing = allRows[rowIndex];
+          yRows.delete(rowIndex, 1);
+          yRows.insert(rowIndex, [
+            { ...existing, name: String(assetName), propertyValues: updatedPropertyValues },
+          ]);
+        }
+
+        setOptimisticEditUpdates((prev) => {
+          const next = new Map(prev);
+          next.set(rowId, { name: String(assetName), propertyValues: updatedPropertyValues });
+          return next;
+        });
+
+        const savedValue = editingCellValue;
+        setEditingCell(null);
+        setEditingCellValue('');
+        setCurrentFocusedCell(null);
+        setTimeout(() => presenceTracking?.updateActiveCell(null, null), 1000);
+        setIsSaving(true);
+
+        onUpdateAsset(rowId, assetName, updatedPropertyValues)
+          .then(() => {
+            setTimeout(() => {
+              setOptimisticEditUpdates((prev) => {
+                const next = new Map(prev);
+                next.delete(rowId);
+                return next;
+              });
+            }, 500);
+          })
+          .catch((err) => {
+            console.error('Failed to update cell:', err);
+            setOptimisticEditUpdates((prev) => {
+              const next = new Map(prev);
+              next.delete(rowId);
+              return next;
+            });
+            setEditingCell({ rowId, propertyKey });
+            setEditingCellValue(savedValue);
+          })
+          .finally(() => setIsSaving(false));
+      }
+    };
+
+    if (!isAddingRow && !editingCell) return;
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [
+    isAddingRow,
+    editingCell,
+    editingCellValue,
+    editingCellRef,
+    isSaving,
+    newRowData,
+    onSaveAsset,
+    onUpdateAsset,
+    properties,
+    rows,
+    referenceModalOpen,
+    tableContainerRef,
+    addRowFormRef,
+    library,
+    setIsAddingRow,
+    setNewRowData,
+    setIsSaving,
+    setOptimisticNewAssets,
+    setEditingCell,
+    setEditingCellValue,
+    setCurrentFocusedCell,
+    setOptimisticEditUpdates,
+    yRows,
+    presenceTracking,
+    validateValueByType,
+    setTypeValidationError,
+  ]);
+}

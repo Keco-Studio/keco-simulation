@@ -1,0 +1,14 @@
+---
+description: keco-simulation uses English for UI copy, code comments, JSDoc, metadata, and script output intended for operators
+globs: src/**/*.{ts,tsx},scripts/**/*.ts,README.md,next.config.mjs
+alwaysApply: true
+---
+
+# English in keco-simulation
+
+- **User-visible text**: UI labels, buttons, placeholders, table headers, breadcrumbs, `message.*` / notifications, modal titles, page metadata (`title` / `description`), and static copy in exported spreadsheets used as documentation.
+- **Code comments**: `//`, `/* */`, and JSDoc must be **English**; explain intent where non-obvious.
+- **Tone**: professional, concise, consistent capitalization (sentence case for sentences).
+- **No emoji** in code, comments, or UI strings (use Ant Design icons or text instead).
+
+When touching shared export scripts, keep sheet row labels and notes in **English** so tooling stays aligned with the app UI language.

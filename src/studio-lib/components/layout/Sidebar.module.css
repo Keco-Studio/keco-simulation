@@ -1,0 +1,1384 @@
+.sidebar {
+  min-width: 180px;
+  max-width: 400px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  border-right: 1px solid #e2e8f0;
+  background-color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  padding: 1.5rem 16px 24px;
+  transition: transform 0.3s ease, width 0.3s ease;
+  transform: translateX(0);
+  position: relative;
+  z-index: 10;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.sidebarResizing {
+  transition: none;
+}
+
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 5;
+  user-select: none;
+}
+
+.resizeHandle:hover,
+.sidebarResizing .resizeHandle {
+  background: linear-gradient(to right, transparent, rgba(99, 102, 241, 0.15));
+}
+
+.resizeHandle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 40px;
+  border-radius: 1px;
+  background: #cbd5e1;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.resizeHandle:hover::after,
+.sidebarResizing .resizeHandle::after {
+  opacity: 1;
+}
+
+.sidebarHidden {
+  transform: translateX(-100%);
+  width: 0;
+  padding: 0;
+  border-right: none;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  height: 2.4375rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.headerLogo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.headerBrand {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.brandName {
+  font-size: 1.5rem;
+  font-weight: 400;
+  font-family: var(--font-koulen), sans-serif;
+  color: #697077;
+  line-height: 1;
+}
+
+.brandSlogan {
+  font-size: 0.875rem;
+  color: #697077;
+  line-height: 1;
+  margin-top: -0.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.avatarContainer {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: linear-gradient(to bottom right, #6366f1, #a855f7);
+  color: white;
+  font-weight: 600;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.logo:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.avatar {
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 0.75rem;
+  object-fit: cover;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.avatar:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  min-width: 120px;
+  overflow: hidden;
+}
+
+.logoutButton {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  color: #dc2626;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.logoutButton:hover {
+  background-color: #fef2f2;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.subtitle {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.searchContainer {
+  width: 16.9375rem;
+  height: 3rem;
+  box-sizing: border-box;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.searchLabel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  height: 100%;
+  border-radius: 88px;
+  border: 1px solid #e2e8f0;
+  background-color: rgba(248, 250, 252, 0.8);
+  padding: 0.75rem 16px 12px 48px;
+  font-size: 1rem;
+  color: #334155;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.searchInput:focus {
+  border-color: #a5b4fc;
+  background-color: white;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Custom scrollbar for sidebar content */
+.content::-webkit-scrollbar {
+  width: 0.25rem;
+}
+
+.content::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 7px;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: #D9D9D9;
+  border-radius: 7px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: #BFBFBF;
+}
+
+.hint {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.loadingAfterCreate {
+  color: #8726EE;
+  font-size: 0.85rem;
+  padding: 0.5rem 0;
+  background-color: #f3e8ff;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.error {
+  color: #dc2626;
+  font-size: 0.85rem;
+}
+
+.sectionTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: rgba(100, 116, 139, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sectionTitle span:first-child {
+  text-transform: capitalize;
+}
+
+.moveToOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.moveToModal {
+  width: 616px;
+  height: min(620px, calc(100vh - 120px));
+  border-radius: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px 12px;
+  box-sizing: border-box;
+}
+
+.moveToHeader {
+  width: 100%;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.moveToTitle {
+  font-family: Roboto, sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 100%;
+  color: #1a1a1a;
+}
+
+.moveToClose {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.moveToSearchWrap {
+  width: 584px;
+  height: 32px;
+  border-radius: 8px;
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f5f5f7;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+
+.moveToSearchIcon {
+  flex-shrink: 0;
+  color: #999;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.moveToSearchInput {
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 22px;
+  letter-spacing: -0.41px;
+  color: #1a1a1a;
+}
+
+.moveToSearchInput::placeholder {
+  color: #a2a2a2;
+}
+
+.moveToProjectText {
+  margin-top: 14px;
+  font-family: Roboto, sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 150%;
+  color: #7d7d7d;
+}
+
+.moveToIndependentRow {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  font-family: Roboto, sans-serif;
+  font-size: 14px;
+  color: #666;
+}
+
+.moveToSwitch {
+  width: 34px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  background: #d1d5db;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.moveToSwitchOn {
+  background: #4aa3ff;
+}
+
+.moveToSwitchKnob {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  transform: translateX(0);
+  transition: transform 0.2s ease;
+}
+
+.moveToSwitchOn .moveToSwitchKnob {
+  transform: translateX(14px);
+}
+
+.moveToFolderList {
+  margin-top: 12px;
+  border-top: 1px solid #ececec;
+  border-bottom: 1px solid #ececec;
+  flex: 1;
+  overflow: auto;
+}
+
+.moveToFolderItem {
+  width: 100%;
+  height: 40px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.moveToFolderItem:hover {
+  background: #f7f9fc;
+}
+
+.moveToFolderItemSelected {
+  background: #eaf3ff;
+  border-radius: 8px;
+}
+
+.moveToFolderItemDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.moveToCurrentFolderItem {
+  background: #ffffff;
+  cursor: default;
+}
+
+.moveToFolderLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: Roboto, sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #1a1a1a;
+}
+
+.moveToFolderLeftCurrent {
+  color: #21272a;
+  opacity: 0.52;
+}
+
+.moveToCheckGlyph {
+  color: #4aa3ff;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.moveToFooter {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.moveToCancel,
+.moveToConfirm {
+  height: 28px;
+  border-radius: 8px;
+  padding: 0 14px;
+  border: 1px solid #d5d7db;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.moveToCancel {
+  background: white;
+  color: #3a3a3a;
+}
+
+.moveToConfirm {
+  background: #1ca7ff;
+  border-color: #1ca7ff;
+  color: white;
+}
+
+.moveToConfirm:disabled {
+  background: #a9d8ff;
+  border-color: #a9d8ff;
+  cursor: not-allowed;
+}
+
+.addButton {
+  background: none;
+  border: none;
+  color: rgba(100, 116, 139, 0.8);
+  cursor: pointer;
+  font-size: 0.75rem;
+  border: 1px solid #BCBCBC;
+  border-radius: 0.375rem;
+  padding: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.addButton:hover {
+  background-color: rgba(100, 116, 139, 0.1);
+  opacity: 0.8;
+}
+
+.sectionList {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+/* Custom scrollbar for libraries section */
+.sectionList::-webkit-scrollbar {
+  width: 0.25rem;
+}
+
+.sectionList::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 7px;
+}
+
+.sectionList::-webkit-scrollbar-thumb {
+  background: #D9D9D9;
+  border-radius: 7px;
+}
+
+.sectionList::-webkit-scrollbar-thumb:hover {
+  background: #BFBFBF;
+}
+
+/* Projects section with scrolling */
+.projectsListContainer {
+  max-height: 9rem; /* Height for 3 projects (48px each + 3px gap * 2) */
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* Custom scrollbar for projects list */
+.projectsListContainer::-webkit-scrollbar {
+  width: 0.25rem;
+}
+
+.projectsListContainer::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 7px;
+}
+
+.projectsListContainer::-webkit-scrollbar-thumb {
+  background: #D9D9D9;
+  border-radius: 7px;
+  height: 60px;
+  min-height: 60px;
+}
+
+.projectsListContainer::-webkit-scrollbar-thumb:hover {
+  background: #BFBFBF;
+}
+
+.treeWrapper {
+  margin: 0;
+}
+
+.tree {
+  background: transparent;
+}
+
+.tree :global(.ant-tree) {
+  background: transparent;
+}
+
+/* Tree node styling with dividers */
+.tree :global(.ant-tree-treenode) {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  height: 3rem;
+  width: 100%;
+  padding-left: 0.5rem;
+}
+
+/* Remove any before pseudo-elements that might cause gaps */
+.tree :global(.ant-tree-treenode)::before {
+  display: none !important;
+}
+
+/* Add divider line that spans the full width of the sidebar */
+.tree :global(.ant-tree-treenode)::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  right: 0;
+  height: 0.0625rem;
+  background-color: #f1f5f9;
+}
+
+/* Remove border from last node */
+.tree :global(.ant-tree-treenode:last-child)::after {
+  display: none;
+}
+
+/* Hide all dividers first for folder and asset nodes */
+.tree :global(.ant-tree-treenode[data-node-key^="folder-"])::after,
+.tree :global(.ant-tree-treenode[data-node-key^="asset-"])::after {
+  display: none;
+}
+
+/* Re-enable divider for folder-create and add-asset (buttons) */
+.tree :global(.ant-tree-treenode[data-node-key^="folder-create-"])::after,
+.tree :global(.ant-tree-treenode[data-node-key^="add-asset-"])::after {
+  display: block !important;
+  background-color: #f1f5f9;
+}
+
+/* Hide divider for selected and hovered nodes */
+.tree :global(.ant-tree-treenode-selected)::after,
+.tree :global(.ant-tree-treenode:hover)::after {
+  display: none !important;
+}
+
+.tree :global(.ant-tree-node-content-wrapper) {
+  border-radius: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  transition: background-color 0.2s;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  box-sizing: border-box;
+  padding-left: 0;
+  width: 0; /* Force flex to calculate width correctly */
+  position: relative; /* Provide positioning context for absolutely positioned itemActions */
+}
+
+/* Add left padding to leaf nodes (library and create button) to align with folder icon */
+/* This compensates for the missing switcher on leaf nodes */
+.tree :global(.ant-tree-treenode[data-node-key*="library-"]) .ant-tree-node-content-wrapper,
+.tree :global(.ant-tree-treenode[data-node-key*="asset-"]) .ant-tree-node-content-wrapper,
+.tree :global(.ant-tree-treenode[data-node-key*="folder-create-"]) .ant-tree-node-content-wrapper {
+  padding-left: calc(0.75rem + 12px);
+}
+
+/* Library under folder: align book icon with parent folder text start */
+.tree :global(.ant-tree-node-content-wrapper:has([data-library-under-folder])) {
+  padding-left: 0.75rem;
+}
+
+
+/* Ensure add-asset nodes have minimum width to prevent text from appearing word by word */
+.tree :global(.ant-tree-treenode[data-node-key*="add-asset-"]) .ant-tree-node-content-wrapper {
+  min-width: 120px !important; /* Ensure enough width for "Add New Asset" text */
+  width: auto !important; /* Override width: 0 to prevent word-by-word appearance */
+  transition: none !important; /* Disable transition to prevent word-by-word appearance */
+}
+
+/* Disable Ant Design Tree's internal animation for add-asset nodes */
+.tree :global(.ant-tree-treenode[data-node-key*="add-asset-"]) {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Disable Ant Design Tree's child list animation that might cause word-by-word appearance */
+.tree :global(.ant-tree-child-tree) {
+  transition: none !important;
+}
+
+.tree :global(.ant-tree-child-tree-open) {
+  transition: none !important;
+}
+
+.tree :global(.ant-tree-node-content-wrapper) .itemRow {
+  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/*
+ * 侧边栏双击编辑体验优化（Libraries 树节点）：
+ * 1. 阻止默认选中：列表项标题区域不可选中，避免双击时出现蓝色高亮选区
+ * 2. 保持编辑功能：双击仍由 onDoubleClick + setEditingKey 切换为 Input，不受 user-select 影响
+ * 3. 输入框例外：.treeNodeInput 使用 user-select: text，编辑态下输入框内文字可选中、全选
+ */
+.tree :global(.ant-tree-node-content-wrapper) .ant-tree-title {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tree :global(.ant-tree-node-content-wrapper) .itemText {
+  font-size: 1rem;
+  font-family: var(--font-roboto), sans-serif;
+  font-weight: 500;
+  padding-right: 2rem;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tree :global(.ant-tree-node-content-wrapper) .treeNodeInput,
+.treeNodeInput {
+  font-size: 1rem;
+  font-family: var(--font-roboto), sans-serif;
+  font-weight: 500;
+  padding-right: 2rem;
+  min-width: 4rem;
+  flex: 1 1 auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Hover state - background covers entire row */
+.tree :global(.ant-tree-treenode:hover) {
+  background-color: #f8fafc;
+  border-radius: 0.5rem;
+}
+
+.tree :global(.ant-tree-node-content-wrapper:hover) {
+  background-color: transparent;
+}
+
+/* Selected state: full-width background from content to end (like project itemActive) */
+.tree :global(.ant-tree-treenode-selected) {
+  background-color: transparent;
+}
+
+/* Switcher should not have background color */
+.tree :global(.ant-tree-treenode-selected .ant-tree-switcher) {
+  background-color: transparent !important;
+}
+
+/* Background for selected nodes - covers entire row */
+.tree :global(.ant-tree-treenode-selected) {
+  background-color: #0B99FF14 !important;
+  border-radius: 0.5rem !important;
+}
+
+.tree :global(.ant-tree-treenode-selected > .ant-tree-node-content-wrapper),
+.tree :global(.ant-tree-node-content-wrapper.ant-tree-node-selected) {
+  background-color: transparent !important;
+  color: #070707 !important;
+}
+
+/* Ensure switcher is above the background */
+.tree :global(.ant-tree-treenode-selected .ant-tree-switcher) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure indent area is transparent (background starts from content, not indent) */
+.tree :global(.ant-tree-treenode-selected .ant-tree-indent) {
+  background-color: transparent !important;
+}
+
+
+.tree :global(.ant-tree-indent-unit) {
+  width: 1rem; /* 为文件夹下的子节点（library）添加缩进 */
+}
+
+/* Hide expand/collapse icon for library nodes (isLeaf: true) */
+/* Ant Design Tree automatically hides switcher for isLeaf nodes */
+
+/* Ensure proper indentation for nested folders */
+.tree :global(.ant-tree-indent) {
+  display: inline-block;
+  height: 100%;
+  vertical-align: top;
+}
+
+/* Ensure switcher has proper styling and is vertically centered */
+.tree :global(.ant-tree-switcher) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  line-height: 1;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  margin-right: 0.625rem;
+}
+
+/* Hide noop switcher for leaf nodes to save space */
+.tree :global(.ant-tree-switcher-noop) {
+  width: 0 !important;
+  margin: 0 !important;
+}
+
+/* Remove all possible shadow square pseudo-elements */
+.tree :global(.ant-tree-switcher)::before,
+.tree :global(.ant-tree-switcher)::after {
+  display: none !important;
+}
+
+/* Ensure switcher icon is vertically centered */
+.tree :global(.ant-tree-switcher-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 0.75rem;
+}
+
+/* Folder switcher: two icons stacked in same slot; show expand icon when row is hovered */
+.folderSwitcherIcons {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.folderSwitcherBase,
+.folderSwitcherHover {
+  display: block;
+  transition: opacity 0.15s ease;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.folderSwitcherHover {
+  opacity: 0;
+}
+
+.tree :global(.ant-tree-treenode:hover) .folderSwitcherIcons .folderSwitcherBase {
+  opacity: 0;
+}
+
+.tree :global(.ant-tree-treenode:hover) .folderSwitcherIcons .folderSwitcherHover {
+  opacity: 1;
+}
+
+.item {
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.75rem 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.itemActive {
+  background-color: #0B99FF14;
+  color: #070707;
+}
+
+.itemSecondaryActive {
+  background-color: #EEEEEE;
+  color: #070707;
+}
+
+.itemInactive {
+  color: #334155;
+}
+
+.itemInactive:hover {
+  background-color: #f8fafc;
+}
+
+.createProjectButton {
+  width: 100%;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: #000010;
+  border: none;
+}
+
+.createProjectButton:hover {
+  background-color: #0B99FF14;
+}
+
+.itemText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 500;
+  padding-right: 2rem; /* Reserve space for delete button to avoid text overlap */
+}
+
+/* Inline rename input: match row height and itemText appearance, minimal border */
+.renameInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 1.5rem;
+  line-height: 1.5rem;
+  font-size: 1rem;
+  font-family: var(--font-roboto), "Roboto Fallback", sans-serif;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.88);
+  padding: 0 24px 0 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.renameInput:focus {
+  outline: none;
+}
+
+.renameInput::placeholder {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+.itemActions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.assetPresenceAvatars {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  margin-right: 0.25rem;
+}
+
+/* Project item actions: position delete button relative to sidebar's right edge */
+/* .item has margin-right: 0.75rem, so item's right edge is 0.75rem from sidebar right edge */
+/* .item has padding-right: 0.75rem, so original delete button was at item right edge - 0.75rem (padding) */
+/* To maintain same position: right = 0.75rem (padding distance from item right edge) */
+/* Total distance from sidebar right edge = 0.75rem (item margin) + 0.75rem (right offset) = 1.5rem */
+.item .itemActions {
+  position: absolute;
+  right: 0.75rem; /* 0.75rem from item right edge, 1.5rem from sidebar right edge (0.75rem margin + 0.75rem right) */
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0;
+}
+
+/* Tree item actions: position delete button relative to sidebar's right edge */
+/* .ant-tree-treenode has margin-right: 0.75rem, so tree node's right edge is 0.75rem from sidebar right edge */
+/* .ant-tree-node-content-wrapper has padding-right: 0.75rem */
+/* To align with project item: right = 0.75rem (same as project item) */
+/* Total distance from sidebar right edge = 0.75rem (tree node margin) + 0.75rem (right offset) = 1.5rem */
+.tree :global(.ant-tree-treenode) {
+  position: relative;
+}
+
+.tree :global(.ant-tree-node-content-wrapper) .itemActions {
+  position: absolute;
+  right: 0.75rem; /* 0.75rem from content-wrapper right edge, 1.5rem from sidebar right edge (0.75rem margin + 0.75rem right) */
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0;
+}
+
+.iconButton {
+  background: none;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  font-size: 1.25rem;
+  line-height: 1;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.iconButton:hover {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.itemIcon {
+  flex-shrink: 0;
+}
+
+.folderIconPlaceholder {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+
+.libraryIconContainer {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  justify-content: center;
+}
+
+/* 固定侧边栏库图标为 24px，保证与容器一致、视觉居中 */
+.libraryIconContainer img {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 0;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.itemMain {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+
+.createButton {
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #64748b;
+  transition: background-color 0.2s, color 0.2s;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding-left: 0; /* 🎯 尝试调整按钮本身的 padding */
+  box-sizing: border-box;
+}
+
+.createButton:hover {
+  background-color: #f8fafc;
+  color: #334155;
+}
+
+.createButtonText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.plusIcon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+}
+
+.plusHorizontal,
+.plusVertical {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Prevent create button node from being selected/highlighted */
+.tree :global(.ant-tree-node-content-wrapper) button.createButton {
+  width: 100%;
+  height: 100%;
+}
+
+/* Override tree node selection styles for create button nodes */
+.tree :global(.ant-tree-treenode[data-node-key*="folder-create-"]) .ant-tree-node-content-wrapper:hover {
+  background-color: transparent !important;
+}
+
+.tree :global(.ant-tree-treenode[data-node-key*="folder-create-"]) .ant-tree-node-content-wrapper.ant-tree-node-selected {
+  background-color: transparent !important;
+}
+
+.itemAddIcon {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.itemAddText {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0; /* Prevent text from shrinking during animation */
+}
+
+/* Ensure itemMain in add-asset nodes has enough width to display text fully */
+.tree :global(.ant-tree-treenode[data-node-key*="add-asset-"]) .itemMain {
+  min-width: max-content !important; /* Ensure text displays fully without word-by-word appearance */
+  width: auto !important; /* Override any width constraints */
+  overflow: visible !important; /* Ensure text is not clipped during animation */
+}
+
+/* Ensure itemAddText in add-asset nodes renders immediately with full width */
+.tree :global(.ant-tree-treenode[data-node-key*="add-asset-"]) .itemAddText {
+  min-width: max-content !important;
+  width: auto !important;
+  display: inline-block !important; /* Ensure text renders as a single unit */
+}
+
+/* Folder row: show add-library icon when whole row is hovered or when folder is selected */
+.tree :global(.ant-tree-treenode:hover) [data-folder-row] .folderAddLibButton,
+.tree :global(.ant-tree-treenode-selected) [data-folder-row] .folderAddLibButton,
+[data-folder-row]:focus-within .folderAddLibButton {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.folderAddLibButton {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  cursor: pointer;
+  border-radius: 0.375rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.folderAddLibButton:hover {
+  background-color: rgba(100, 116, 139, 0.1);
+}
+
+/* Root-level library: same font as folder when not selected */
+.rootLibraryRow .itemText {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #000010;
+}
+
+.tree :global(.ant-tree-treenode-selected) .rootLibraryRow .itemText {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Predefine page special view */
+.predefineItem {
+  padding: 0.5rem 12px;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: rgba(94, 0, 255, 0.08);
+  border-radius: 0.5rem;
+}
+
+.predefineCloseButton {
+  margin-right: 0;
+  padding: 0.25rem;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.predefineItemMain {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0; /* Allow flex item to shrink below content size */
+  overflow: hidden; /* Enable text truncation */
+}
+
+/* Text ellipsis for predefine item */
+.predefineItemMain .itemText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0; /* Allow text to shrink */
+}
+
+/* Library item active state (when on library page) */
+.libraryItemActive {
+  border-radius: 0.5rem;
+}
+
+/* Library item active state with padding (when viewing an asset) */
+.libraryItemActiveWithPadding {
+  background-color: #0B99FF14 !important;
+  border-radius: 0.5rem;
+  padding: 0.5rem 12px !important;
+  min-height: 2.5rem;
+}
+
+.libraryBackButton {
+  margin-right: 0.5rem;
+  padding: 0;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Asset item active state (when viewing an asset) */
+.assetItemActive {
+  background-color: rgba(255, 0, 94, 0.06) !important;
+  border-radius: 0.5rem;
+  min-height: 2.5rem;
+}
+
+/* Asset list container (when on asset page) */
+.assetList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 0 !important; /* Remove margin-top, use margin-bottom on createButton instead */
+}
+
+.assetList .itemRow {
+  cursor: pointer;
+  padding: 0.5rem 12px;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.assetList .itemRow:hover {
+  background-color: #f8fafc;
+}
+
+/* Aligned create button for asset page (aligned with back button) */
+.createButtonAligned {
+  padding: 0.5rem 12px!important; /* Same padding as asset list items for consistent height, with 16px left indent */
+  height: 2.5rem !important; /* Fixed height to match asset items exactly */
+  min-height: 2.5rem !important; /* Same height as asset list items */
+  display: flex !important;
+  align-items: center !important; /* Vertical center content */
+  box-sizing: border-box !important;
+  margin: 0 !important; /* Remove all margins */
+}
+
+/* Adjust icon position to align with library back button */
+.createButtonAligned .createButtonText {
+  margin-left: 0 !important; /* Remove any default margin */
+  padding-left: 0 !important; /* Remove any default padding */
+}
+
+/* The icon should align with the back button which is at position: 
+   library padding-left (12px) + back button position (0px) = 12px from library container edge
+   But since createButtonAligned also has padding-left 12px, the icon should be at 0px from createButtonText start */
+
+/* Sidebar empty state */
+.sidebarEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem 16px;
+  text-align: center;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.sidebarEmptyState .emptyIcon {
+  display: block;
+  width: 1.375rem;
+  height: 1.125rem;
+}
+
+.sidebarEmptyText {
+  color: #7D7D7D;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.simulationSystemBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 0.25rem;
+}
+
+.simulationSystemBlock .item {
+  height: auto;
+  min-height: 2.25rem;
+}

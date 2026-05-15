@@ -1,0 +1,206 @@
+/* Version Item Styles */
+/* Based on Figma design */
+
+.versionItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+  padding: 0;
+  min-height: 3rem;
+  cursor: pointer;
+  border-radius: 7px;
+  transition: background-color 0.2s;
+}
+
+.versionItem.selected {
+  background: white;
+  border-radius: 7px;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.versionItem.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: #0b99ff14;
+  border-radius: 7px;
+  z-index: -1;
+}
+
+.iconContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: stretch;
+  min-height: 100%;
+}
+
+.versionIcon {
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.currentIcon {
+  background: transparent;
+}
+
+.historyIcon {
+  background: transparent;
+}
+
+.iconImage {
+  width: 1.875rem;
+  height: 1.875rem;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+.connectionLine {
+  position: absolute;
+  top: 0.9375rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: calc(100% + 0.625rem);
+  border-left: 1px solid #E0E1E3;
+  z-index: 0;
+}
+
+.lastConnectionLine {
+  position: absolute;
+  top: 0.9375rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  bottom: -0.625rem;
+  border-left: 1px solid #E0E1E3;
+  z-index: 0;
+}
+
+.versionItem.selected .connectionLine {
+  height: calc(100% + 0.875rem);
+}
+
+.versionItem.selected .lastConnectionLine {
+  bottom: -0.875rem;
+}
+
+.firstConnectionLine {
+  position: absolute;
+  top: -1.3125rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: calc(50% + 1.3125rem);
+  border-left: 1px solid #E0E1E3;
+  z-index: 0;
+}
+
+.details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.versionName {
+  font-family: 'Roboto', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.currentName {
+  color: #0b99ff;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 110%;
+  letter-spacing: 0%;
+}
+
+.historyName {
+  color: #21272A;
+}
+
+.creatorInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.creatorAvatar {
+  flex-shrink: 0;
+}
+
+.creatorText {
+  font-family: 'Roboto', sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #697077;
+}
+
+.currentVersionInfo {
+  font-family: 'Roboto', sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #697077;
+}
+
+.dateText {
+  font-family: 'Roboto', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #697077;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.versionItem:hover .actions {
+  opacity: 1;
+}
+
+.highlighting {
+  animation: highlight 2s ease-in-out;
+}
+
+@keyframes highlight {
+
+  0%,
+  100% {
+    background-color: transparent;
+  }
+
+  50% {
+    background-color: rgba(255, 235, 59, 0.3);
+  }
+}

@@ -1,0 +1,54 @@
+.generalSection {
+  margin-bottom: 1.5rem;
+}
+
+.generalLabel {
+  font-weight: 500;
+  font-size: 0.875rem;
+  min-width: 60px;
+}
+
+.lineSeparator {
+  width: 100%;
+  height: 0.0625rem;
+  background: #e5e7eb;
+  margin: 0.5rem 0;
+}
+
+.sectionNameContainer {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.375rem 12px;
+  padding-left: 2.5rem;
+  background: #fff;
+}
+
+.dragHandle {
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.sectionNameInput {
+  font-size: 0.875rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.375rem 12px;
+  width: 380px;
+}
+
+.sectionNameDisplay {
+  font-size: 0.875rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.375rem 12px;
+  width: 380px;
+}
+
+.noSectionSelected {
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+

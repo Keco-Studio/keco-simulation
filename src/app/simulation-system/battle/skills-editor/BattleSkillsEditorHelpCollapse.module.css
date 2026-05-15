@@ -1,0 +1,10 @@
+/* Help collapse content */
+
+.helpParagraph {
+  margin-bottom: 0;
+}
+
+.helpList {
+  padding-left: 18px;
+  margin: 0;
+}

@@ -1,0 +1,730 @@
+/**
+ * CollaboratorsList Styles
+ * 
+ * Pixel-perfect implementation matching design system.
+ * Uses CSS modules for scoped styling.
+ */
+
+ .container {
+  width: 100%;
+  background-color: #ffffff;
+}
+
+.errorBanner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 16px;
+  margin-bottom: 1rem;
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-radius: 0.5rem;
+  border: 1px solid #fecaca;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Table Header */
+.tableHeader {
+  display: flex;
+  align-items: center;
+  height: 3rem;
+  padding: 0;
+  background-color: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.24);
+  gap: 1rem;
+}
+
+.headerName {
+  display: flex;
+  align-items: center;
+  flex: 1.7;
+  padding-left: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(125, 125, 125, 1);
+  text-transform: uppercase;
+  letter-spacing: normal;
+}
+
+.headerEmail {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(125, 125, 125, 1);
+  text-transform: uppercase;
+  letter-spacing: normal;
+}
+
+.headerRoleType {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(125, 125, 125, 1);
+  text-transform: uppercase;
+  letter-spacing: normal;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  min-width: 2rem;
+  flex-shrink: 0;
+}
+
+.errorClose {
+  background: none;
+  border: none;
+  color: #991b1b;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  margin: 0;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.errorClose:hover {
+  opacity: 1;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background-color: #ffffff;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  height: 72px;
+  padding: 0;
+  background-color: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.24);
+  transition: all 0.2s;
+  gap: 1rem;
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.item:hover {
+  background-color: #f9fafb;
+}
+
+.itemLoading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.itemName {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1.7;
+  min-width: 0;
+  padding-left: 0;
+}
+
+.itemEmail {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 400;
+  color: rgba(33, 39, 42, 1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemRoleType {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1;
+}
+
+.itemActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  min-width: 2rem;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 400;
+  font-size: 1.625rem;
+  flex-shrink: 0;
+  background-color: #94a3b8;
+}
+
+.userName {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 400;
+  color: rgba(33, 39, 42, 1);
+  line-height: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userNameSelf {
+  color: rgba(135, 38, 238, 1);
+}
+
+.youBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  background-color: transparent;
+  color: inherit;
+  border-radius: 0;
+  font-size: 1rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  flex-shrink: 0;
+  margin-left: 0.25rem;
+}
+
+.ownerBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 8px;
+  background-color: #fef3c7;
+  color: #92400e;
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  flex-shrink: 0;
+}
+
+.roleSelect {
+  padding: 0.3125rem 0.75rem;
+  padding-right: 30px; /* Add space for custom dropdown icon (10px margin + 14px width + 12px padding) */
+  font-size: 1rem;
+  font-weight: 400;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background-color: #ffffff;
+  background-image: url('@/assets/images/collaborationRoleSelectIcon.svg');
+  background-size: 0.875rem 8px;
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 115px;
+  text-align: left;
+  appearance: none; /* Remove default dropdown arrow */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.roleSelect:hover:not(:disabled) {
+  border-color: #9ca3af;
+}
+
+.roleSelect:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.roleSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Custom Select Component */
+.customSelectWrapper {
+  position: relative;
+  width: 7.25rem;
+}
+
+.customSelectButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.375rem 12px;
+  padding-right: 30px;
+  font-size: 1rem;
+  font-weight: 400;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background-color: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.customSelectButton:hover:not(:disabled) {
+  border-color: #9ca3af;
+}
+
+.customSelectButton:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.customSelectButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.selectArrow {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.customSelectDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 7.25rem;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.customSelectOption {
+  display: block;
+  width: 100%;
+  height: 2.625rem;
+  padding: 0.5625rem 0.75rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  background-color: #ffffff;
+  color: #21272A;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.customSelectOption:hover {
+  background-color: #0B99FF14;
+}
+
+.customSelectOptionSelected {
+  background-color: #0B99FF14;
+}
+
+.roleText {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border-radius: 0;
+  font-size: 1rem;
+  font-weight: 400;
+  color: rgba(33, 39, 42, 1);
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 12px;
+  border-radius: 0.375rem;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.roleAdmin {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.roleEditor {
+  background-color: #ddd6fe;
+  color: #5b21b6;
+}
+
+.roleViewer {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.deleteButton {
+  width: 2rem;
+  height: 2rem;
+  background: none;
+  border: none;
+  border: 1px solid #BCBCBC;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.deleteButton:hover:not(:disabled) {
+  opacity: 0.7;
+}
+
+.deleteButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.confirmDelete {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.confirmDeleteButton {
+  padding: 0.375rem 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirmDeleteButton:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.confirmDeleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancelDeleteButton {
+  padding: 0.375rem 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelDeleteButton:hover:not(:disabled) {
+  background-color: #e5e7eb;
+}
+
+.cancelDeleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.emptyState {
+  padding: 3rem 24px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+.emptyState p {
+  margin: 0;
+}
+
+/* Delete Confirmation Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background-color: #ffffff;
+  border-radius: 0.5rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.modalClose:hover {
+  color: #111827;
+}
+
+.modalBody {
+  padding: 1.25rem 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.modalBody p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #111827;
+  line-height: 1.5;
+}
+
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 24px;
+}
+
+.modalCancelButton {
+  padding: 0.5rem 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #ffffff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modalCancelButton:hover:not(:disabled) {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.modalCancelButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modalRemoveButton {
+  padding: 0.5rem 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modalRemoveButton:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.modalRemoveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Highlight animation for newly invited collaborators */
+.itemHighlight {
+  animation: highlightPulse 2s ease-in-out;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    background-color: #ffffff;
+  }
+  25%, 75% {
+    background-color: #0B99FF14; /* Lighter pink for smooth transition */
+  }
+  50% {
+    background-color: #0B99FF26; /* Target highlight color */
+  }
+}
+
+/* Invite sent badge */
+.inviteSentBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 8px;
+  background-color: #fef3c7;
+  color: #92400e;
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .headerRight,
+  .itemRight {
+    gap: 100px;
+  }
+}
+
+@media (max-width: 768px) {
+  .headerName {
+    width: 120px;
+  }
+  
+  .headerRight,
+  .itemRight {
+    gap: 50px;
+  }
+  
+  .headerEmail,
+  .itemEmail {
+    width: 120px;
+  }
+  
+  .headerRoleType,
+  .itemRoleType {
+    width: 100px;
+  }
+  
+  .userName {
+    font-size: 0.875rem;
+  }
+  
+  .itemEmail {
+    font-size: 0.875rem;
+  }
+  
+  .roleText {
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .tableHeader {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 0.5rem 0;
+  }
+  
+  .headerName {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  
+  .headerRight {
+    width: 100%;
+    gap: 1.25rem;
+  }
+  
+  .item {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 0.75rem 0;
+  }
+  
+  .itemName {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  
+  .itemRight {
+    width: 100%;
+    gap: 1.25rem;
+  }
+  
+  .userName {
+    font-size: 13px;
+  }
+  
+  .itemEmail {
+    font-size: 0.75rem;
+    width: auto;
+    flex: 1;
+  }
+  
+  .itemRoleType {
+    width: auto;
+    flex: 1;
+  }
+  
+  .roleSelect {
+    min-width: 80px;
+    font-size: 0.75rem;
+    padding: 0.25rem 8px;
+  }
+  
+  .roleText {
+    font-size: 0.75rem;
+  }
+  
+  .deleteButton {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+}
+

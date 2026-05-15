@@ -1,0 +1,2526 @@
+/* When filling cells, force crosshair cursor on all cells */
+:global(body.filling-cells) .tableContainer .cell,
+:global(body.filling-cells) .tableContainer .cell * {
+  cursor: crosshair !important;
+}
+
+/* Section tabs: horizontal tabs above table, active = blue text + underline, inactive = gray */
+.sectionTabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 0 0 0;
+  margin-bottom: 0;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.sectionTab {
+  font-family: 'Roboto', sans-serif;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #7D7D7D;
+  background: none;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  margin-bottom: -1px;
+  transition: color 0.2s ease;
+}
+
+.sectionTab:hover {
+  color: #475569;
+}
+
+.sectionTabActive {
+  color: #0B99FF;
+  /* font-weight: 600; */
+}
+
+.sectionTabActive::after {
+  content: '';
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 0;
+  height: 2px;
+  background: #0B99FF;
+  border-radius: 1px 1px 0 0;
+}
+
+.sectionTabEdit {
+  padding: 0.5rem 0.75rem;
+  margin-bottom: -1px;
+}
+
+.sectionTabInput {
+  font-size: 16px;
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.sectionTabInput :global(.ant-input) {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.tableShell {
+  margin-top: 1.5rem;
+  margin-bottom: 260px;
+  /* Ensure context menu has enough bottom space */
+  border-radius: 0.5rem;
+  border: 1px solid #0000003D;
+  background: #ffffff;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.tableContainer {
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #ffffff;
+}
+
+.addColumnButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.05s ease;
+}
+
+.addColumnButton:hover {
+  background-color: #0B99FF26;
+}
+
+.addColumnButton:active {
+  transform: scale(0.96);
+}
+
+.addColumnButtonIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.addColumnHeaderCell {
+  text-align: center;
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  background: #F9FAFB;
+  border-left: none;
+  border-right: 1px solid #DDE1E6;
+}
+
+.addColumnCell {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  border-left: none;
+  border-right: 1px solid #DDE1E6;
+}
+
+/* Custom scrollbar for table container - thin and elegant */
+.tableContainer::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.tableContainer::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.tableContainer::-webkit-scrollbar-thumb {
+  background: #D9D9D9;
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.tableContainer::-webkit-scrollbar-thumb:hover {
+  background: #BFBFBF;
+}
+
+/* Firefox scrollbar - thin style */
+.tableContainer {
+  scrollbar-width: thin;
+  scrollbar-color: #D9D9D9 transparent;
+}
+
+/* Custom Select dropdown styles for enum fields */
+.tableContainer :global(.ant-select-dropdown) {
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.tableContainer :global(.ant-select-item-option-selected) {
+  background-color: rgba(94, 0, 255, 0.08) !important;
+}
+
+.tableContainer :global(.ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
+  background-color: rgba(94, 0, 255, 0.08) !important;
+}
+
+.tableContainer :global(.ant-select-item-option:hover) {
+  background-color: rgba(94, 0, 255, 0.04) !important;
+}
+
+/* Disable tooltip on select options - remove title attribute tooltip */
+:global(.ant-select-dropdown .ant-select-item-option) {
+  cursor: pointer;
+}
+
+.table {
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  table-layout: fixed;
+}
+
+/* For 1-6 columns: table width is 100% */
+.table.cols1,
+.table.cols2,
+.table.cols3,
+.table.cols4,
+.table.cols5,
+.table.cols6 {
+  width: 100%;
+  min-width: 100%;
+}
+
+/* For more than 6 columns: table width is auto (based on min-width of columns) */
+.table.colsMany {
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Dynamic column width based on column count */
+.table.cols1 .headerCell:not(.numberColumnHeader),
+.table.cols1 .propertyHeaderCell:not(.numberColumnHeader),
+.table.cols1 .cell:not(.numberCell) {
+  width: calc(100% - 3.75rem);
+  max-width: calc(100% - 3.75rem);
+}
+
+.table.cols2 .headerCell:not(.numberColumnHeader),
+.table.cols2 .propertyHeaderCell:not(.numberColumnHeader),
+.table.cols2 .cell:not(.numberCell) {
+  width: calc((100% - 3.75rem) / 2);
+  max-width: calc((100% - 3.75rem) / 2);
+}
+
+.table.cols3 .headerCell:not(.numberColumnHeader),
+.table.cols3 .propertyHeaderCell:not(.numberColumnHeader),
+.table.cols3 .cell:not(.numberCell) {
+  width: calc((100% - 3.75rem) / 3);
+  max-width: calc((100% - 3.75rem) / 3);
+}
+
+.table.cols4 .headerCell:not(.numberColumnHeader),
+.table.cols4 .propertyHeaderCell:not(.numberColumnHeader),
+.table.cols4 .cell:not(.numberCell) {
+  width: calc((100% - 3.75rem) / 4);
+  max-width: calc((100% - 3.75rem) / 4);
+}
+
+.table.cols5 .headerCell:not(.numberColumnHeader),
+.table.cols5 .propertyHeaderCell:not(.numberColumnHeader),
+.table.cols5 .cell:not(.numberCell) {
+  width: calc((100% - 3.75rem) / 5);
+  max-width: calc((100% - 3.75rem) / 5);
+}
+
+.table.cols6 .headerCell:not(.numberColumnHeader),
+.table.cols6 .propertyHeaderCell:not(.numberColumnHeader),
+.table.cols6 .cell:not(.numberCell) {
+  width: calc((100% - 3.75rem) / 6);
+  max-width: calc((100% - 3.75rem) / 6);
+}
+
+/* For more than 6 columns, use minimum width */
+.table.colsMany .headerCell:not(.numberColumnHeader),
+.table.colsMany .propertyHeaderCell:not(.numberColumnHeader),
+.table.colsMany .cell:not(.numberCell) {
+  width: 13.5rem;
+  max-width: 13.5rem;
+  min-width: 13.5rem;
+}
+
+.headerRowTop {
+  background: #0000001A;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.headerRowBottom {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.headerCell {
+  height: 32px;
+  /* match body row height (32px) */
+  padding: 0 0.5rem;
+  font-weight: 600;
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  border-right: 1px solid #0000001A;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sectionHeaderCell {
+  text-align: left;
+  border-left: none;
+  border-right: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  letter-spacing: 0.05em;
+  padding: 0 0.5rem;
+  background: #0000001A;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sectionHeaderCellDivider {
+  border-right: 1px solid #0000001A;
+}
+
+.propertyHeaderCell {
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  padding: 0 0.5rem;
+  border-left: none;
+  background: #F9FAFB;
+  border-right: 1px solid #DDE1E6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.propertyHeaderContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+}
+
+.propertyHeaderMain {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.properIconContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.propertyHeaderText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.propertyHeaderTypeIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.propertyHeaderIconWrapper {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.propertyHeaderIcon {
+  flex-shrink: 0;
+  opacity: 1;
+}
+
+.propertyHeaderContent:hover .propertyHeaderIconWrapper {
+  background-color: rgba(11, 153, 255, 0.08);
+  opacity: 1;
+}
+
+
+.headerContextMenu {
+  position: fixed;
+  z-index: 2000;
+  width: 13.5rem;
+  min-width: 13.5rem;
+  padding: 6px 0 8px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+  border: 1px solid #E5E7EB;
+  box-sizing: border-box;
+}
+
+.headerContextMenuLabel {
+  padding: 4px 12px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #9CA3AF;
+}
+
+.headerContextMenuButton {
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  color: #111827;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.headerContextMenuButton:hover {
+  background-color: #E5F0FF;
+}
+
+.row {
+  height: 32px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cell {
+  height: 32px;
+  padding: 0 0.5rem;
+  vertical-align: middle;
+  font-size: 0.875rem;
+  color: #111827;
+  overflow: hidden;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.2s ease;
+  border-right: 1px solid #e2e8f0;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.cell:hover {
+  background-color: transparent;
+}
+
+/* When row is hovered, cells should inherit row background */
+.row:hover .cell {
+  background-color: #0B99FF14 !important;
+}
+
+.row:hover .cell:hover {
+  background-color: #0B99FF14 !important;
+}
+
+/* Selected cells should not have background color even when row is hovered */
+.row:hover .cellSelected {
+  background-color: transparent !important;
+}
+
+.row:hover .cellSelected:hover {
+  background-color: transparent !important;
+}
+
+/* Single cell selected: only border, no background */
+.cellSelected {
+  background-color: transparent !important;
+  border: 2px solid #0B99FF !important;
+  position: relative;
+  z-index: 1;
+}
+
+.cellSelected:hover {
+  background-color: transparent !important;
+}
+
+/* Cell being edited (by current user or others): full border with user's avatar color */
+.cellEditing {
+  background-color: transparent !important;
+  position: relative;
+  z-index: 2;
+  /* Higher than selected state */
+}
+
+.cellEditing:hover {
+  background-color: transparent !important;
+}
+
+/* Ensure selected cells have proper border during drag */
+.cellSelected:not(:first-child) {
+  border-left: 2px solid #0B99FF !important;
+}
+
+/* Multiple cells selected: border + background color - only show outer border */
+.cellMultipleSelected {
+  background-color: #0B99FF14 !important;
+  position: relative;
+  z-index: 1;
+  /* Use transparent borders instead of none to avoid flickering */
+  border-top: 1px solid transparent !important;
+  border-bottom: 1px solid transparent !important;
+  border-left: 1px solid transparent !important;
+  border-right: 1px solid transparent !important;
+}
+
+/* Error state for invalid text cells (e.g. int_array parse error) */
+.cellError {
+  background-color: #fff2f0 !important;
+  box-shadow: inset 0 0 0 1px #ff4d4f;
+}
+
+.cellMultipleSelected:hover {
+  background-color: #0B99FF14 !important;
+}
+
+/* Outer border styles - only show on boundary cells (solid line, similar to cut but solid) */
+.cellMultipleSelected.selectionBorderTop,
+td.cellMultipleSelected.selectionBorderTop {
+  border-top: 2px solid #0B99FF !important;
+}
+
+.cellMultipleSelected.selectionBorderBottom,
+td.cellMultipleSelected.selectionBorderBottom {
+  border-bottom: 2px solid #0B99FF !important;
+}
+
+.cellMultipleSelected.selectionBorderLeft,
+td.cellMultipleSelected.selectionBorderLeft {
+  border-left: 2px solid #0B99FF !important;
+}
+
+.cellMultipleSelected.selectionBorderRight,
+td.cellMultipleSelected.selectionBorderRight {
+  border-right: 2px solid #0B99FF !important;
+}
+
+/* Multiple selected cells should have background even when row is hovered */
+.row:hover .cellMultipleSelected {
+  background-color: #0B99FF14 !important;
+}
+
+.row:hover .cellMultipleSelected:hover {
+  background-color: #0B99FF14 !important;
+}
+
+/* Cut cells: dashed border - only show outer border */
+.cell.cellCut,
+td.cellCut {
+  background-color: #0B99FF14 !important;
+  position: relative;
+  z-index: 2;
+  /* Use transparent borders instead of none to avoid flickering */
+  border-top: 1px solid transparent !important;
+  border-bottom: 1px solid transparent !important;
+  border-left: 1px solid transparent !important;
+  border-right: 1px solid transparent !important;
+}
+
+.cell.cellCut:hover,
+td.cellCut:hover {
+  background-color: #0B99FF14 !important;
+}
+
+/* Outer border styles - only show on boundary cells */
+.cellCut.cutBorderTop,
+td.cellCut.cutBorderTop {
+  border-top: 2px dashed #0B99FF90 !important;
+}
+
+.cellCut.cutBorderBottom,
+td.cellCut.cutBorderBottom {
+  border-bottom: 2px dashed #0B99FF90 !important;
+}
+
+.cellCut.cutBorderLeft,
+td.cellCut.cutBorderLeft {
+  border-left: 2px dashed #0B99FF90 !important;
+}
+
+.cellCut.cutBorderRight,
+td.cellCut.cutBorderRight {
+  border-right: 2px dashed #0B99FF90 !important;
+}
+
+.cellCut.cutBorderTop:hover,
+td.cellCut.cutBorderTop:hover {
+  border-top-color: #0B99FF !important;
+}
+
+.cellCut.cutBorderBottom:hover,
+td.cellCut.cutBorderBottom:hover {
+  border-bottom-color: #0B99FF !important;
+}
+
+.cellCut.cutBorderLeft:hover,
+td.cellCut.cutBorderLeft:hover {
+  border-left-color: #0B99FF !important;
+}
+
+.cellCut.cutBorderRight:hover,
+td.cellCut.cutBorderRight:hover {
+  border-right-color: #0B99FF !important;
+}
+
+/* Copy cells: dashed border - only show outer border */
+.cell.cellCopy,
+td.cellCopy {
+  background-color: rgba(94, 0, 255, 0.08) !important;
+  position: relative;
+  z-index: 2;
+  /* Use transparent borders instead of none to avoid flickering */
+  border-top: 1px solid transparent !important;
+  border-bottom: 1px solid transparent !important;
+  border-left: 1px solid transparent !important;
+  border-right: 1px solid transparent !important;
+}
+
+.cell.cellCopy:hover,
+td.cellCopy:hover {
+  background-color: rgba(94, 0, 255, 0.12) !important;
+}
+
+/* Outer border styles - only show on boundary cells */
+.cellCopy.copyBorderTop,
+td.cellCopy.copyBorderTop {
+  border-top: 2px dashed rgba(94, 0, 255, 0.6) !important;
+}
+
+.cellCopy.copyBorderBottom,
+td.cellCopy.copyBorderBottom {
+  border-bottom: 2px dashed rgba(94, 0, 255, 0.6) !important;
+}
+
+.cellCopy.copyBorderLeft,
+td.cellCopy.copyBorderLeft {
+  border-left: 2px dashed rgba(94, 0, 255, 0.6) !important;
+}
+
+.cellCopy.copyBorderRight,
+td.cellCopy.copyBorderRight {
+  border-right: 2px dashed rgba(94, 0, 255, 0.6) !important;
+}
+
+.cellCopy.copyBorderTop:hover,
+td.cellCopy.copyBorderTop:hover {
+  border-top-color: rgba(94, 0, 255, 0.8) !important;
+}
+
+.cellCopy.copyBorderBottom:hover,
+td.cellCopy.copyBorderBottom:hover {
+  border-bottom-color: rgba(94, 0, 255, 0.8) !important;
+}
+
+.cellCopy.copyBorderLeft:hover,
+td.cellCopy.copyBorderLeft:hover {
+  border-left-color: rgba(94, 0, 255, 0.8) !important;
+}
+
+.cellCopy.copyBorderRight:hover,
+td.cellCopy.copyBorderRight:hover {
+  border-right-color: rgba(94, 0, 255, 0.8) !important;
+}
+
+/* Expand icon for cell selection - always visible */
+.cellExpandIcon {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0.375rem;
+  height: 0.375rem;
+  cursor: default;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0B99FF;
+  border: 1px solid rgba(94, 0, 255, 0.3);
+  border-radius: 0.125rem 0 0 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  pointer-events: auto;
+  opacity: 1 !important;
+}
+
+/* Ensure expand icon is always visible in selected cells */
+.cellSelected .cellExpandIcon,
+.cellMultipleSelected .cellExpandIcon {
+  z-index: 100;
+  opacity: 1 !important;
+}
+
+.cellExpandIcon:hover {
+  background-color: #0B99FF;
+  border-color: rgba(94, 0, 255, 0.5);
+  cursor: crosshair;
+}
+
+/* Hide expand icon when cell is not selected */
+.cellExpandIconHidden {
+  display: none !important;
+}
+
+.cellExpandIcon:active {
+  background-color: rgba(94, 0, 255, 0.2);
+}
+
+/* Cell content with view button */
+.cellContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.5rem;
+}
+
+.cellText {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.customFormulaValue {
+  color: #7c3aed;
+  font-weight: 500;
+}
+
+.customFormulaIcon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.72;
+}
+
+.formulaPanel {
+  position: fixed;
+  width: 388px;
+  height: 255px;
+  opacity: 1;
+  border-radius: 8px;
+  border: 1px solid #c4d0e0;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  z-index: 2100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.formulaPanelHeader {
+  height: 48px;
+  background: #0B99FF14;
+  border-bottom: 1px solid #d8e4f4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+}
+
+.formulaPanelTitle {
+  font-family: Roboto, sans-serif;
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 100%;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: #1c1d20;
+}
+
+.formulaPanelClose {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: #1f2937;
+}
+
+.formulaPanelBody {
+  padding: 10px 12px 8px;
+  flex: 1;
+}
+
+.formulaPanelLabel {
+  font-family: var(--font-geist-sans, "Inter", "Segoe UI", sans-serif);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0;
+  color: #0a0a0a;
+  margin-bottom: 8px;
+}
+
+.formulaPanelRequired {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.formulaPanelTextarea :global(.ant-input) {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-family: var(--font-geist-mono, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0;
+  color: #0f9d58;
+}
+
+.formulaPanelFooter {
+  height: 56px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.formulaPanelCancel,
+.formulaPanelSave {
+  height: 34px;
+  border-radius: 12px;
+  padding: 0 20px;
+  font-size: 16px;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+}
+
+.formulaPanelCancel {
+  background: #fff;
+  color: #1f2937;
+}
+
+.formulaPanelSave {
+  background: #1296f3;
+  border-color: #1296f3;
+  color: #fff;
+}
+
+/* Editable text cell with scrolling */
+.cellText[contenteditable="true"] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+
+.cellText[contenteditable="true"]::-webkit-scrollbar {
+  height: 2px;
+}
+
+.cellText[contenteditable="true"]::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 1px;
+}
+
+.cellText[contenteditable="true"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* When inside flex container (cellContent), use flex properties */
+.cellContent .cellText {
+  flex: 1;
+  display: block;
+}
+
+/* Int 列拖动填充柄时待填充格的预览值样式 */
+.cellFillPreview {
+  color: var(--color-text-tertiary, #94a3b8);
+  font-style: italic;
+}
+
+/* View detail button (only in name field) */
+.viewDetailButton {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0.125rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, background-color 0.2s, transform 0.1s;
+}
+
+/* Show button when hovering over the row */
+.row:hover .viewDetailButton {
+  opacity: 1;
+}
+
+/* Button hover effect */
+.viewDetailButton:hover {
+  background-color: #f1f5f9;
+  opacity: 1 !important;
+}
+
+/* Button active effect */
+.viewDetailButton:active {
+  background-color: #e2e8f0;
+  transform: scale(0.95);
+}
+
+.assetCell {
+  font-weight: 500;
+}
+
+.placeholderValue {
+  color: #94a3b8;
+}
+
+.emptyState {
+  padding: clamp(80px, 15vh, 200px) 16px;
+  text-align: center;
+  color: #21272A;
+  /* display: flex; */
+}
+
+.emptyStateIcon {
+  display: block;
+  width: 237px;
+  height: 219px;
+  margin: 0 auto 24px;
+}
+
+.emptyStateText {
+  margin: 0 0 24px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 1rem;
+  font-weight: 500 !important;
+  line-height: 100%;
+  letter-spacing: 0;
+  color: #21272A;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.predefineButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 24px;
+  background-color: #0B99FF14;
+  border: none;
+  border-radius: 1rem;
+  cursor: pointer;
+  font-family: 'Roboto', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 100%;
+  letter-spacing: 0.5px;
+  color: #1A1A1A;
+  transition: background-color 0.2s, transform 0.1s;
+  width: 116px;
+  height: 44px;
+}
+
+
+.predefineButtonIcon {
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
+.body {
+  background: #ffffff;
+}
+
+.row:hover {
+  background-color: #0B99FF14 !important;
+}
+
+/* Number column: narrower than data columns (3.75rem = 60px) */
+.headerCell.numberColumnHeader {
+  min-width: 3.75rem;
+}
+
+.numberColumnHeader {
+  width: 3.75rem;
+  text-align: center;
+  font-weight: 400;
+  color: #64748b;
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+/* Number column header in first row (empty, should match section header background) */
+.headerRowTop .numberColumnHeader {
+  background: #0000001A;
+}
+
+/* Number column header in second row (# symbol, should match property header background) */
+.headerRowBottom .numberColumnHeader {
+  background: #F9FAFB;
+  border-right: 1px solid #DDE1E6;
+}
+
+.numberCell {
+  min-width: 3.75rem;
+  width: 3.75rem;
+  height: 32px;
+  text-align: center;
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  color: #7D7D7D;
+  font-weight: 400;
+  background: #F5F6F9;
+  border-right: 1px solid #DDE1E6;
+  position: relative;
+  transition: background-color 0.15s ease;
+  vertical-align: middle;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+
+/* Number cell hover state when row is hovered */
+.row:hover .numberCell {
+  background: #0B99FF14;
+}
+
+/* Row selected state */
+.rowSelected {
+  background-color: #0B99FF14 !important;
+}
+
+.rowSelected .numberCell {
+  background: #0000000D;
+}
+
+.rowSelected:hover {
+  background: #0000000D !important;
+}
+
+.searchCellHit {
+  background: #fff6cc !important;
+}
+
+.searchCellHit:hover {
+  background: #ffefad !important;
+}
+
+.checkboxContainer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  line-height: 1.5;
+  vertical-align: middle;
+  height: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.checkboxContainer :global(.ant-checkbox) {
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+  top: 0;
+  vertical-align: middle;
+}
+
+.checkboxContainer :global(.ant-checkbox-wrapper) {
+  line-height: 1.5;
+  vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  height: auto;
+}
+
+.checkboxContainer :global(.ant-checkbox-inner) {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.1875rem;
+  border-color: #d1d5db;
+  transition: all 0.2s ease;
+  margin: 0;
+  display: block;
+}
+
+.checkboxContainer :global(.ant-checkbox-inner::after) {
+  width: 5px;
+  height: 0.5rem;
+}
+
+.checkboxContainer :global(.ant-checkbox-checked .ant-checkbox-inner) {
+  background-color: #0B99FF;
+  border-color: #0B99FF;
+}
+
+.checkboxContainer :global(.ant-checkbox:hover .ant-checkbox-inner) {
+  border-color: #0B99FF;
+}
+
+.checkboxContainer :global(.ant-checkbox-checked:hover .ant-checkbox-inner) {
+  background-color: #0B99FF;
+  border-color: #0B99FF;
+}
+
+.checkboxContainer :global(.ant-checkbox-input:focus + .ant-checkbox-inner) {
+  border-color: #0B99FF;
+  box-shadow: 0 0 0 2px rgba(11, 153, 255, 0.2);
+}
+
+/* Actions column styles */
+.actionsColumnHeader {
+  min-width: 7.5rem;
+  width: 7.5rem;
+  text-align: center;
+  background: #f1f5f9;
+  font-weight: 700;
+  color: #64748b;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.actionsCell {
+  min-width: 7.5rem;
+  width: 7.5rem;
+  height: 32px;
+  text-align: center;
+  padding: 0 1rem;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.viewActions {
+  display: flex;
+  gap: 0.375rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.actionButton {
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  color: #94a3b8;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionButton:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #3b82f6;
+}
+
+.actionButton.deleteButton:hover {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.actionButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+  color: #cbd5e1;
+}
+
+.actionButton:disabled:hover {
+  background: none;
+  border-color: #e2e8f0;
+  color: #cbd5e1;
+}
+
+/* Edit row styles */
+.editRow {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.editRow:hover {
+  background: #ffffff;
+}
+
+.booleanToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.booleanLabel {
+  font-size: 0.875rem;
+  color: #111827;
+  font-weight: 500;
+}
+
+.editCell {
+  height: 32px;
+  padding: 0;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.editInput {
+  width: 100%;
+  height: 100%;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  border: none;
+  box-shadow: none;
+  padding: 0 1rem;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.editInput:focus {
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+
+/* ContentEditable cell editing styles - single line height to match row */
+.cell [contenteditable="true"] {
+  outline: none;
+  display: block;
+  width: 100%;
+  min-height: 0;
+  height: 1.125rem;
+  padding: 0 1rem;
+  margin: 0.125rem 0;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: #111827;
+  box-sizing: border-box;
+}
+
+.cell [contenteditable="true"]:focus {
+  outline: none;
+  background: transparent;
+}
+
+/* No placeholder for contentEditable - use Del to clear */
+.cell [contenteditable="true"]:empty:before {
+  content: none;
+}
+
+/* Enum/Select field styles */
+.enumCellContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.enumSelectWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.enumSelectIcon {
+  flex-shrink: 0;
+  opacity: 0.6;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Enum Select display mode - make it look like read-only text */
+.enumSelectDisplay {
+  flex: 1;
+  min-width: 0;
+}
+
+.enumSelectDisplay :global(.ant-select-selector) {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  cursor: pointer;
+}
+
+.enumSelectDisplay :global(.ant-select-selection-item) {
+  padding: 0 !important;
+  line-height: inherit !important;
+}
+
+.enumSelectDisplay :global(.ant-select-selection-placeholder) {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
+  font-size: 0.875rem;
+  line-height: 110%;
+  letter-spacing: 0%;
+  color: rgba(26, 26, 26, 1) !important;
+  opacity: 1 !important;
+  padding: 0 !important;
+}
+
+.enumSelectDisplay :global(.ant-select-arrow) {
+  display: none !important;
+}
+
+.editActions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Add row styles */
+.addRow {
+  height: 32px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.addRow:hover {
+  background: #f9fafb;
+}
+
+/* Remove cell borders in add row to show as a blank row, but keep numberCell border for alignment */
+.addRow .cell {
+  border-right: none;
+}
+
+.addButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+  width: 100%;
+  height: 100%;
+}
+
+.addButton:hover {
+  opacity: 0.7;
+}
+
+.addButton:active {
+  opacity: 0.5;
+}
+
+.addButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+.addButton:disabled:hover {
+  opacity: 0.3;
+}
+
+/* Modal styles */
+.assetDetailModal {
+  top: 2.5rem;
+}
+
+.modalTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.modalAssetName {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #8b5cf6;
+  padding: 0.125rem 12px;
+  background: #f3e8ff;
+  border-radius: 0.375rem;
+}
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.modalSection {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 1.25rem;
+}
+
+.modalSection:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.modalSectionTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  margin: 0 0 16px 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.modalFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 24px;
+}
+
+.modalField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.modalFieldLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: capitalize;
+}
+
+.modalFieldValue {
+  font-size: 0.875rem;
+  color: #0f172a;
+  padding: 0.5rem 12px;
+  background: #f8fafc;
+  border-radius: 0.375rem;
+  border: 1px solid #e2e8f0;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+/* Reference field styles */
+.referenceInputContainer {
+  width: 100%;
+}
+
+.referenceFieldWrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+}
+
+.referenceDiamondIcon {
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.referenceSelectedAssetLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 3.25rem;
+  /* 52px, slightly larger than 46px */
+  height: 1.5rem;
+  /* 24px */
+  background: #EEEEEE;
+  border-radius: 5px;
+  padding: 0.0625rem;
+  /* 1px: centers 22px tiles in 24px container */
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+/* Multi-select avatar stack within the fixed cell width.
+ * Extra avatars are overlapped to the "right/back" to avoid squeezing to the left. */
+.referenceAvatarsStack {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.referenceAvatarStackItem {
+  position: relative;
+  flex-shrink: 0;
+  width: 1.375rem;
+  /* match .referenceIconTile */
+  height: 1.375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: #EEEEEE;
+}
+
+.referenceSelectedAssetLeft:hover {
+  background: #0B99FF14;
+}
+
+.referenceIconTile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  /* 22px: fits 16px icon + padding */
+  height: 1.375rem;
+  border-radius: 0.5rem;
+  background: #EEEEEE;
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Single icon (no asset selected): only show the arrow tile without outer capsule */
+.referenceSingleIcon {
+  width: 1.375rem;
+  height: 1.375rem;
+  background: #EEEEEE;
+}
+
+/* When used inside AddNewRowForm: remove radius to match other table cells */
+.referenceSingleIconNoRadius {
+  border-radius: 0 !important;
+}
+
+.referenceSelectedAssetLeft .referenceDiamondIcon {
+  flex-shrink: 0;
+}
+
+.referenceExpandIcon {
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.referenceExpandIcon:hover {
+  opacity: 0.8;
+}
+
+.referenceAvatarWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.referenceAvatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  border-radius: 2.4px !important;
+  font-weight: 600;
+}
+
+.referenceSelectedAssetLeft:hover .referenceIconTile {
+  background: #0B99FF14;
+}
+
+/* Ensure hover arrow stays above other layers */
+.referenceArrowTile {
+  z-index: 1;
+}
+
+.referenceSelectedAssetLeft:hover .referenceArrowTile {
+  z-index: 2;
+}
+
+.referenceArrowIcon {
+  flex-shrink: 0;
+  display: inline-block;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.referenceArrowIcon:hover {
+  opacity: 0.8;
+}
+
+.referenceDetailIcon {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-shrink: 0;
+  display: inline-block;
+  z-index: 1;
+}
+
+/* Container for MediaFileUpload component in cells - fit within fixed row */
+.mediaFileUploadContainer {
+  width: 100%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  height: 28px;
+  max-height: 28px;
+}
+
+/* Media field display styles - fit within fixed row height */
+.mediaCellContent {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 0;
+  height: 28px;
+  max-height: 28px;
+}
+
+.mediaThumbnail {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e5e7eb;
+}
+
+.mediaThumbnailImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mediaFileIcon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.mediaFileName {
+  font-size: 13px;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  cursor: help;
+}
+
+/* Tooltip styles for text overflow */
+.cellTextWithTooltip {
+  position: relative;
+}
+
+.cellTextTooltip {
+  visibility: hidden;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  z-index: 1000;
+  margin-bottom: 0.5rem;
+  pointer-events: none;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cellTextWithTooltip:hover .cellTextTooltip {
+  visibility: visible;
+}
+
+/* Asset Card Panel styles - for hovering over reference avatar */
+.assetCardBridge {
+  position: fixed;
+  width: 2.5rem;
+  height: 1.5rem;
+  background: transparent;
+  pointer-events: auto;
+  z-index: 2002;
+}
+
+.assetCardPanel {
+  position: fixed;
+  background: white;
+  border-radius: 0.5rem;
+  width: 320px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  z-index: 2001;
+  pointer-events: auto;
+}
+
+.assetCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 20px;
+  background: #0B99FF14;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 0.5rem 8px 0 0;
+}
+
+.assetCardTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.assetCardCloseButton {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.assetCardCloseButton:hover {
+  color: #111827;
+}
+
+.assetCardContent {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.assetCardLoading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2.5rem 20px;
+}
+
+.assetCardDeletedMessage {
+  padding: 1.25rem 20px 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+.assetCardDetailsSection {
+  padding: 1.25rem;
+}
+
+.assetCardDetailsLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 1rem;
+}
+
+.assetCardDetailsContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.assetCardDetailRow {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.assetCardIconWrapper {
+  flex-shrink: 0;
+}
+
+.assetCardIconAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+}
+
+.assetCardDetailInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.assetCardDetailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.assetCardDetailLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.assetCardDetailValue {
+  font-size: 0.875rem;
+  color: #111827;
+  font-weight: 400;
+}
+
+.assetCardLibraryLink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.assetCardLibraryLink:hover {
+  opacity: 0.8;
+}
+
+.assetCardLibraryIcon {
+  flex-shrink: 0;
+}
+
+.assetCardLibraryName {
+  font-size: 0.875rem;
+  color: #0B99FF;
+  font-weight: 400;
+}
+
+.assetCardLibraryArrow {
+  flex-shrink: 0;
+}
+
+/* Realtime collaboration styles */
+.realtimeEditedCell {
+  animation: realtimePulse 0.3s ease-in-out;
+  border: 2px solid #52c41a !important;
+}
+
+@keyframes realtimePulse {
+
+  0%,
+  100% {
+    background-color: inherit;
+  }
+
+  50% {
+    background-color: rgba(82, 196, 26, 0.15);
+  }
+}
+
+/* Conflict resolution styles */
+.conflictedCell {
+  position: relative;
+  background-color: rgba(250, 173, 20, 0.1) !important;
+}
+
+.conflictInput {
+  border: 2px solid #faad14 !important;
+  background-color: rgba(250, 173, 20, 0.05);
+}
+
+.conflictActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 8px;
+  background-color: #fff9e6;
+  border: 1px solid #ffd666;
+  border-radius: 0.25rem;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.conflictLabel {
+  flex: 1;
+  color: #d46b08;
+  font-weight: 500;
+}
+
+.conflictButton {
+  font-size: 0.75rem;
+  height: 1.5rem;
+  padding: 0 8px;
+}
+
+@keyframes conflictHighlight {
+
+  0%,
+  100% {
+    background-color: rgba(250, 173, 20, 0.1);
+  }
+
+  50% {
+    background-color: rgba(250, 173, 20, 0.25);
+  }
+}
+
+.conflictedCell {
+  animation: conflictHighlight 1s ease-in-out infinite;
+}
+
+/* Collaboration presence styles - removed, will be handled by .cellEditing */
+
+.cellPresenceAvatars {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  z-index: 5;
+  display: flex;
+  flex-direction: row-reverse;
+  /* Right to left: first user on right */
+  align-items: center;
+  gap: 0;
+  pointer-events: none;
+  /* Allow clicks to pass through */
+}
+
+.cellPresenceAvatar {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: white;
+  border: none;
+  box-shadow: none;
+  pointer-events: auto;
+  /* But avatars themselves can be hovered */
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.cellPresenceAvatar:hover {
+  transform: scale(1.2);
+  z-index: 10;
+  box-shadow: none;
+}
+
+/* Edit cell presence styles */
+.editCellWithPresence {
+  border-left: 3px solid transparent;
+}
+
+/* Batch Edit Context Menu Styles */
+.batchEditMenuTitle {
+  padding: 0.5rem 16px 6px 16px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.4;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.batchEditMenuItem {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 16px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #111827;
+  transition: background-color 0.15s ease;
+  font-weight: 400;
+  user-select: none;
+  line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.batchEditMenuItem:hover {
+  background-color: #0B99FF14;
+}
+
+.batchEditMenuItem:active {
+  background-color: #0B99FF14;
+}
+
+.batchEditMenuText {
+  flex: 1;
+  font-weight: 400;
+  color: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.batchEditMenuDivider {
+  height: 0.0625rem;
+  background-color: #e5e7eb;
+  margin: 0.25rem 0;
+}
+
+/* Toast Message */
+.toastMessage {
+  animation: fadeIn 0.2s ease-in;
+}
+
+/* Custom confirm overlay/dialog (same structure as AddColumnModal alert) */
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(148, 163, 184, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.confirmDialog {
+  background: #ffffff;
+  width: 38.5rem;
+  /* 616px */
+  height: 12.75rem;
+  /* 204px */
+  max-width: calc(100vw - 2rem);
+  border-radius: 1rem;
+  /* 16px */
+  border: 0.0625rem solid rgba(0, 0, 0, 0.17);
+  /* 1px */
+  box-shadow: none;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.confirmHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 3.6875rem;
+  /* 59px */
+  padding: 0 1rem;
+  border-bottom: 0.0625rem solid #e2e8f0;
+}
+
+.confirmTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.confirmBody {
+  font-size: 1.25rem;
+  line-height: 1.5;
+  color: #1a1a1a;
+  margin: 0;
+  padding: 1.5rem;
+  border-bottom: none;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  border-top: 0.0625rem solid #e2e8f0;
+  padding: 0.75rem 1.5rem 1rem;
+}
+
+.confirmCancelBtn {
+  min-width: 5rem;
+  height: 2.25rem;
+  font-size: 1.25rem;
+  padding: 0 1rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  background: #ffffff;
+  border: 0.0625rem solid #d1d5db;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmCancelBtn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.confirmDiscardBtn {
+  min-width: 5rem;
+  height: 2.25rem;
+  font-size: 1.25rem;
+  padding: 0 1rem;
+  font-weight: 500;
+  color: #ffffff;
+  background: #aa052c;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmDiscardBtn:hover {
+  background: #8c0424;
+}
+
+.confirmDiscardBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirmCloseBtn {
+  padding: 0.25rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.confirmCloseBtn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+/* Toast animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Confirm Modal Styles - Centered with two-line border */
+.confirmModalWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmModalWrap :global(.ant-modal) {
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  padding: 0;
+  position: fixed !important;
+}
+
+.confirmModalWrap :global(.ant-modal-content) {
+  border: 1px solid rgba(0, 0, 0, 0.17);
+  border-radius: 1.375rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  width: 616px;
+}
+
+.confirmModalWrap :global(.ant-modal-header) {
+  border-bottom: 1px solid rgba(222, 226, 230, 1);
+  padding: 1rem;
+  height: 59px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.confirmModalWrap :global(.ant-modal-title) {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 150%;
+  letter-spacing: 0%;
+  color: rgba(26, 26, 26, 1);
+  width: 542px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.confirmModalWrap :global(.ant-modal-body) {
+  padding: 1.5rem;
+}
+
+.confirmModalWrap :global(.ant-modal-body p) {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
+  font-size: 1.25rem;
+  line-height: 150%;
+  letter-spacing: 0%;
+  color: rgba(26, 26, 26, 1);
+  margin: 0;
+}
+
+.confirmModalWrap :global(.ant-modal-footer) {
+  border-top: 1px solid rgba(222, 226, 230, 1);
+  padding: 0.75rem 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.confirmModalWrap :global(.ant-modal-footer .ant-btn) {
+  min-width: 80px;
+  height: 36px;
+  border-radius: 0.375rem;
+  font-weight: 500;
+}
+
+.confirmModalWrap :global(.ant-modal-footer .ant-btn-default) {
+  border: 1px solid #d1d5db;
+  color: #374151;
+  background-color: #ffffff;
+}
+
+.confirmModalWrap :global(.ant-modal-footer .ant-btn-default:hover) {
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+.confirmModalWrap :global(.ant-modal-footer .ant-btn-dangerous) {
+  background-color: rgba(170, 5, 44, 1) !important;
+  border-color: rgba(170, 5, 44, 1) !important;
+  color: #ffffff !important;
+  border-radius: 0.75rem !important;
+}
+
+.confirmModalWrap :global(.ant-modal-footer .ant-btn-dangerous:hover) {
+  background-color: rgba(140, 4, 36, 1) !important;
+  border-color: rgba(140, 4, 36, 1) !important;
+}
+
+.confirmModalWrap :global(.ant-modal-close) {
+  top: 1rem;
+  right: 1rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+}
+
+.confirmModalWrap :global(.ant-modal-close:hover) {
+  background-color: #f3f4f6;
+  border-radius: 0.25rem;
+}
+
+.confirmModalWrap :global(.ant-modal-header) {
+  border-bottom: 1px solid rgba(222, 226, 230, 1);
+  padding: 1rem;
+  height: 59px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  position: relative;
+}
+
+/* Viewer notification banner */
+.viewerBanner {
+  position: fixed;
+  bottom: 70px;
+  left: 58%;
+  transform: translateX(-50%);
+  width: 294px;
+  height: 46px;
+  background: #0B99FF14;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  gap: 0.5rem;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.viewerBannerIcon {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.25rem;
+}
+
+.viewerBannerText {
+  flex: 1;
+  font-size: 1rem;
+  color: #1f2937;
+  font-weight: 400;
+}
+
+.viewerBannerClose {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.viewerBannerClose:hover {
+  color: #1f2937;
+}
+
+/* Asset Detail Drawer - right slide-out panel */
+.detailDrawerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 1999;
+  animation: detailDrawerFadeIn 0.2s ease;
+}
+
+.detailDrawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  max-width: 90vw;
+  height: 100vh;
+  background: #ffffff;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  animation: detailDrawerSlideIn 0.25s ease;
+}
+
+@keyframes detailDrawerFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes detailDrawerSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.detailDrawerHeader {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.detailDrawerTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detailDrawerClose {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.detailDrawerClose:hover {
+  color: #0f172a;
+  background-color: #f1f5f9;
+}
+
+.detailDrawerBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.detailDrawerField {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.375rem;
+}
+
+.detailDrawerFieldHeader {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.detailDrawerLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.detailDrawerTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  /* gap: 2px; */
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: rgba(7, 7, 7, 1);
+  margin-bottom: 0;
+}
+
+/* .detailDrawerTypeBadgeString {
+  background-color: rgb(238, 238, 238);
+  border-radius: 8px;
+  padding: 2px 8px;
+} */
+.detailDrawerTypeBadge {
+  background-color: rgba(238, 238, 238, 1);
+  border-radius: 5px;
+  padding: 2px 8px;
+}
+
+
+.detailDrawerInputWrap {
+  width: 100%;
+}
+
+.detailDrawerFormulaWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.detailDrawerFormulaWrap :global(.ant-input) {
+  flex: 1;
+  min-width: 0;
+}
+
+.detailDrawerFormulaInput {
+  cursor: not-allowed;
+}
+
+.detailDrawerInput {
+  border-radius: 0.375rem;
+  border: 1px solid #e2e8f0;
+}
+
+.detailDrawerInput:focus,
+.detailDrawerInput:hover {
+  border-color: #0B99FF;
+}
+
+.detailDrawerInputWrap :global(.ant-select-selector) {
+  border-radius: 0.375rem !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.detailDrawerInputWrap :global(.ant-switch) {
+  margin: 0;
+}
+
+.addSectionButton {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 16px;
+  border: 1px solid rgba(188, 188, 188, 1);
+  background-color: #ffffff;
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

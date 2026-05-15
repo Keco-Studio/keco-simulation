@@ -1,0 +1,31 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 120px);
+}
+
+.toolbar {
+  flex-shrink: 0;
+  padding: 8px 16px 12px;
+}
+
+.frameWrap {
+  flex: 1;
+  min-height: 560px;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0d1117;
+}
+
+.frame {
+  width: 100%;
+  height: min(85vh, 900px);
+  border: none;
+  display: block;
+}
+
+.fallback {
+  padding: 24px;
+  max-width: 560px;
+}
