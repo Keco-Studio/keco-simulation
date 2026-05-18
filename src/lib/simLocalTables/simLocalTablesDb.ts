@@ -2,7 +2,13 @@
  * IndexedDB persistence for simulation-local scratch tables (optional legacy write-back queue store).
  */
 
-import type { SimTableMeta, SimTableRow, WriteBackQueueItem } from './types';
+import type { SimLocalColumnDef, SimTableMeta, SimTableRow, WriteBackQueueItem } from './types';
+
+function isSimLocalColumnDef(x: unknown): x is SimLocalColumnDef {
+  if (!x || typeof x !== 'object') return false;
+  const c = x as SimLocalColumnDef;
+  return typeof c.key === 'string' && typeof c.label === 'string' && typeof c.dataType === 'string';
+}
 
 const DB_NAME = 'keco-simulation-sim-local-tables-v1';
 const DB_VERSION = 1;
@@ -33,16 +39,22 @@ function coerceMeta(raw: unknown): SimTableMeta | null {
     typeof r.studioProjectId === 'string' && r.studioProjectId.trim() ? r.studioProjectId.trim() : undefined;
   const studioLibraryId =
     typeof r.studioLibraryId === 'string' && r.studioLibraryId.trim() ? r.studioLibraryId.trim() : undefined;
+  const studioMultiProject = Boolean(r.studioMultiProject);
+  const columns = Array.isArray(r.columns)
+    ? (r.columns as unknown[]).filter(isSimLocalColumnDef)
+    : undefined;
   return {
     id,
     name,
     columnKeys,
     columnLabels: columnLabels?.length ? columnLabels : undefined,
+    columns: columns?.length ? columns : undefined,
     createdAt: typeof r.createdAt === 'number' ? r.createdAt : Number(r.createdAt) || 0,
     updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : Number(r.updatedAt) || 0,
     dirty: Boolean(r.dirty),
     studioProjectId,
     studioLibraryId,
+    ...(studioMultiProject ? { studioMultiProject: true as const } : {}),
   };
 }
 

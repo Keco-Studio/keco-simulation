@@ -9,8 +9,10 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { getFieldTypeIcon, FIELD_TYPE_OPTIONS } from '@studio/app/(dashboard)/[projectId]/[libraryId]/predefine/utils';
 import type { PropertyConfig } from '@studio/lib/types/libraryAssets';
 import { useSupabase } from '@studio/lib/SupabaseContext';
+import { useAuth } from '@studio/lib/contexts/AuthContext';
 import { listLibraries, type Library } from '@studio/lib/services/libraryService';
 import { listFolders, type Folder } from '@studio/lib/services/folderService';
+import { listProjects } from '@studio/lib/services/projectService';
 import {
   isFormulaExpressionValid,
   type FormulaEvaluableField,
@@ -45,6 +47,8 @@ export type AddColumnModalProps = {
   anchorRef?: React.RefObject<HTMLElement | null>;
   /** 当前库已有的字段列表，用于公式下拉中插入列名 */
   existingProperties?: PropertyConfig[];
+  /** project = libraries in URL projectId; allProjects = every library you can access (local scratch tables). */
+  referenceLibraryScope?: 'project' | 'allProjects';
 };
 
 export function AddColumnModal({
@@ -53,8 +57,10 @@ export function AddColumnModal({
   onSubmit,
   anchorRef,
   existingProperties,
+  referenceLibraryScope = 'project',
 }: AddColumnModalProps) {
   const supabase = useSupabase();
+  const { userProfile, isAuthenticated } = useAuth();
   const params = useParams();
   const searchParams = useSearchParams();
   const projectId =
@@ -256,15 +262,45 @@ export function AddColumnModal({
 
   // Lazy-load libraries when configuring a reference field
   useEffect(() => {
-    if (!open || dataType !== 'reference' || !projectId) return;
+    if (!open || dataType !== 'reference') return;
+    if (referenceLibraryScope === 'project' && !projectId) return;
+    if (referenceLibraryScope === 'allProjects' && !isAuthenticated) {
+      setLibraries([]);
+      setFolders([]);
+      return;
+    }
 
     setLoadingLibraries(true);
     setLoadingFolders(true);
     const loadLibraries = async () => {
       try {
+        if (referenceLibraryScope === 'allProjects' && userProfile?.id) {
+          const projects = await listProjects(supabase, userProfile.id);
+          const libs: Library[] = [];
+          const folderMap = new Map<string, Folder>();
+          for (const p of projects) {
+            const [projectLibs, projectFolders] = await Promise.all([
+              listLibraries(supabase, p.id),
+              listFolders(supabase, p.id),
+            ]);
+            for (const f of projectFolders) folderMap.set(f.id, f);
+            for (const lib of projectLibs) {
+              if (lib.id === currentLibraryId) continue;
+              libs.push({
+                ...lib,
+                name: `${p.name || p.id} / ${lib.name || lib.id}`,
+              });
+            }
+          }
+          libs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+          setLibraries(libs);
+          setFolders([...folderMap.values()]);
+          return;
+        }
+
         const [libs, fds] = await Promise.all([
-          listLibraries(supabase, projectId),
-          listFolders(supabase, projectId),
+          listLibraries(supabase, projectId!),
+          listFolders(supabase, projectId!),
         ]);
         const filteredLibs = libs.filter((lib) => lib.id !== currentLibraryId);
         setLibraries(filteredLibs);
@@ -280,7 +316,16 @@ export function AddColumnModal({
     };
 
     void loadLibraries();
-  }, [open, dataType, projectId, currentLibraryId, supabase]);
+  }, [
+    open,
+    dataType,
+    projectId,
+    currentLibraryId,
+    supabase,
+    referenceLibraryScope,
+    isAuthenticated,
+    userProfile?.id,
+  ]);
 
   const { librariesWithFolder, librariesWithoutFolder, foldersById } = useMemo(() => {
     const byId = new Map<string, Folder>();

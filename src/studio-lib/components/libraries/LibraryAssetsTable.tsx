@@ -119,6 +119,8 @@ export type LibraryAssetsTableProps = {
   bypassProjectRoleForUi?: boolean;
   /** Forwarded to TableHeader for IndexedDB scratch tables (column delete without Supabase). */
   scratchColumnOps?: TableHeaderProps['scratchColumnOps'];
+  /** How Add Column loads libraries when type is reference (scratch tables use allProjects). */
+  addColumnReferenceScope?: 'project' | 'allProjects';
 };
 
 export function LibraryAssetsTable({
@@ -140,6 +142,7 @@ export function LibraryAssetsTable({
   presenceTracking,
   bypassProjectRoleForUi = false,
   scratchColumnOps,
+  addColumnReferenceScope = 'project',
 }: LibraryAssetsTableProps) {
   // Get message API from App context to support dynamic theme
   const { message } = App.useApp();
@@ -1923,6 +1926,7 @@ export function LibraryAssetsTable({
           sectionName={activeGroup.section.name}
           anchorRef={addColumnButtonRef}
           existingProperties={properties}
+          referenceLibraryScope={addColumnReferenceScope}
           onSubmit={async (payload) => {
             await onAddProperty(activeGroup.section.id, activeGroup.section.name, payload);
           }}

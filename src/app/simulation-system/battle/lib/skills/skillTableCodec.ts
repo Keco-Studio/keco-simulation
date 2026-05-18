@@ -122,15 +122,49 @@ export function skillToFlatRow(skill: Skill): SkillFlatRow {
   };
 }
 
+const SKILL_ID_PATTERN = /^[a-zA-Z0-9_]+$/;
+
+/**
+ * Battle skill id (code key), not the same rules as Studio "string" table columns.
+ * Spaces in sheet labels are normalized to underscores before validation.
+ */
+/** Turn table / display strings into a battle skill code key (letters, digits, underscore). */
+export function normalizeSkillId(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+export function isValidSkillId(id: string): boolean {
+  return SKILL_ID_PATTERN.test(id);
+}
+
+export function resolveSkillId(raw: string): { id: string } | { error: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { error: 'Skill id cannot be empty' };
+  if (isValidSkillId(trimmed)) return { id: trimmed };
+  const normalized = normalizeSkillId(trimmed);
+  if (isValidSkillId(normalized)) return { id: normalized };
+  return {
+    error:
+      `Skill id must be letters, digits, or underscore only (got "${trimmed}"). ` +
+      'It is a code identifier used in battle logic—not the same as a display name. ' +
+      'Map Display name to your human-readable column and Skill id to a column with values like arc_spark.',
+  };
+}
+
 /**
  * Convert one flat row to a Skill; on validation failure returns `{ error }`.
  * id and name are required; id must be alphanumeric + underscore.
  */
 export function flatRowToSkill(row: SkillFlatRow): { skill: Skill } | { error: string } {
-  const id = row.id.trim();
+  const idResolved = resolveSkillId(row.id);
+  if ('error' in idResolved) return { error: idResolved.error };
+  const id = idResolved.id;
   const name = row.name.trim();
-  if (!id) return { error: 'Skill id cannot be empty' };
-  if (!/^[a-zA-Z0-9_]+$/.test(id)) return { error: `Skill id must be letters, digits, or underscore: ${id}` };
   if (!name) return { error: `Display name cannot be empty for skill "${id}"` };
 
   const type: SkillType = isSkillType(row.type.trim()) ? (row.type.trim() as SkillType) : 'attack';

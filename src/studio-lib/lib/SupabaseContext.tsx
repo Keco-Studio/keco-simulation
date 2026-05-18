@@ -17,12 +17,15 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const SupabaseContext = createContext<SupabaseClient | null>(null);
 
-export function SupabaseProvider({ children }: { children: ReactNode }) {
-  const supabase = useMemo(() => {
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return null;
-    }
-    return createClient(supabaseUrl, supabaseAnonKey, {
+/** One browser client per tab — avoids GoTrue "Multiple instances" when providers remount or nest. */
+let browserSupabaseClient: SupabaseClient | null = null;
+
+function getOrCreateBrowserSupabaseClient(): SupabaseClient | null {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return null;
+  }
+  if (!browserSupabaseClient) {
+    browserSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       realtime: {
         params: {
           eventsPerSecond: 10,
@@ -35,7 +38,12 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
         storage: createHybridStorageAdapter(),
       },
     });
-  }, []); // Empty deps - create once per component mount (which is per tab)
+  }
+  return browserSupabaseClient;
+}
+
+export function SupabaseProvider({ children }: { children: ReactNode }) {
+  const supabase = useMemo(() => getOrCreateBrowserSupabaseClient(), []);
 
   if (!supabase) {
     return (
