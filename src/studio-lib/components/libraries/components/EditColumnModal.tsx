@@ -13,8 +13,11 @@ import { updateLibraryField } from '@studio/lib/services/libraryAssetsService';
 import { queryKeys } from '@studio/lib/utils/queryKeys';
 import { showErrorToast, showSuccessToast } from '@studio/lib/utils/toast';
 import { getFieldTypeIcon, FIELD_TYPE_OPTIONS } from '@studio/app/(dashboard)/[projectId]/[libraryId]/predefine/utils';
+import { useAuth } from '@studio/lib/contexts/AuthContext';
 import { listLibraries, type Library } from '@studio/lib/services/libraryService';
 import { listFolders, type Folder } from '@studio/lib/services/folderService';
+import { listProjects } from '@studio/lib/services/projectService';
+import type { AddColumnFormPayload } from './AddColumnModal';
 import {
   isFormulaExpressionValid,
   type FormulaEvaluableField,
@@ -37,6 +40,12 @@ type EditColumnModalProps = {
   propertyFormulaExpression?: string;
   /** 当前库已有的字段列表，用于校验重名 */
   existingProperties?: PropertyConfig[];
+  /** Stable column key for IndexedDB scratch tables. */
+  propertyKey?: string;
+  /** project = libraries in URL projectId; allProjects = every library you can access (local scratch tables). */
+  referenceLibraryScope?: 'project' | 'allProjects';
+  /** When set, saves column changes locally instead of updateLibraryField (Supabase). */
+  onSubmitScratch?: (payload: AddColumnFormPayload) => Promise<void>;
   onClose: () => void;
 };
 
@@ -83,9 +92,13 @@ export function EditColumnModal({
   propertyReferenceLibraries,
   propertyFormulaExpression,
   existingProperties,
+  propertyKey: _propertyKey,
+  referenceLibraryScope = 'project',
+  onSubmitScratch,
   onClose,
 }: EditColumnModalProps) {
   const supabase = useSupabase();
+  const { userProfile, isAuthenticated } = useAuth();
   const params = useParams();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -196,7 +209,12 @@ export function EditColumnModal({
 
   // When the edit popup opens and the reference type is selected, load the list of optional libraries and folders
   useEffect(() => {
-    if (!open || editColumnModal.dataType !== 'reference' || !projectId) return;
+    if (!open || editColumnModal.dataType !== 'reference') return;
+    if (referenceLibraryScope === 'project' && !projectId) return;
+    if (referenceLibraryScope === 'allProjects' && !isAuthenticated) {
+      setEditColumnModal((prev) => ({ ...prev, libraries: [], folders: [] }));
+      return;
+    }
     let cancelled = false;
 
     const loadLibrariesAndFolders = async () => {
@@ -207,9 +225,40 @@ export function EditColumnModal({
         error: null,
       }));
       try {
+        if (referenceLibraryScope === 'allProjects' && userProfile?.id) {
+          const projects = await listProjects(supabase, userProfile.id);
+          const libs: Library[] = [];
+          const folderMap = new Map<string, Folder>();
+          for (const p of projects) {
+            const [projectLibs, projectFolders] = await Promise.all([
+              listLibraries(supabase, p.id),
+              listFolders(supabase, p.id),
+            ]);
+            for (const f of projectFolders) folderMap.set(f.id, f);
+            for (const lib of projectLibs) {
+              if (libraryId && lib.id === libraryId) continue;
+              libs.push({
+                ...lib,
+                name: `${p.name || p.id} / ${lib.name || lib.id}`,
+              });
+            }
+          }
+          libs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+          if (!cancelled) {
+            setEditColumnModal((prev) => ({
+              ...prev,
+              libraries: libs,
+              folders: [...folderMap.values()],
+              loadingLibraries: false,
+              loadingFolders: false,
+            }));
+          }
+          return;
+        }
+
         const [libs, fds] = await Promise.all([
-          listLibraries(supabase, projectId),
-          listFolders(supabase, projectId),
+          listLibraries(supabase, projectId!),
+          listFolders(supabase, projectId!),
         ]);
         const filteredLibs = libs.filter((lib) => lib.id !== libraryId);
         if (!cancelled) {
@@ -240,7 +289,16 @@ export function EditColumnModal({
     return () => {
       cancelled = true;
     };
-  }, [open, editColumnModal.dataType, projectId, libraryId, supabase]);
+  }, [
+    open,
+    editColumnModal.dataType,
+    projectId,
+    libraryId,
+    supabase,
+    referenceLibraryScope,
+    isAuthenticated,
+    userProfile?.id,
+  ]);
 
   const { librariesWithFolder, librariesWithoutFolder, foldersById } = useMemo(() => {
     const byId = new Map<string, Folder>();
@@ -468,8 +526,13 @@ export function EditColumnModal({
       }
     }
 
-    if (!libraryId || !editColumnModal.propertyId) {
+    if (!onSubmitScratch && (!libraryId || !editColumnModal.propertyId)) {
       showErrorToast('Missing libraryId or column id, cannot save');
+      return false;
+    }
+
+    if (onSubmitScratch && !editColumnModal.propertyId) {
+      showErrorToast('Missing column id, cannot save');
       return false;
     }
 
@@ -481,17 +544,37 @@ export function EditColumnModal({
       return;
     }
 
+    const payload: AddColumnFormPayload = {
+      name: editColumnModal.name.trim(),
+      dataType: editColumnModal.dataType!,
+      description: editColumnModal.description.trim() || undefined,
+      enumOptions: editColumnModal.enumOptions,
+      referenceLibraries: editColumnModal.referenceLibraries,
+      formulaExpression:
+        editColumnModal.dataType === 'formula'
+          ? editColumnModal.formulaExpression.trim()
+          : undefined,
+    };
+
+    if (onSubmitScratch) {
+      try {
+        await onSubmitScratch(payload);
+        showSuccessToast('Column updated');
+        onClose();
+      } catch (e: any) {
+        showErrorToast(e?.message || 'Failed to update column');
+      }
+      return;
+    }
+
     try {
       await updateLibraryField(supabase, libraryId!, editColumnModal.propertyId!, {
-        label: editColumnModal.name,
-        dataType: editColumnModal.dataType,
-        description: editColumnModal.description.trim() || undefined,
-        enumOptions: editColumnModal.enumOptions,
-        referenceLibraries: editColumnModal.referenceLibraries,
-        formulaExpression:
-          editColumnModal.dataType === 'formula'
-            ? editColumnModal.formulaExpression.trim()
-            : undefined,
+        label: payload.name,
+        dataType: payload.dataType,
+        description: payload.description,
+        enumOptions: payload.enumOptions,
+        referenceLibraries: payload.referenceLibraries,
+        formulaExpression: payload.formulaExpression,
       });
 
       await queryClient.invalidateQueries({
@@ -587,7 +670,7 @@ export function EditColumnModal({
           </svg>
         </button>
       </div>
-        {/* Same as AddColumnModal: the top part is scrollable, the bottom button is fixed */}
+      {/* Same as AddColumnModal: the top part is scrollable, the bottom button is fixed */}
       <div className={`${styles.body} ${styles.scrollBody}`}>
         <div className={styles.field}>
           <label className={styles.label} htmlFor="edit-column-name">
@@ -1037,23 +1120,23 @@ export function EditColumnModal({
               style={{ width: '100%' }}
               className={styles.referenceSelect}
               placeholder="Select libraries to reference"
-            suffixIcon={
-              <svg
-                width="12"
-                height="7"
-                viewBox="0 0 12 7"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M0.75 0.75L5.75 5.75L10.75 0.75"
-                  stroke="#21272A"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            }
+              suffixIcon={
+                <svg
+                  width="12"
+                  height="7"
+                  viewBox="0 0 12 7"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M0.75 0.75L5.75 5.75L10.75 0.75"
+                    stroke="#21272A"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              }
               value={editColumnModal.referenceLibraries}
               loading={editColumnModal.loadingLibraries || editColumnModal.loadingFolders}
               onChange={(values) =>
@@ -1114,9 +1197,8 @@ export function EditColumnModal({
                     <div className={styles.referenceFolderTabs}>
                       <button
                         type="button"
-                        className={`${styles.referenceFolderTab} ${
-                          referenceFolderFilter === 'all' ? styles.referenceFolderTabActive : ''
-                        }`}
+                        className={`${styles.referenceFolderTab} ${referenceFolderFilter === 'all' ? styles.referenceFolderTabActive : ''
+                          }`}
                         onClick={(e) => {
                           e.stopPropagation();
                           setReferenceFolderFilter('all');
@@ -1128,9 +1210,8 @@ export function EditColumnModal({
                         <button
                           key={folder.id}
                           type="button"
-                          className={`${styles.referenceFolderTab} ${
-                            referenceFolderFilter === folder.id ? styles.referenceFolderTabActive : ''
-                          }`}
+                          className={`${styles.referenceFolderTab} ${referenceFolderFilter === folder.id ? styles.referenceFolderTabActive : ''
+                            }`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setReferenceFolderFilter(folder.id);
@@ -1142,9 +1223,8 @@ export function EditColumnModal({
                       {librariesWithoutFolder.length > 0 && (
                         <button
                           type="button"
-                          className={`${styles.referenceFolderTab} ${
-                            referenceFolderFilter === 'root' ? styles.referenceFolderTabActive : ''
-                          }`}
+                          className={`${styles.referenceFolderTab} ${referenceFolderFilter === 'root' ? styles.referenceFolderTabActive : ''
+                            }`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setReferenceFolderFilter('root');
@@ -1166,8 +1246,8 @@ export function EditColumnModal({
                             lib.folder_id && foldersById.get(lib.folder_id)
                               ? foldersById.get(lib.folder_id)!.name
                               : librariesWithFolder.length > 0
-                              ? 'No folder'
-                              : '';
+                                ? 'No folder'
+                                : '';
                           return (
                             <label
                               key={lib.id}
@@ -1232,73 +1312,73 @@ export function EditColumnModal({
   const confirmOverlay =
     showOverwriteConfirm && typeof document !== 'undefined'
       ? createPortal(
-          <div className={addColumnStyles.confirmOverlay}>
-            <div
-              className={addColumnStyles.confirmDialog}
-              style={{ height: '15.5rem' }}
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="overwrite-confirm-title"
-              aria-describedby="overwrite-confirm-description"
-            >
-              <div className={addColumnStyles.confirmHeader}>
-                <h3 id="overwrite-confirm-title" className={addColumnStyles.confirmTitle}>
-                  Alert
-                </h3>
-                <button
-                  type="button"
-                  className={addColumnStyles.confirmCloseBtn}
-                  aria-label="Close"
-                  onClick={() => setShowOverwriteConfirm(false)}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M12 4L4 12M4 4l8 8"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <div
-                id="overwrite-confirm-description"
-                className={addColumnStyles.confirmBody}
+        <div className={addColumnStyles.confirmOverlay}>
+          <div
+            className={addColumnStyles.confirmDialog}
+            style={{ height: '15.5rem' }}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="overwrite-confirm-title"
+            aria-describedby="overwrite-confirm-description"
+          >
+            <div className={addColumnStyles.confirmHeader}>
+              <h3 id="overwrite-confirm-title" className={addColumnStyles.confirmTitle}>
+                Alert
+              </h3>
+              <button
+                type="button"
+                className={addColumnStyles.confirmCloseBtn}
+                aria-label="Close"
+                onClick={() => setShowOverwriteConfirm(false)}
               >
-                This operation may overwrite the existing content in this column. Do you
-                want to continue?
-              </div>
-              <div className={addColumnStyles.confirmActions}>
-                <button
-                  type="button"
-                  className={addColumnStyles.confirmCancelBtn}
-                  onClick={() => setShowOverwriteConfirm(false)}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className={addColumnStyles.confirmDiscardBtn}
-                  style={{ background: '#0B99FF' }}
-                  onClick={async () => {
-                    setShowOverwriteConfirm(false);
-                    await handleSubmit();
-                  }}
-                >
-                  Overwrite
-                </button>
-              </div>
+                  <path
+                    d="M12 4L4 12M4 4l8 8"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
             </div>
-          </div>,
-          document.body,
-        )
+            <div
+              id="overwrite-confirm-description"
+              className={addColumnStyles.confirmBody}
+            >
+              This operation may overwrite the existing content in this column. Do you
+              want to continue?
+            </div>
+            <div className={addColumnStyles.confirmActions}>
+              <button
+                type="button"
+                className={addColumnStyles.confirmCancelBtn}
+                onClick={() => setShowOverwriteConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={addColumnStyles.confirmDiscardBtn}
+                style={{ background: '#0B99FF' }}
+                onClick={async () => {
+                  setShowOverwriteConfirm(false);
+                  await handleSubmit();
+                }}
+              >
+                Overwrite
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
       : null;
 
   return (

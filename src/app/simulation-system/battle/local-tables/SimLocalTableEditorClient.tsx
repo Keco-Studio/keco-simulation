@@ -10,6 +10,7 @@ import { LibraryAssetsTable } from '@studio/components/libraries/LibraryAssetsTa
 import type { AddColumnFormPayload } from '@studio/components/libraries/components/AddColumnModal';
 import type { AssetRow, PropertyConfig, SectionConfig } from '@studio/lib/types/libraryAssets';
 import { useSupabase } from '@studio/lib/SupabaseContext';
+import { useAuth } from '@studio/lib/contexts/AuthContext';
 import { queryKeys } from '@studio/lib/utils/queryKeys';
 import {
   addLibraryField,
@@ -21,7 +22,14 @@ import {
   updateAsset,
 } from '@studio/lib/services/libraryAssetsService';
 import { listLibraries } from '@studio/lib/services/libraryService';
-import type { SimTableMeta, SimTableRow } from '@/lib/simLocalTables/types';
+import { listProjects } from '@studio/lib/services/projectService';
+import type { SimLocalColumnDef, SimTableMeta, SimTableRow } from '@/lib/simLocalTables/types';
+import {
+  columnsFromMeta,
+  dataTypeForKey,
+  propertyValueToScratchCell,
+  scratchCellDisplayString,
+} from '@/lib/simLocalTables/scratchCellValues';
 import { SIM_LOCAL_WORKSPACE_TABLE_ID } from '@/lib/simLocalTables/constants';
 import { deleteTableCascade, getTableMeta, getTableRows, putTableMeta, putTableRows } from '@/lib/simLocalTables/simLocalTablesDb';
 import pageStyles from '../studio-libraries/library/[libraryId]/page.module.css';
@@ -30,15 +38,36 @@ function defaultSection(tableId: string): SectionConfig {
   return { id: `${tableId}:Default`, libraryId: tableId, name: 'Default', orderIndex: 0 };
 }
 
+function scratchValueType(dataType: SimLocalColumnDef['dataType']): PropertyConfig['valueType'] {
+  if (dataType === 'int' || dataType === 'int_array' || dataType === 'float' || dataType === 'float_array') {
+    return 'number';
+  }
+  if (dataType === 'boolean') return 'boolean';
+  if (dataType === 'enum') return 'enum';
+  if (dataType === 'reference') return 'other';
+  return 'string';
+}
+
+function legacyColumnsFromMeta(meta: SimTableMeta): SimLocalColumnDef[] {
+  return meta.columnKeys.map((key, i) => ({
+    key,
+    label: i === 0 ? 'name' : (meta.columnLabels?.[i]?.trim() || `Column ${i + 1}`),
+    dataType: 'string' as const,
+  }));
+}
+
 function propertiesFromMeta(meta: SimTableMeta, tableId: string): PropertyConfig[] {
   const sectionId = `${tableId}:Default`;
-  return meta.columnKeys.map((key, i) => ({
-    id: `local-field-${key}`,
+  const cols = meta.columns?.length ? meta.columns : legacyColumnsFromMeta(meta);
+  return cols.map((c, i) => ({
+    id: `local-field-${c.key}`,
     sectionId,
-    key,
-    name: i === 0 ? 'name' : (meta.columnLabels?.[i]?.trim() || `Column ${i + 1}`),
-    valueType: 'string',
-    dataType: 'string',
+    key: c.key,
+    name: c.label,
+    valueType: scratchValueType(c.dataType),
+    dataType: c.dataType,
+    referenceLibraries: c.referenceLibraries,
+    enumOptions: c.enumOptions,
     orderIndex: i,
   }));
 }
@@ -48,10 +77,26 @@ function assetRowsFromSim(meta: SimTableMeta, tableId: string, rows: SimTableRow
   return rows.map((r, idx) => ({
     id: r.id,
     libraryId: tableId,
-    name: (first ? String(r.values[first] ?? '').trim() : '') || 'Untitled',
+    name: (first ? scratchCellDisplayString(r.values[first]) : '') || 'Untitled',
     propertyValues: { ...r.values },
     rowIndex: idx,
   }));
+}
+
+function scratchValuesFromPropertyValues(
+  meta: SimTableMeta,
+  propertyValues: Record<string, unknown>,
+  assetName?: string,
+): Record<string, unknown> {
+  const values: Record<string, unknown> = {};
+  for (const k of meta.columnKeys) {
+    values[k] = propertyValueToScratchCell(propertyValues[k], dataTypeForKey(meta, k));
+  }
+  const first = meta.columnKeys[0];
+  if (first && assetName !== undefined) {
+    values[first] = assetName;
+  }
+  return values;
 }
 
 export default function SimLocalTableEditorClient() {
@@ -61,6 +106,7 @@ export default function SimLocalTableEditorClient() {
   const tableId = params.tableId as string;
   const supabase = useSupabase();
   const queryClient = useQueryClient();
+  const { userProfile, isAuthenticated } = useAuth();
 
   const [meta, setMeta] = useState<SimTableMeta | null>(null);
   const [rows, setRows] = useState<SimTableRow[]>([]);
@@ -213,13 +259,46 @@ export default function SimLocalTableEditorClient() {
   });
 
   const isWorkspaceRoute = tableId === SIM_LOCAL_WORKSPACE_TABLE_ID;
+  const multiStudioBookmarks = Boolean(meta?.studioMultiProject) && !isWorkspaceRoute;
   const studioPickerEnabled = Boolean(studioProjectId) && (linked || isWorkspaceRoute);
 
   const { data: projectLibraries = [], isLoading: projectLibsLoading } = useQuery({
     queryKey: ['simLocalPickLibs', studioProjectId],
     queryFn: () => listLibraries(supabase, studioProjectId),
-    enabled: studioPickerEnabled,
+    enabled: studioPickerEnabled && !multiStudioBookmarks,
   });
+
+  const { data: allStudioLibPairs = [], isLoading: allStudioLibsLoading } = useQuery({
+    queryKey: ['simLocalAllStudioLibPairs', userProfile?.id],
+    queryFn: async () => {
+      const projects = await listProjects(supabase, userProfile!.id);
+      const pairs: Array<{ projectId: string; libraryId: string; label: string }> = [];
+      for (const p of projects) {
+        const libs = await listLibraries(supabase, p.id);
+        for (const lib of libs) {
+          pairs.push({
+            projectId: p.id,
+            libraryId: lib.id,
+            label: `${p.name || p.id} / ${lib.name || lib.id}`,
+          });
+        }
+      }
+      pairs.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+      return pairs;
+    },
+    enabled: Boolean(
+      isAuthenticated && userProfile?.id && linked && multiStudioBookmarks && studioPickerEnabled,
+    ),
+  });
+
+  const libPickerLoading = multiStudioBookmarks ? allStudioLibsLoading : projectLibsLoading;
+  const libPickerOptions = useMemo(
+    () =>
+      multiStudioBookmarks
+        ? allStudioLibPairs.map((p) => ({ value: p.libraryId, label: p.label }))
+        : projectLibraries.map((l) => ({ value: l.id, label: l.name || l.id })),
+    [multiStudioBookmarks, allStudioLibPairs, projectLibraries],
+  );
 
   const sectionsScratch = useMemo(() => (meta && !linked ? [defaultSection(tableId)] : []), [meta, linked, tableId]);
   const propertiesScratch = useMemo(() => (meta && !linked ? propertiesFromMeta(meta, tableId) : []), [meta, linked, tableId]);
@@ -238,11 +317,7 @@ export default function SimLocalTableEditorClient() {
     async (assetName: string, propertyValues: Record<string, unknown>) => {
       const m = metaRef.current;
       if (!m) return;
-      const values: Record<string, string> = {};
-      for (const k of m.columnKeys) {
-        values[k] = String(propertyValues[k] ?? '');
-      }
-      if (m.columnKeys[0]) values[m.columnKeys[0]] = assetName;
+      const values = scratchValuesFromPropertyValues(m, propertyValues, assetName);
       const newRow: SimTableRow = { id: crypto.randomUUID(), values };
       setRows((prev) => [...prev, newRow]);
       setMeta((prev) => (prev ? { ...prev, dirty: true } : prev));
@@ -263,16 +338,10 @@ export default function SimLocalTableEditorClient() {
     async (assetId: string, assetName: string, propertyValues: Record<string, unknown>) => {
       const m = metaRef.current;
       if (!m) return;
-      const first = m.columnKeys[0];
       setRows((prev) =>
         prev.map((r) => {
           if (r.id !== assetId) return r;
-          const next = { ...r.values };
-          for (const k of m.columnKeys) {
-            next[k] = String(propertyValues[k] ?? '');
-          }
-          if (first) next[first] = assetName;
-          return { ...r, values: next };
+          return { ...r, values: scratchValuesFromPropertyValues(m, propertyValues, assetName) };
         }),
       );
       setMeta((prev) => (prev ? { ...prev, dirty: true } : prev));
@@ -344,11 +413,23 @@ export default function SimLocalTableEditorClient() {
     if (!m) return;
     const key = `col_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
     const label = payload.name?.trim() || `Column ${m.columnKeys.length + 1}`;
-    const nextLabels = [...(m.columnLabels ?? m.columnKeys.map((_, i) => (i === 0 ? 'name' : `Column ${i + 1}`))), label];
+    const dataType = (payload.dataType ?? 'string') as SimLocalColumnDef['dataType'];
+    const colDef: SimLocalColumnDef = {
+      key,
+      label,
+      dataType,
+      ...(dataType === 'reference' && payload.referenceLibraries?.length
+        ? { referenceLibraries: payload.referenceLibraries }
+        : {}),
+      ...(dataType === 'enum' && payload.enumOptions?.length ? { enumOptions: payload.enumOptions } : {}),
+    };
+    const prevCols = m.columns?.length ? m.columns : legacyColumnsFromMeta(m);
+    const nextLabels = [...(m.columnLabels ?? prevCols.map((c) => c.label)), label];
     setMeta({
       ...m,
       columnKeys: [...m.columnKeys, key],
       columnLabels: nextLabels,
+      columns: [...prevCols, colDef],
       dirty: true,
     });
     setRows((prev) => prev.map((r) => ({ ...r, values: { ...r.values, [key]: '' } })));
@@ -371,6 +452,47 @@ export default function SimLocalTableEditorClient() {
     [supabase, studioLibraryId, invalidateLinked],
   );
 
+  const handleScratchEditColumn = useCallback(
+    async ({
+      propertyKey,
+      payload,
+    }: {
+      propertyId: string;
+      propertyKey: string;
+      payload: AddColumnFormPayload;
+    }) => {
+      const m = metaRef.current;
+      if (!m) return;
+      const idx = m.columnKeys.indexOf(propertyKey);
+      if (idx < 0) return;
+      const label = payload.name?.trim() || `Column ${idx + 1}`;
+      const dataType = (payload.dataType ?? 'string') as SimLocalColumnDef['dataType'];
+      const prevCols = columnsFromMeta(m);
+      const nextColumns = prevCols.map((c) =>
+        c.key === propertyKey
+          ? {
+              ...c,
+              label,
+              dataType,
+              referenceLibraries:
+                dataType === 'reference' ? payload.referenceLibraries : undefined,
+              enumOptions: dataType === 'enum' ? payload.enumOptions : undefined,
+            }
+          : c,
+      );
+      const baseLabels = m.columnLabels ?? prevCols.map((c) => c.label);
+      const nextLabels = [...baseLabels];
+      nextLabels[idx] = label;
+      setMeta({
+        ...m,
+        columnLabels: nextLabels,
+        columns: nextColumns,
+        dirty: true,
+      });
+    },
+    [],
+  );
+
   const handleScratchDeleteColumn = useCallback(
     async ({ propertyKey, propertyId: _fieldId }: { propertyId: string; propertyKey: string }) => {
       const m = metaRef.current;
@@ -384,7 +506,9 @@ export default function SimLocalTableEditorClient() {
       const nextKeys = m.columnKeys.filter((k) => k !== propertyKey);
       const baseLabels = m.columnLabels ?? m.columnKeys.map((_, i) => (i === 0 ? 'name' : `Column ${i + 1}`));
       const nextLabels = baseLabels.filter((_, i) => i !== idx);
-      setMeta({ ...m, columnKeys: nextKeys, columnLabels: nextLabels, dirty: true });
+      const prevCols = m.columns?.length ? m.columns : legacyColumnsFromMeta(m);
+      const nextColumns = prevCols.filter((c) => c.key !== propertyKey);
+      setMeta({ ...m, columnKeys: nextKeys, columnLabels: nextLabels, columns: nextColumns, dirty: true });
       setRows((prev) =>
         prev.map((r) => {
           const { [propertyKey]: _removed, ...rest } = r.values;
@@ -423,6 +547,7 @@ export default function SimLocalTableEditorClient() {
           ...m,
           studioProjectId: undefined,
           studioLibraryId: undefined,
+          studioMultiProject: undefined,
           columnKeys: [firstKey],
           columnLabels: ['Column 1'],
           updatedAt: now,
@@ -440,22 +565,37 @@ export default function SimLocalTableEditorClient() {
 
   const handlePickStudioLibrary = useCallback(
     (libId: string) => {
-      if (!studioProjectId || libId === studioLibraryId) return;
-      setMeta((m) => (m ? { ...m, studioLibraryId: libId, updatedAt: Date.now() } : m));
+      const m = metaRef.current;
+      if (!m) return;
+      const multi = Boolean(m.studioMultiProject);
+      let nextProjectId = m.studioProjectId ?? '';
+      if (multi) {
+        const pair = allStudioLibPairs.find((p) => p.libraryId === libId);
+        if (!pair) return;
+        nextProjectId = pair.projectId;
+      }
+      if (!nextProjectId) return;
+      if (libId === m.studioLibraryId && nextProjectId === m.studioProjectId) return;
+
+      const nextMeta: SimTableMeta = {
+        ...m,
+        studioProjectId: nextProjectId,
+        studioLibraryId: libId,
+        updatedAt: Date.now(),
+        dirty: m.dirty,
+      };
+      setMeta(nextMeta);
       const q = new URLSearchParams();
-      q.set('projectId', studioProjectId);
+      q.set('projectId', nextProjectId);
       q.set('libraryId', libId);
       router.replace(`/simulation-system/battle/local-tables/${encodeURIComponent(tableId)}?${q.toString()}`);
       if (tableId !== SIM_LOCAL_WORKSPACE_TABLE_ID) {
-        const cur = metaRef.current;
-        if (cur) {
-          void putTableMeta({ ...cur, studioLibraryId: libId, updatedAt: Date.now(), dirty: cur.dirty }).catch((e) =>
-            message.error(e instanceof Error ? e.message : 'Failed to save'),
-          );
-        }
+        void putTableMeta(nextMeta).catch((e) =>
+          message.error(e instanceof Error ? e.message : 'Failed to save'),
+        );
       }
     },
-    [router, tableId, studioProjectId, studioLibraryId],
+    [router, tableId, allStudioLibPairs],
   );
 
   const handleDeleteTable = () => {
@@ -505,14 +645,16 @@ export default function SimLocalTableEditorClient() {
           </Space>
           {studioPickerEnabled ? (
             <Space align="center" wrap>
-              <Typography.Text type="secondary">Library</Typography.Text>
+              <Typography.Text type="secondary">
+                {meta.studioMultiProject ? 'Library (all projects)' : 'Library'}
+              </Typography.Text>
               <Select
-                style={{ minWidth: 280 }}
+                style={{ minWidth: 320 }}
                 value={studioLibraryId || undefined}
-                placeholder={projectLibsLoading ? 'Loading libraries…' : 'Select library'}
-                options={projectLibraries.map((l) => ({ value: l.id, label: l.name || l.id }))}
+                placeholder={libPickerLoading ? 'Loading libraries…' : 'Select library'}
+                options={libPickerOptions}
                 onChange={handlePickStudioLibrary}
-                loading={projectLibsLoading}
+                loading={libPickerLoading}
                 showSearch
                 optionFilterProp="label"
               />
@@ -523,6 +665,12 @@ export default function SimLocalTableEditorClient() {
               Switch libraries in this project with the picker above. <Typography.Text code>reference</Typography.Text>{' '}
               columns use the same asset pickers as Project tables; edits are saved to Supabase.
             </Typography.Paragraph>
+          ) : linked && meta.studioMultiProject ? (
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+              This bookmark includes every library across all Studio projects you can access. Use the picker above to
+              switch (labels show <Typography.Text code>project / library</Typography.Text>).{' '}
+              <Typography.Text code>reference</Typography.Text> columns follow the current library; edits go to Supabase.
+            </Typography.Paragraph>
           ) : linked ? (
             <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
               Linked to Studio library <Typography.Text code>{studioLibraryId}</Typography.Text> in project{' '}
@@ -531,8 +679,9 @@ export default function SimLocalTableEditorClient() {
             </Typography.Paragraph>
           ) : (
             <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-              Local scratch sheet (IndexedDB). To use reference columns against Keco Studio data, create a table with
-              &quot;Link Studio library&quot; enabled on the list page, or open the Studio workspace from the list page.
+              Local scratch sheet (IndexedDB). Same table UI as Studio: edit columns from the header menu, and{' '}
+              <Typography.Text code>reference</Typography.Text> columns load assets from any Studio library you can
+              access (sign in with the same Supabase account as Keco Studio).
             </Typography.Paragraph>
           )}
         </Space>
@@ -561,13 +710,15 @@ export default function SimLocalTableEditorClient() {
                   onAddProperty={linked ? handleAddPropertyLinked : handleAddPropertyScratch}
                   enableRealtime={false}
                   bypassProjectRoleForUi
+                  addColumnReferenceScope={linked ? 'project' : 'allProjects'}
                   scratchColumnOps={
                     linked
                       ? undefined
                       : {
-                          onDeleteColumn: handleScratchDeleteColumn,
-                          hideEditColumn: true,
-                        }
+                        onDeleteColumn: handleScratchDeleteColumn,
+                        onEditColumn: handleScratchEditColumn,
+                        referenceLibraryScope: 'allProjects',
+                      }
                   }
                 />
               </YjsProvider>

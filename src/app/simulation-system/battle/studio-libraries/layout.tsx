@@ -1,12 +1,8 @@
 'use client';
 
 import { Suspense } from 'react';
-import { StudioRuntimeProviders } from '@/components/simulation/StudioRuntimeProviders';
 
+/** Supabase/Auth/Query providers come from parent `BattleLayoutShell`. */
 export default function StudioLibrariesLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <StudioRuntimeProviders>
-      <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>{children}</Suspense>
-    </StudioRuntimeProviders>
-  );
+  return <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>{children}</Suspense>;
 }

@@ -25,10 +25,7 @@ import {
   REACTION_CONFIG,
 } from './types';
 import { filterSkillsByTab, getBuiltinSkills, inferSkillTabElement } from './data/skills';
-import {
-  BATTLE_SKILLS_UPDATED_EVENT,
-  loadBattleSkillsFromPersistence,
-} from './lib/skills/battleSkillsStorage';
+import { BattleLocalTableSkillSourceLauncher } from './components/BattleLocalTableSkillSourceLauncher';
 import {
   createInitialBattleState,
   canUseSkill,
@@ -116,27 +113,17 @@ export default function BattleSimulatorPage() {
   // Active element tab
   const [selectedElement, setSelectedElement] = useState<string>('all');
 
-  // Built-in or persisted skill table
+  // Skills from local table mapping (fallback: built-in until first successful validate)
   const [skillList, setSkillList] = useState<Skill[]>(() => getBuiltinSkills());
 
-  // Loadout (max 6); synced with persistence after first load
+  // Loadout (max 6)
   const [playerSkillIds, setPlayerSkillIds] = useState<string[]>([]);
 
   // Log scroll ref
   const logRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const sync = () => {
-      void loadBattleSkillsFromPersistence().then(setSkillList);
-    };
-    sync();
-    if (typeof window === 'undefined') return;
-    window.addEventListener(BATTLE_SKILLS_UPDATED_EVENT, sync);
-    window.addEventListener('storage', sync);
-    return () => {
-      window.removeEventListener(BATTLE_SKILLS_UPDATED_EVENT, sync);
-      window.removeEventListener('storage', sync);
-    };
+  const handleSkillsFromLocalTable = useCallback((skills: Skill[]) => {
+    if (skills.length > 0) setSkillList(skills);
   }, []);
 
   useEffect(() => {
@@ -518,6 +505,12 @@ export default function BattleSimulatorPage() {
   // Stat form
   const renderConfigPanel = () => (
     <div className={styles.configPanel}>
+      <BattleLocalTableSkillSourceLauncher
+        disabled={battleState !== null}
+        activeSkillCount={skillList.length}
+        onSkillsApplied={handleSkillsFromLocalTable}
+      />
+
       {/* Player */}
       <div className={`${styles.configCard} ${styles.playerCard} ${battleState && battleState.phase !== 'setup' ? styles.inCombat : ''}`}>
         <div className={styles.configCardTitle}>

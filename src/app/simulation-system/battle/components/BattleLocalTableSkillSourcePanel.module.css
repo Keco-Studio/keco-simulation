@@ -1,0 +1,329 @@
+.card {
+  background: var(--bg-card, #21262d);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #30363d);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Inside Studio-style modal (light surface) */
+.modalLayout {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.modalLayout .hint,
+.modalLayout .metaLine,
+.modalLayout .mappingHint,
+.modalLayout .fieldSelectLabel,
+.modalLayout .configuredLabel {
+  color: #64748b;
+}
+
+.modalLayout .warnLine {
+  color: #c2410c;
+}
+
+.modalLayout .warnLine a {
+  color: #0b99ff;
+}
+
+.modalLayout .draftsCollapse :global(.ant-collapse-header) {
+  color: #0f172a !important;
+}
+
+.modalLayout .actions {
+  margin-bottom: 8px;
+}
+
+.resultOkModal {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #15803d;
+}
+
+.modalLayout .resultFail {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.25);
+  color: #b91c1c;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--text-primary, #e6edf3);
+}
+
+.hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-secondary, #8b949e);
+  line-height: 1.45;
+}
+
+.hint a {
+  color: #58a6ff;
+}
+
+.warnLine {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #f0883e;
+  line-height: 1.4;
+}
+
+.warnLine a {
+  color: #58a6ff;
+}
+
+.metaLine {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--text-muted, #6e7681);
+}
+
+.importByIdBlock {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-color, #30363d);
+}
+
+.modalLayout .importByIdBlock {
+  border-bottom-color: #e2e8f0;
+}
+
+.importByIdBlockEmbedded {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.sectionTitle {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #e6edf3);
+}
+
+.modalLayout .sectionTitle {
+  color: #0f172a;
+}
+
+.sectionTitleSpaced {
+  margin-top: 20px;
+}
+
+.createSkillActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.createConfirmRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.backLink {
+  padding-left: 0 !important;
+  margin-bottom: 4px;
+  color: #64748b !important;
+}
+
+.modalLayout .backLink {
+  color: #0b99ff !important;
+}
+
+.importByIdTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #e6edf3);
+  margin-bottom: 6px;
+}
+
+.modalLayout .importByIdTitle {
+  color: #0f172a;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.draftsCollapse {
+  background: transparent !important;
+}
+
+.draftsCollapse :global(.ant-collapse-header) {
+  color: var(--text-primary, #e6edf3) !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+}
+
+.draftsCollapse :global(.ant-collapse-content-box) {
+  padding: 8px 10px 12px !important;
+}
+
+.draftTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.draftBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fieldGroupTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #6e7681);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.draftEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fieldSelectRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldSelectLabel {
+  font-size: 12px;
+  color: var(--text-secondary, #8b949e);
+}
+
+.fieldSelect {
+  width: 100%;
+}
+
+.fieldOption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.fieldOptionName {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.fieldOptionDesc {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.bindingBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bindingRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bindingSelect {
+  width: 100%;
+}
+
+.configuredFields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.configuredLabel {
+  font-size: 11px;
+  color: var(--text-muted, #6e7681);
+}
+
+.configuredTag {
+  margin: 0;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.removeDraftBtn {
+  align-self: flex-start;
+  padding-left: 0;
+}
+
+.required {
+  color: #f0883e;
+  margin-left: 2px;
+}
+
+.mappingHint {
+  font-size: 10px;
+  color: var(--text-muted, #6e7681);
+  line-height: 1.3;
+}
+
+.errorList {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 11px;
+  color: #ff8787;
+  line-height: 1.45;
+}
+
+.resultOk {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  background: rgba(81, 207, 102, 0.12);
+  border: 1px solid rgba(81, 207, 102, 0.35);
+  color: #69db7c;
+}
+
+.resultFail {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  color: #ff8787;
+}

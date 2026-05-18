@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { StudioRuntimeProviders } from '@/components/simulation/StudioRuntimeProviders';
 import { BattleBreadcrumb } from './BattleBreadcrumb';
 
 /**
@@ -14,9 +15,9 @@ export function BattleLayoutShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/simulation-system/battle/local-tables');
 
   return (
-    <>
+    <StudioRuntimeProviders>
       {!hideBattleCrumb && <BattleBreadcrumb />}
       {children}
-    </>
+    </StudioRuntimeProviders>
   );
 }

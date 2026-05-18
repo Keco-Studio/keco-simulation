@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import '@ant-design/v5-patch-for-react-19';
+import AntdRegistry from '@/components/AntdRegistry';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <AntdRegistry>{children}</AntdRegistry>
+      </body>
     </html>
   );
 }

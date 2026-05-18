@@ -1,0 +1,84 @@
+---
+alwaysApply: true
+---
+# Local table skill picker — bug log & guardrails
+
+When fixing or extending battle skill binding (table → column → value), read this before changing cell parsing or dropdown population.
+
+## Record new bugs here
+
+When you fix a non-obvious bug in this area, append a short entry under **Log** (date, symptom, cause, fix). Keep entries factual; no secrets.
+
+---
+
+## Log
+
+### 2026-05 — Reference column shows data in Studio table but Value dropdown is empty
+
+- **Symptom:** User selects Studio-linked table + `ref` (reference) column; picker shows *No values in this column* while the library UI shows reference chips/icons.
+- **Cause:** Reference cells are not plain strings. Supabase stores `ReferenceSelection[]` (or legacy `string` / `string[]` asset ids) per `@studio/lib/utils/referenceValue.ts`. `cellToPickerOption` only handled `name` / `label` on objects, not `assetId` / `displayValue` / `fieldLabel`.
+- **Fix:** Use `normalizeReferenceSelections` in `cellDisplayValue.ts` → `cellToPickerOptions()`. Label priority: `displayValue` → `fieldLabel` → referenced asset **Name** → `assetId`. Multi-select refs yield multiple dropdown options.
+- **Do not repeat:** Never assume `propertyValues[fieldId]` is a display string. For picker UIs, branch on Studio `dataType === 'reference'` or always run reference normalization before dropping “empty” cells.
+
+### 2026-05 — Scratch table: reference cells saved as `[object Object]` / picker empty
+
+- **Symptom:** Reference column shows chips in UI briefly or picker/skill binding sees empty values after save.
+- **Cause:** `handleUpdateAssetScratch` coerced every cell with `String(propertyValues[k])`, destroying `ReferenceSelection[]` objects.
+- **Fix:** `scratchCellValues.ts` + `propertyValueToScratchCell` / `Record<string, unknown>` row values; enable **Edit column** on scratch tables (`onEditColumn`, `referenceLibraryScope: allProjects` in `EditColumnModal`).
+- **Do not repeat:** Never `String()` complex Studio field types when persisting scratch rows.
+
+### 2026-05 — Create skill: Skill id fails validation though table column is string (“Arc Spark”)
+
+- **Symptom:** Battle → New skill → bind **Skill id** + **Display name** from string columns; validation: *Skill id must be letters, digits, or underscore* (e.g. value `Arc Spark`).
+- **Cause:** **Skill id** is a battle code key (`skillTableCodec.resolveSkillId`), not Studio `dataType: string`. Spaces, hyphens, and punctuation are invalid unless normalized. Users expect table string = skill string.
+- **Fix:** `normalizeSkillId` strips/replaces non `[a-zA-Z0-9_]`; `resolveSkillId` accepts normalized ids; `BattleLocalTableSkillSourcePanel` normalizes on Value select and shows `Arc Spark → Arc_Spark` in the dropdown. **Display name** stays free-form.
+- **Do not repeat:** Do not relax `SKILL_ID_PATTERN` to allow arbitrary display strings—use **Display name** for UI labels. For id picks, always run `resolveSkillId` before save.
+
+### 2026-05 — Scratch local table: no Edit column / cannot rename column header
+
+- **Symptom:** Local table header menu only **Delete column**; no rename.
+- **Cause:** `SimLocalTableEditorClient` passed `scratchColumnOps.hideEditColumn: true` (no Supabase `library_field_definitions` row).
+- **Fix:** `onEditColumn` + `handleScratchEditColumn` updates `columnLabels` / `columns[].label`; `EditColumnModal` supports `onSubmitScratch` + `referenceLibraryScope: allProjects`.
+- **Do not repeat:** Scratch tables use the same `TableHeader` chrome as Studio; wire edit via `scratchColumnOps`, not `hideEditColumn`.
+
+### 2026-05 — Import by id: header alias + ambiguity modal
+
+- **Symptom:** User has a full skill sheet (`power`, `mp`, `id`, `attachTurns`, …) but manual per-field binding is tedious; headers like `displayName` vs skill `name` are unclear.
+- **Fix:** `ImportSkillByIdBlock` + `importSkillRowFromTable.ts`: pick table → id column → skill id value → map row by case-insensitive headers (`mp`→`mpCost`, `attachTurns`→`attachDuration`, `displayName`→`name`). Ambiguous headers or two columns → same field opens `ImportSkillHeaderMappingModal`. Missing columns → defaults via `draftToFlatRow` / `emptySkillFlatRow`.
+- **Sheet headers (2026-05):** `CD`→`maxCooldown`, `DoT power`→`dotDamage`, `DoT turns`→`dotDuration`, `Freeze turns`→`freezeDuration`, `Special`→`specialType`, `Reactions`→`reactionTriggersJson` (JSON array in cell).
+- **Do not repeat:** Use `cellValueToString` for row cells; run `planImportColumnMapping` again after user resolutions.
+
+### 2026-05 — Create skill: direct import from Keco Studio (no local-table bookmark)
+
+- **Symptom:** Users only saw local-table import; Studio libraries required creating a linked bookmark first.
+- **Fix:** `ImportSkillFromStudioBlock` + `listStudioLibrariesForSkillImport`; drafts use virtual `tableId` `studio:{libraryId}`; `simTablePickerData` resolves `studio:` prefix for column/value reload when editing bindings.
+- **Do not repeat:** Studio import needs the same Supabase session as Keco Studio (`StudioRuntimeProviders` on battle routes).
+
+### 2026-05 — Scratch local table: reference column picker shows “No libraries found”
+
+- **Symptom:** User creates a table without “Link all Keco Studio projects”; Add Column → reference → empty library list.
+- **Cause:** `AddColumnModal` only loads libraries when URL has `projectId`. Scratch routes have no project. Scratch `handleAddPropertyScratch` also forced every column to `dataType: 'string'`.
+- **Fix:** `addColumnReferenceScope="allProjects"` on scratch editor; `AddColumnModal` lists libraries across all accessible projects. `SimTableMeta.columns` stores scratch column types including `referenceLibraries`.
+- **Do not repeat:** Link Studio is for **mirroring** a library’s rows in Supabase, not the only way to use reference columns.
+
+---
+
+## Implementation checklist (picker / validation)
+
+1. **Studio-linked tables** — Load via `getLibrarySchema` + `getLibraryAssetsWithProperties`, not only IndexedDB `getTableRows` (scratch rows are empty for Studio bookmarks).
+2. **Value options** — Use `loadColumnValueOptions` + `cellToPickerOptions`; show **label** only in the Select, store the resolved **string value** on the draft.
+3. **Reference columns** — Must go through `normalizeReferenceSelections`; do not `JSON.stringify` reference objects for display.
+4. **Include all table bookmarks** in table dropdown — Do not filter out `studioLibraryId` entries; users’ “hetu / local” tables are often Studio-linked.
+5. **Auth** — Studio column/value fetch needs `SupabaseProvider` (e.g. `BattleLayoutShell` → `StudioRuntimeProviders`) and the same Supabase session as Keco Studio.
+6. **Skill id vs Display name** — Picker field `id` must use `resolveSkillId` / `normalizeSkillId`; field `name` uses raw cell text. String table columns do not imply valid skill ids.
+7. **Import by id** — `loadTableRows` + `findRowByIdCell`; header tokens via `normalizeHeaderToken` / `HEADER_SKILL_CANDIDATES`; resolve ambiguities before `buildDraftFromTableRow`.
+
+## Wrong vs right
+
+```ts
+// WRONG — reference cell becomes null, dropdown empty
+const opt = cellToPickerOption(row.propertyValues[fieldId]);
+
+// RIGHT — expand refs to human-readable options
+const opts = cellToPickerOptions(row.propertyValues[fieldId], assetNameById);
+```

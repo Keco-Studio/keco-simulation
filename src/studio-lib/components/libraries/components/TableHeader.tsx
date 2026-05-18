@@ -13,6 +13,7 @@ import { queryKeys } from '@studio/lib/utils/queryKeys';
 import { showErrorToast, showSuccessToast } from '@studio/lib/utils/toast';
 import { getFieldTypeIcon, FIELD_TYPE_OPTIONS } from '@studio/app/(dashboard)/[projectId]/[libraryId]/predefine/utils';
 import { EditColumnModal } from './EditColumnModal';
+import type { AddColumnFormPayload } from './AddColumnModal';
 import styles from '@studio/components/libraries/LibraryAssetsTable.module.css';
 import showIcon from '@studio/assets/images/showIcon.svg';
 import addColumIcon from '@studio/assets/images/addColumIcon.svg';
@@ -97,11 +98,16 @@ export type TableHeaderProps = {
   /** Ref for the add column button (used to position the popup below it) */
   addColumnButtonRef?: React.RefObject<HTMLButtonElement | null>;
   /**
-   * Local scratch tables (IndexedDB): skip Supabase delete; optionally hide Edit column (no library_field_definitions row).
+   * Local scratch tables (IndexedDB): column edit/delete without Supabase library_field_definitions rows.
    */
   scratchColumnOps?: {
     onDeleteColumn: (args: { propertyId: string; propertyKey: string }) => Promise<void>;
-    hideEditColumn: boolean;
+    onEditColumn: (args: {
+      propertyId: string;
+      propertyKey: string;
+      payload: AddColumnFormPayload;
+    }) => Promise<void>;
+    referenceLibraryScope?: 'project' | 'allProjects';
   };
 };
 
@@ -176,6 +182,7 @@ export function TableHeader({
   const [editTarget, setEditTarget] = useState<{
     open: boolean;
     propertyId?: string;
+    propertyKey?: string;
     propertyName?: string;
     propertyDescription?: string | null;
     propertyDataType?: PropertyConfig['dataType'];
@@ -397,7 +404,6 @@ export function TableHeader({
             }}
           >
             <div className={styles.headerContextMenuLabel}>OPTION</div>
-            {!scratchColumnOps?.hideEditColumn && (
             <button
               type="button"
               className={styles.headerContextMenuButton}
@@ -406,6 +412,7 @@ export function TableHeader({
                 setEditTarget({
                   open: true,
                   propertyId: headerMenu.propertyId,
+                  propertyKey: headerMenu.propertyKey,
                   propertyName: headerMenu.propertyName ?? '',
                   propertyDescription: headerMenu.propertyDescription,
                   propertyDataType: headerMenu.propertyDataType,
@@ -420,7 +427,6 @@ export function TableHeader({
             >
               Edit column
             </button>
-            )}
             {headerMenu.canDeleteColumn && (
               <button
                 type="button"
@@ -564,6 +570,7 @@ export function TableHeader({
             : undefined
         }
         propertyId={editTarget.propertyId}
+        propertyKey={editTarget.propertyKey}
         propertyName={editTarget.propertyName}
         propertyDescription={editTarget.propertyDescription}
         propertyDataType={editTarget.propertyDataType}
@@ -571,6 +578,18 @@ export function TableHeader({
         propertyReferenceLibraries={editTarget.propertyReferenceLibraries}
         propertyFormulaExpression={editTarget.propertyFormulaExpression}
         existingProperties={existingProperties}
+        referenceLibraryScope={scratchColumnOps?.referenceLibraryScope ?? 'project'}
+        onSubmitScratch={
+          scratchColumnOps?.onEditColumn && editTarget.propertyKey
+            ? async (payload) => {
+                await scratchColumnOps.onEditColumn({
+                  propertyId: editTarget.propertyId!,
+                  propertyKey: editTarget.propertyKey!,
+                  payload,
+                });
+              }
+            : undefined
+        }
         onClose={() => setEditTarget({ open: false })}
       />
     </>

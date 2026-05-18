@@ -13,10 +13,6 @@ import type { SimTableMeta } from '@/lib/simLocalTables/types';
 import { SIM_LOCAL_WORKSPACE_TABLE_ID } from '@/lib/simLocalTables/constants';
 import { deleteTableCascade, listTableMetas, putTableMeta, putTableRows } from '@/lib/simLocalTables/simLocalTablesDb';
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
-}
-
 export default function LocalTablesHubClient() {
   const router = useRouter();
   const supabase = useSupabase();
@@ -28,25 +24,9 @@ export default function LocalTablesHubClient() {
   const [form] = Form.useForm<{
     name: string;
     linkStudio: boolean;
-    studioProjectId?: string;
-    studioLibraryId?: string;
   }>();
 
   const linkStudio = Form.useWatch('linkStudio', form);
-
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
-    queryKey: ['projects', userProfile?.id],
-    queryFn: () => listProjects(supabase, userProfile!.id),
-    enabled: Boolean(open && isAuthenticated && userProfile?.id && linkStudio),
-  });
-
-  const selectedProjectId = Form.useWatch('studioProjectId', form);
-
-  const { data: libraries = [], isLoading: librariesLoading } = useQuery({
-    queryKey: ['projectLibraries', selectedProjectId],
-    queryFn: () => listLibraries(supabase, selectedProjectId!),
-    enabled: Boolean(open && linkStudio && selectedProjectId && isUuid(selectedProjectId)),
-  });
 
   const { data: hubWorkspaceProjects = [], isLoading: hubWsProjectsLoading } = useQuery({
     queryKey: ['hubWorkspaceProjects', userProfile?.id],
@@ -57,15 +37,6 @@ export default function LocalTablesHubClient() {
   const hubWorkspaceProjectOptions = useMemo(
     () => hubWorkspaceProjects.map((p) => ({ value: p.id, label: p.name || p.id })),
     [hubWorkspaceProjects],
-  );
-
-  const projectOptions = useMemo(
-    () => projects.map((p) => ({ value: p.id, label: p.name || p.id })),
-    [projects],
-  );
-  const libraryOptions = useMemo(
-    () => libraries.map((lib) => ({ value: lib.id, label: lib.name || lib.id })),
-    [libraries],
   );
 
   const refresh = useCallback(async () => {
@@ -88,43 +59,73 @@ export default function LocalTablesHubClient() {
       const v = await form.validateFields();
       const id = crypto.randomUUID();
       const now = Date.now();
-      const link = Boolean(v.linkStudio && v.studioProjectId && v.studioLibraryId);
-      if (v.linkStudio) {
-        if (!v.studioProjectId || !isUuid(v.studioProjectId)) {
-          message.error('Choose a valid project');
-          return;
-        }
-        if (!v.studioLibraryId || !isUuid(v.studioLibraryId)) {
-          message.error('Choose a valid library');
-          return;
-        }
-      }
       const firstKey = 'col_1';
+
+      if (v.linkStudio) {
+        if (!isAuthenticated || !userProfile?.id) {
+          message.error('Sign in (same Supabase as Studio) to link all projects');
+          return;
+        }
+        const projects = await listProjects(supabase, userProfile.id);
+        type Pair = { projectId: string; libraryId: string; sort: string };
+        const pairs: Pair[] = [];
+        for (const p of projects) {
+          const libs = await listLibraries(supabase, p.id);
+          const pname = (p.name || p.id).toLowerCase();
+          for (const lib of libs) {
+            const lname = (lib.name || lib.id).toLowerCase();
+            pairs.push({
+              projectId: p.id,
+              libraryId: lib.id,
+              sort: `${pname}\t${lname}\t${p.id}\t${lib.id}`,
+            });
+          }
+        }
+        if (!pairs.length) {
+          message.error('No libraries found in any of your Studio projects');
+          return;
+        }
+        pairs.sort((a, b) => (a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0));
+        const first = pairs[0];
+        const meta: SimTableMeta = {
+          id,
+          name: v.name.trim() || 'Untitled table',
+          columnKeys: [],
+          createdAt: now,
+          updatedAt: now,
+          dirty: false,
+          studioProjectId: first.projectId,
+          studioLibraryId: first.libraryId,
+          studioMultiProject: true,
+        };
+        await putTableMeta(meta);
+        await putTableRows(id, []);
+        message.success('Table created');
+        setOpen(false);
+        form.resetFields();
+        await refresh();
+        router.push(
+          `/simulation-system/battle/local-tables/${id}?projectId=${encodeURIComponent(first.projectId)}&libraryId=${encodeURIComponent(first.libraryId)}`,
+        );
+        return;
+      }
+
       const meta: SimTableMeta = {
         id,
         name: v.name.trim() || 'Untitled table',
-        columnKeys: link ? [] : [firstKey],
-        columnLabels: link ? undefined : ['Column 1'],
+        columnKeys: [firstKey],
+        columnLabels: ['Column 1'],
         createdAt: now,
         updatedAt: now,
         dirty: false,
-        studioProjectId: link ? v.studioProjectId?.trim() : undefined,
-        studioLibraryId: link ? v.studioLibraryId?.trim() : undefined,
       };
       await putTableMeta(meta);
-      if (link) {
-        await putTableRows(id, []);
-      } else {
-        await putTableRows(id, [{ id: crypto.randomUUID(), values: { [firstKey]: '' } }]);
-      }
+      await putTableRows(id, [{ id: crypto.randomUUID(), values: { [firstKey]: '' } }]);
       message.success('Table created');
       setOpen(false);
       form.resetFields();
       await refresh();
-      const q = link
-        ? `?projectId=${encodeURIComponent(v.studioProjectId!.trim())}&libraryId=${encodeURIComponent(v.studioLibraryId!.trim())}`
-        : '';
-      router.push(`/simulation-system/battle/local-tables/${id}${q}`);
+      router.push(`/simulation-system/battle/local-tables/${id}`);
     } catch {
       /* validateFields */
     }
@@ -134,7 +135,9 @@ export default function LocalTablesHubClient() {
     Modal.confirm({
       title: 'Delete this table?',
       content: m.studioLibraryId
-        ? 'Removes this bookmark from this browser. Your Studio library is not deleted.'
+        ? m.studioMultiProject
+          ? 'Removes this bookmark from this browser. Your Studio projects and libraries are not deleted.'
+          : 'Removes this bookmark from this browser. Your Studio library is not deleted.'
         : 'All rows for this table will be removed. This cannot be undone.',
       okText: 'Delete',
       okType: 'danger',
@@ -153,9 +156,9 @@ export default function LocalTablesHubClient() {
         Local tables
       </Typography.Title>
       <Typography.Paragraph type="secondary">
-        Scratch tables live in IndexedDB. Optionally <strong>link a Keco Studio library</strong>: you get the same
-        table UI (including <Typography.Text code>reference</Typography.Text> columns), and edits are written to
-        Supabase like Project tables. Sign in on this app (same Supabase as Studio) before linking.
+        <strong>Without</strong> Link Studio: rows stay in IndexedDB; you can still add <strong>reference</strong>{' '}
+        columns that point at other Studio libraries (sign in required). <strong>With</strong> Link Studio: the editor
+        mirrors a live library from Supabase (same data as Project tables).
       </Typography.Paragraph>
       <Card size="small" title="Studio workspace" style={{ marginBottom: 20 }}>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
@@ -232,8 +235,18 @@ export default function LocalTablesHubClient() {
               description={
                 m.studioLibraryId ? (
                   <span>
-                    Linked Studio library · project <Typography.Text code>{m.studioProjectId}</Typography.Text> ·
-                    library <Typography.Text code>{m.studioLibraryId}</Typography.Text>
+                    {m.studioMultiProject ? (
+                      <>
+                        Linked to <strong>all</strong> Studio projects — switch library in the editor. Current: project{' '}
+                        <Typography.Text code>{m.studioProjectId}</Typography.Text> · library{' '}
+                        <Typography.Text code>{m.studioLibraryId}</Typography.Text>
+                      </>
+                    ) : (
+                      <>
+                        Linked Studio library · project <Typography.Text code>{m.studioProjectId}</Typography.Text> ·
+                        library <Typography.Text code>{m.studioLibraryId}</Typography.Text>
+                      </>
+                    )}
                   </span>
                 ) : (
                   'This device only (IndexedDB scratch)'
@@ -256,55 +269,25 @@ export default function LocalTablesHubClient() {
           form={form}
           layout="vertical"
           initialValues={{ linkStudio: false }}
-          onValuesChange={(changed) => {
-            if (changed.linkStudio === false) {
-              form.setFieldsValue({ studioProjectId: undefined, studioLibraryId: undefined });
-            }
-          }}
         >
           <Form.Item name="name" label="Name" rules={[{ required: true, message: 'Enter a table name' }]}>
             <Input placeholder="e.g. Battle notes or Library mirror" />
           </Form.Item>
           <Form.Item name="linkStudio" valuePropName="checked">
-            <Checkbox>Link Keco Studio library (Supabase + reference columns)</Checkbox>
+            <Checkbox>Link all Keco Studio projects (every library; Supabase + reference columns)</Checkbox>
           </Form.Item>
           {linkStudio ? (
-            <>
-              {!authLoading && !isAuthenticated ? (
-                <Typography.Paragraph type="warning">
-                  Sign in (same Supabase account as Studio) to list projects and libraries.
-                </Typography.Paragraph>
-              ) : null}
-              <Form.Item
-                name="studioProjectId"
-                label="Project"
-                rules={[{ required: true, message: 'Select a project' }]}
-              >
-                <Select
-                  showSearch
-                  placeholder="Select project"
-                  options={projectOptions}
-                  loading={projectsLoading}
-                  optionFilterProp="label"
-                  disabled={!isAuthenticated}
-                  onChange={() => form.setFieldsValue({ studioLibraryId: undefined })}
-                />
-              </Form.Item>
-              <Form.Item
-                name="studioLibraryId"
-                label="Library"
-                rules={[{ required: true, message: 'Select a library' }]}
-              >
-                <Select
-                  showSearch
-                  placeholder="Select library"
-                  options={libraryOptions}
-                  loading={librariesLoading}
-                  optionFilterProp="label"
-                  disabled={!selectedProjectId}
-                />
-              </Form.Item>
-            </>
+            !authLoading && !isAuthenticated ? (
+              <Typography.Paragraph type="warning">
+                Sign in (same Supabase account as Studio). We will load every project and library you can access — no
+                manual selection.
+              </Typography.Paragraph>
+            ) : (
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                On create, we discover <strong>all</strong> libraries in <strong>all</strong> your Studio projects and
+                open the first one; you can switch to any other library in the editor.
+              </Typography.Paragraph>
+            )
           ) : null}
         </Form>
       </Modal>
