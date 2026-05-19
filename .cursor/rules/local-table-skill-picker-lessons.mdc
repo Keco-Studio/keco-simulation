@@ -48,11 +48,11 @@ When you fix a non-obvious bug in this area, append a short entry under **Log** 
 - **Sheet headers (2026-05):** `CD`→`maxCooldown`, `DoT power`→`dotDamage`, `DoT turns`→`dotDuration`, `Freeze turns`→`freezeDuration`, `Special`→`specialType`, `Reactions`→`reactionTriggersJson` (JSON array in cell).
 - **Do not repeat:** Use `cellValueToString` for row cells; run `planImportColumnMapping` again after user resolutions.
 
-### 2026-05 — Create skill: direct import from Keco Studio (no local-table bookmark)
+### 2026-05 — Create skill: Studio libraries in shared table picker (not a separate flow)
 
-- **Symptom:** Users only saw local-table import; Studio libraries required creating a linked bookmark first.
-- **Fix:** `ImportSkillFromStudioBlock` + `listStudioLibrariesForSkillImport`; drafts use virtual `tableId` `studio:{libraryId}`; `simTablePickerData` resolves `studio:` prefix for column/value reload when editing bindings.
-- **Do not repeat:** Studio import needs the same Supabase session as Keco Studio (`StudioRuntimeProviders` on battle routes).
+- **Symptom:** Users only saw local-table import; Studio libraries required a separate “From Keco Studio” screen or a linked bookmark first.
+- **Fix:** `listSelectableTablesForSkillPicker` merges local tables with direct Studio libraries (`studio:{libraryId}`) when signed in; **By attributes** and **By id** use the same table dropdown. `simTablePickerData` resolves `studio:` prefix for column/value reload.
+- **Do not repeat:** Do not add a third create-skill modal route for Studio—extend the table list instead. Studio picker needs the same Supabase session as Keco Studio (`StudioRuntimeProviders` on battle routes).
 
 ### 2026-05 — Scratch local table: reference column picker shows “No libraries found”
 

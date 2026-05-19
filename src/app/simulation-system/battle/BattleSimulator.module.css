@@ -111,12 +111,32 @@
 /* ==================== Main content ==================== */
 .mainContent {
   display: flex;
+  flex-direction: column;
   flex: 1;
-  gap: 20px;
+  min-height: 0;
   padding: 20px;
+}
+
+/** 行高 = 左侧配置栏内容高度，不随视口拉高 */
+.battleRow {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 20px;
+  width: 100%;
   max-width: 1600px;
   margin: 0 auto;
-  width: 100%;
+  flex: 0 0 auto;
+}
+
+/** Right column: 与 configPanel 同高，Ready / 地图共用 mapSlot */
+.rightColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* ==================== Stats panel ==================== */
@@ -285,6 +305,22 @@
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+  min-height: 0;
+  width: 100%;
+}
+
+/** Ready 与地图共用外框，开战前后尺寸一致 */
+.mapSlot {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  background: var(--bg-card);
 }
 
 /* Combatant cards */
@@ -695,8 +731,65 @@
 /* ==================== Actions ==================== */
 .actionButtons {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin-top: 16px;
+}
+
+.autoBattleHint {
+  flex: 0 0 auto;
+  min-width: 88px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.speedGroup {
+  display: flex;
+  gap: 4px;
+}
+
+.speedButton {
+  min-width: 40px;
+  height: 36px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.speedButton:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.speedButtonActive {
+  color: var(--text-primary);
+  border-color: var(--element-grass);
+  background: rgba(81, 207, 102, 0.12);
+}
+
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.secondaryButton:hover {
+  background: var(--bg-card-hover);
 }
 
 .startButton {
@@ -812,13 +905,12 @@
 /* ==================== Empty state ==================== */
 .emptyState {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: 0;
   padding: 40px;
-  background: var(--bg-card);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
   text-align: center;
 }
 
@@ -842,7 +934,7 @@
 
 /* ==================== Responsive ==================== */
 @media (max-width: 1200px) {
-  .mainContent {
+  .battleRow {
     flex-direction: column;
   }
 
