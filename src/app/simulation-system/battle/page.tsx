@@ -29,6 +29,7 @@ import {
 } from './types';
 import { filterSkillsByTab, getBuiltinSkills, inferSkillTabElement } from './data/skills';
 import { BattleLocalTableSkillSourceLauncher } from './components/BattleLocalTableSkillSourceLauncher';
+import { ElementGlyph } from './components/ElementGlyph';
 import { BattleArena, type BattleArenaConfig } from './components/BattleArena/BattleArena';
 import {
   createInitialBattleState,
@@ -243,35 +244,8 @@ export default function BattleSimulatorPage() {
     setMonsterConfig(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  // Start map arena (battle-core BT + keco elemental damage)
-  const handleStartBattle = useCallback(() => {
-    if (!playerConfig.name || !monsterConfig.name) {
-      message.warning('Enter both unit names');
-      return;
-    }
-
-    const loadout =
-      playerSkillIds.length > 0
-        ? playerSkillIds
-        : skillList.slice(0, Math.min(6, skillList.length)).map((s) => s.id);
-
-    if (skillList.length === 0) {
-      message.warning('Open Configure skills… and apply validated skills before battle');
-      return;
-    }
-
-    if (loadout.length === 0) {
-      message.warning('Configure at least one skill before battle');
-      return;
-    }
-
-    if (loadout.length !== playerSkillIds.length) {
-      setPlayerSkillIds(loadout);
-    }
-
-    setAutoRunning(false);
-    setBattleState(null);
-    setArenaConfig({
+  const buildArenaConfig = useCallback(
+    (loadout: string[]): BattleArenaConfig => ({
       mapWidth: 16,
       mapHeight: 16,
       playerName: playerConfig.name,
@@ -298,9 +272,79 @@ export default function BattleSimulatorPage() {
       enemySkillIds: loadout,
       skills: skillList,
       monsterInitialElement,
-    });
+    }),
+    [playerConfig, monsterConfig, monsterInitialElement, skillList],
+  );
+
+  /** Step 1: open skill loadout (setup phase) before map arena. */
+  const handleEnterLoadout = useCallback(() => {
+    if (!playerConfig.name || !monsterConfig.name) {
+      message.warning('Enter both unit names');
+      return;
+    }
+    if (skillList.length === 0) {
+      message.warning('Open Configure skills… and apply validated skills before battle');
+      return;
+    }
+
+    setAutoRunning(false);
+    setArenaConfig(null);
     setSelectedSkill(null);
-  }, [playerConfig, monsterConfig, monsterInitialElement, playerSkillIds, skillList]);
+    setBattleState(
+      createInitialBattleState({
+        player: {
+          id: 'player',
+          type: 'player',
+          name: playerConfig.name,
+          hp: playerConfig.hp,
+          atk: playerConfig.atk,
+          def: playerConfig.def,
+          spd: playerConfig.spd,
+          mp: playerConfig.mp,
+        },
+        monster: {
+          id: 'monster',
+          type: 'monster',
+          name: monsterConfig.name,
+          hp: monsterConfig.hp,
+          atk: monsterConfig.atk,
+          def: monsterConfig.def,
+          spd: monsterConfig.spd,
+          mp: monsterConfig.mp,
+        },
+        monsterInitialElement: monsterInitialElement ?? undefined,
+        maxTurns: 100,
+      }),
+    );
+  }, [playerConfig, monsterConfig, monsterInitialElement, skillList.length]);
+
+  /** Step 2: start map arena with the selected loadout (max 6). */
+  const handleLaunchArena = useCallback(() => {
+    const loadout =
+      playerSkillIds.length > 0
+        ? playerSkillIds
+        : skillList.slice(0, Math.min(6, skillList.length)).map((s) => s.id);
+
+    if (loadout.length === 0) {
+      message.warning('Select at least one skill for the loadout');
+      return;
+    }
+
+    if (loadout.length !== playerSkillIds.length) {
+      setPlayerSkillIds(loadout);
+    }
+
+    setAutoRunning(false);
+    setBattleState(null);
+    setArenaConfig(buildArenaConfig(loadout));
+    setSelectedSkill(null);
+  }, [playerSkillIds, skillList, buildArenaConfig]);
+
+  const handleCancelLoadout = useCallback(() => {
+    setAutoRunning(false);
+    setBattleState(null);
+    setSelectedSkill(null);
+  }, []);
 
   const handleSkipToEnd = useCallback(() => {
     if (!battleState || battleState.phase === 'finished') return;
@@ -510,7 +554,8 @@ export default function BattleSimulatorPage() {
                 disabled={battleState !== null || arenaConfig !== null}
                 style={{ color: monsterInitialElement === elem ? ELEMENT_CONFIG[elem].color : undefined }}
               >
-                {ELEMENT_CONFIG[elem].emoji} {ELEMENT_CONFIG[elem].name}
+                <ElementGlyph element={elem} size={8} />
+                {ELEMENT_CONFIG[elem].name}
               </button>
             ))}
           </div>
@@ -520,9 +565,23 @@ export default function BattleSimulatorPage() {
       {/* Actions */}
       <div className={styles.actionButtons}>
         {battleState === null && !arenaConfig ? (
-          <button className={styles.startButton} onClick={handleStartBattle}>
-            Start battle
+          <button className={styles.startButton} onClick={handleEnterLoadout}>
+            Select skills
           </button>
+        ) : battleState?.phase === 'setup' && !arenaConfig ? (
+          <>
+            <button
+              type="button"
+              className={styles.startButton}
+              onClick={handleLaunchArena}
+              disabled={playerSkillIds.length === 0}
+            >
+              Launch arena
+            </button>
+            <button type="button" className={styles.resetButton} onClick={handleCancelLoadout}>
+              Back
+            </button>
+          </>
         ) : arenaConfig ? (
           <button className={styles.resetButton} onClick={handleReset}>
             Stop arena
@@ -586,7 +645,23 @@ export default function BattleSimulatorPage() {
             </div>
             <div className={styles.emptyStateTitle}>Ready</div>
             <div className={styles.emptyStateDesc}>
-              Configure validated skills on the left, then Start battle — map grid + BT on the right
+              Configure validated skills on the left, then Select skills — pick up to 6, then Launch arena
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (battleState.phase === 'setup') {
+      return (
+        <div className={styles.battleStage}>
+          <div className={`${styles.mapSlot} ${styles.emptyState}`} style={{ minHeight: 140 }}>
+            <div className={styles.emptyStateIcon}>
+              <SettingOutlined />
+            </div>
+            <div className={styles.emptyStateTitle}>Skill loadout</div>
+            <div className={styles.emptyStateDesc}>
+              Choose up to 6 skills in the panel below, then click Launch arena on the left.
             </div>
           </div>
         </div>
@@ -641,7 +716,7 @@ export default function BattleSimulatorPage() {
               {battleState.phase === 'player_turn' && <span style={{ color: '#51cf66', fontSize: 12 }}>Acting</span>}
             </div>
             <div className={styles.statusTurn}>
-              {battleState.phase === 'setup' ? 'Setup' : `Round ${battleState.currentTurn}`}
+              {`Round ${battleState.currentTurn}`}
             </div>
           </div>
           <div className={styles.progressBars}>
@@ -838,7 +913,7 @@ export default function BattleSimulatorPage() {
                     }}
                     title="Click to remove"
                   >
-                    {skillElement !== 'none' && ELEMENT_CONFIG[skillElement as Element]?.emoji}
+                    {skillElement !== 'none' && <ElementGlyph element={skillElement as Element} />}
                     {skill.name}
                     <span style={{ color: '#888', marginLeft: 4 }}>×</span>
                   </div>
@@ -849,7 +924,20 @@ export default function BattleSimulatorPage() {
               )}
             </div>
             <div style={{ marginBottom: 12, fontSize: 12, color: '#8b949e' }}>
-              Click skill cards below to add (up to 6). Enemy uses the same loadout in auto battle.
+              Click skill cards below to add . Enemy uses the same loadout in the map arena.
+            </div>
+            <div className={styles.actionButtons} style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                className={styles.startButton}
+                onClick={handleLaunchArena}
+                disabled={playerSkillIds.length === 0}
+              >
+                Launch arena
+              </button>
+              <button type="button" className={styles.resetButton} onClick={handleCancelLoadout}>
+                Back
+              </button>
             </div>
           </>
         )}
@@ -874,7 +962,7 @@ export default function BattleSimulatorPage() {
               className={`${styles.elementTab} ${styles[`elementTab${elem.charAt(0).toUpperCase() + elem.slice(1)}`]} ${selectedElement === elem ? styles.elementTabActive : ''}`}
               onClick={() => setSelectedElement(elem)}
             >
-              {ELEMENT_CONFIG[elem].emoji}
+              <ElementGlyph element={elem} size={12} />
             </button>
           ))}
         </div>
@@ -896,6 +984,11 @@ export default function BattleSimulatorPage() {
                   ${!isSetup && !canUse.canUse && cooldown === 0 ? styles.skillCardDisabled : ''}
                   ${cooldown > 0 ? styles.skillCardCooldown : ''}
                 `}
+                style={
+                  elementColor
+                    ? { borderColor: elementColor, boxShadow: isSelected ? `0 0 0 2px ${elementColor}33` : undefined }
+                    : undefined
+                }
                 onClick={() => {
                   if (autoRunning) return;
                   if (isSetup) {
@@ -909,7 +1002,7 @@ export default function BattleSimulatorPage() {
               >
                 <div className={styles.skillCardHeader}>
                   <span className={styles.skillName} style={{ color: elementColor }}>
-                    {skillElement !== 'none' && ELEMENT_CONFIG[skillElement as Element]?.emoji}
+                    {skillElement !== 'none' && <ElementGlyph element={skillElement as Element} />}
                     {skill.name}
                   </span>
                   <span className={styles.skillMp}>
@@ -933,7 +1026,7 @@ export default function BattleSimulatorPage() {
                 </div>
                 {skill.attachElement && skill.attachElement.element !== 'random' && (
                   <div className={styles.skillElement} style={{ color: elementColor }}>
-                    Attach: {ELEMENT_CONFIG[skill.attachElement.element].emoji}
+                    Attach: <ElementGlyph element={skill.attachElement.element} size={8} />
                     {ELEMENT_CONFIG[skill.attachElement.element].name}·
                     {ELEMENT_STRENGTH_CONFIG[skill.attachElement.strength].name}
                   </div>
@@ -942,9 +1035,8 @@ export default function BattleSimulatorPage() {
                   <div className={styles.skillReaction}>
                     {skill.reactionTrigger.map((rt, i) => (
                       <span key={i}>
-                        vs {ELEMENT_CONFIG[rt.element].emoji}
-                        {ELEMENT_CONFIG[rt.element].name} → {REACTION_CONFIG[rt.reaction].emoji}
-                        {REACTION_CONFIG[rt.reaction].name}
+                        vs <ElementGlyph element={rt.element} size={8} />
+                        {ELEMENT_CONFIG[rt.element].name} → {REACTION_CONFIG[rt.reaction].name}
                       </span>
                     ))}
                   </div>
