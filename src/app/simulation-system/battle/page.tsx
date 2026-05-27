@@ -15,8 +15,11 @@ import {
   ArrowLeftOutlined,
   ClockCircleOutlined,
   AimOutlined,
+  PauseOutlined,
+  CaretRightOutlined,
+  FastForwardOutlined,
 } from '@ant-design/icons';
-import type { Combatant, BattleUnit, BattleState, Element, Skill, BattleLogEntry } from './types';
+import type { Combatant, BattleState, Element, Skill, BattleLogEntry } from './types';
 import {
   DEFAULT_PLAYER_STATS,
   DEFAULT_MONSTER_STATS,
@@ -26,19 +29,22 @@ import {
 } from './types';
 import { filterSkillsByTab, getBuiltinSkills, inferSkillTabElement } from './data/skills';
 import { BattleLocalTableSkillSourceLauncher } from './components/BattleLocalTableSkillSourceLauncher';
+import { ElementGlyph } from './components/ElementGlyph';
+import { BattleArena, type BattleArenaConfig } from './components/BattleArena/BattleArena';
 import {
   createInitialBattleState,
   canUseSkill,
-  executeSkill,
-  processTurnEnd,
-  setSkillCooldown,
-  reduceCooldowns,
-  checkBattleResult,
   addLog,
+  advanceAutoBattleStep,
+  runAutoBattleToCompletion,
 } from './core/battleLogic';
 import styles from './BattleSimulator.module.css';
 
 // --- Helpers ---
+
+const AUTO_BATTLE_BASE_MS = 450;
+const AUTO_BATTLE_SPEED_OPTIONS = [1, 2, 4] as const;
+type AutoBattleSpeed = (typeof AUTO_BATTLE_SPEED_OPTIONS)[number];
 
 /** Element tab for a skill (UI tint; matches editor tabs). */
 const getSkillElement = (skill: Skill): Element | 'none' => inferSkillTabElement(skill);
@@ -119,6 +125,18 @@ export default function BattleSimulatorPage() {
   // Loadout (max 6)
   const [playerSkillIds, setPlayerSkillIds] = useState<string[]>([]);
 
+  // Map arena (battle-core BT + keco damage)
+  const [arenaConfig, setArenaConfig] = useState<BattleArenaConfig | null>(null);
+
+  // Legacy turn-based auto (keco engine only) — kept for fallback
+  const [autoRunning, setAutoRunning] = useState(false);
+  const [battleSpeed, setBattleSpeed] = useState<AutoBattleSpeed>(1);
+  const autoBattleConfigRef = useRef({
+    skillList: [] as Skill[],
+    playerSkillIds: [] as string[],
+    enemySkillIds: [] as string[],
+  });
+
   // Log scroll ref
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -133,6 +151,49 @@ export default function BattleSimulatorPage() {
       return skillList.slice(0, Math.min(6, skillList.length)).map((s) => s.id);
     });
   }, [skillList]);
+
+  useEffect(() => {
+    autoBattleConfigRef.current = {
+      skillList,
+      playerSkillIds,
+      enemySkillIds: playerSkillIds,
+    };
+  }, [skillList, playerSkillIds]);
+
+  useEffect(() => {
+    if (!autoRunning || !battleState) return;
+    if (battleState.phase === 'finished' || battleState.result) {
+      setAutoRunning(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setBattleState((prev) => {
+        if (!prev || prev.phase === 'finished' || prev.result) {
+          setAutoRunning(false);
+          return prev;
+        }
+        const cfg = autoBattleConfigRef.current;
+        const step = advanceAutoBattleStep(prev, {
+          skillList: cfg.skillList,
+          playerSkillIds: cfg.playerSkillIds,
+          enemySkillIds: cfg.enemySkillIds,
+          maxTurns: 100,
+        });
+        if (step.finished) {
+          setAutoRunning(false);
+        }
+        return step.state;
+      });
+    }, Math.round(AUTO_BATTLE_BASE_MS / battleSpeed));
+
+    return () => window.clearTimeout(timer);
+  }, [autoRunning, battleState, battleSpeed]);
+
+  useEffect(() => {
+    if (!logRef.current || !battleState?.battleLogs.length) return;
+    logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [battleState?.battleLogs.length]);
 
   // --- Derived ---
 
@@ -183,319 +244,127 @@ export default function BattleSimulatorPage() {
     setMonsterConfig(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  // Start setup phase
-  const handleStartBattle = useCallback(() => {
-    // Validate names
+  const buildArenaConfig = useCallback(
+    (loadout: string[]): BattleArenaConfig => ({
+      mapWidth: 16,
+      mapHeight: 16,
+      playerName: playerConfig.name,
+      playerStats: {
+        maxHp: playerConfig.hp,
+        atk: playerConfig.atk,
+        def: playerConfig.def,
+        spd: playerConfig.spd,
+      },
+      playerHp: playerConfig.hp,
+      playerMp: playerConfig.mp,
+      playerMaxMp: playerConfig.mp,
+      playerSkillIds: loadout,
+      enemyName: monsterConfig.name,
+      enemyStats: {
+        maxHp: monsterConfig.hp,
+        atk: monsterConfig.atk,
+        def: monsterConfig.def,
+        spd: monsterConfig.spd,
+      },
+      enemyHp: monsterConfig.hp,
+      enemyMp: monsterConfig.mp,
+      enemyMaxMp: monsterConfig.mp,
+      enemySkillIds: loadout,
+      skills: skillList,
+      monsterInitialElement,
+    }),
+    [playerConfig, monsterConfig, monsterInitialElement, skillList],
+  );
+
+  /** Step 1: open skill loadout (setup phase) before map arena. */
+  const handleEnterLoadout = useCallback(() => {
     if (!playerConfig.name || !monsterConfig.name) {
       message.warning('Enter both unit names');
       return;
     }
+    if (skillList.length === 0) {
+      message.warning('Open Configure skills… and apply validated skills before battle');
+      return;
+    }
 
-    const player: Combatant = {
-      id: 'player',
-      name: playerConfig.name,
-      hp: playerConfig.hp,
-      atk: playerConfig.atk,
-      def: playerConfig.def,
-      spd: playerConfig.spd,
-      mp: playerConfig.mp,
-      type: 'player',
-    };
+    setAutoRunning(false);
+    setArenaConfig(null);
+    setSelectedSkill(null);
+    setBattleState(
+      createInitialBattleState({
+        player: {
+          id: 'player',
+          type: 'player',
+          name: playerConfig.name,
+          hp: playerConfig.hp,
+          atk: playerConfig.atk,
+          def: playerConfig.def,
+          spd: playerConfig.spd,
+          mp: playerConfig.mp,
+        },
+        monster: {
+          id: 'monster',
+          type: 'monster',
+          name: monsterConfig.name,
+          hp: monsterConfig.hp,
+          atk: monsterConfig.atk,
+          def: monsterConfig.def,
+          spd: monsterConfig.spd,
+          mp: monsterConfig.mp,
+        },
+        monsterInitialElement: monsterInitialElement ?? undefined,
+        maxTurns: 100,
+      }),
+    );
+  }, [playerConfig, monsterConfig, monsterInitialElement, skillList.length]);
 
-    const monster: Combatant = {
-      id: 'monster',
-      name: monsterConfig.name,
-      hp: monsterConfig.hp,
-      atk: monsterConfig.atk,
-      def: monsterConfig.def,
-      spd: monsterConfig.spd,
-      mp: monsterConfig.mp,
-      type: 'monster',
-    };
+  /** Step 2: start map arena with the selected loadout (max 6). */
+  const handleLaunchArena = useCallback(() => {
+    const loadout =
+      playerSkillIds.length > 0
+        ? playerSkillIds
+        : skillList.slice(0, Math.min(6, skillList.length)).map((s) => s.id);
 
-    const initialState = createInitialBattleState({
-      player,
-      monster,
-      monsterInitialElement: monsterInitialElement || undefined,
+    if (loadout.length === 0) {
+      message.warning('Select at least one skill for the loadout');
+      return;
+    }
+
+    if (loadout.length !== playerSkillIds.length) {
+      setPlayerSkillIds(loadout);
+    }
+
+    setAutoRunning(false);
+    setBattleState(null);
+    setArenaConfig(buildArenaConfig(loadout));
+    setSelectedSkill(null);
+  }, [playerSkillIds, skillList, buildArenaConfig]);
+
+  const handleCancelLoadout = useCallback(() => {
+    setAutoRunning(false);
+    setBattleState(null);
+    setSelectedSkill(null);
+  }, []);
+
+  const handleSkipToEnd = useCallback(() => {
+    if (!battleState || battleState.phase === 'finished') return;
+    const cfg = autoBattleConfigRef.current;
+    const final = runAutoBattleToCompletion(battleState, {
+      skillList: cfg.skillList,
+      playerSkillIds: cfg.playerSkillIds,
+      enemySkillIds: cfg.enemySkillIds,
       maxTurns: 100,
     });
-
-    initialState.battleLogs.push(addLog(initialState, {
-      type: 'battle_start',
-      statusText: 'Pre-battle: pick up to 6 skills below, then Confirm to begin',
-      color: '#8b949e',
-    }));
-
-    setBattleState(initialState);
-    setSelectedSkill(null);
-  }, [playerConfig, monsterConfig, monsterInitialElement]);
-
-  // Leave setup → turn 1
-  const handleConfirmBeginCombat = useCallback(() => {
-    if (!battleState || battleState.phase !== 'setup') return;
-    if (playerSkillIds.length === 0) {
-      message.warning('Pick at least one skill');
-      return;
-    }
-    const base = { ...battleState, currentTurn: 1, phase: 'player_turn' as const };
-    let logs = [...battleState.battleLogs];
-    logs.push(addLog(base, {
-      type: 'battle_start',
-      statusText: 'Combat started!',
-      color: '#dcdcaa',
-    }));
-    logs.push(addLog(base, {
-      type: 'battle_start',
-      statusText: `Speed — ${base.player.name} ${base.player.spd} vs ${base.monster.name} ${base.monster.spd}`,
-      color: '#8b949e',
-    }));
-    setBattleState({
-      ...base,
-      battleLogs: logs,
-    });
-    setSelectedSkill(null);
-  }, [battleState, playerSkillIds.length]);
-
-  // Player skill
-  const handleUseSkill = useCallback(() => {
-    if (!battleState || !selectedSkill || battleState.phase !== 'player_turn') return;
-
-    const { player, monster } = battleState;
-
-    // Skill must be in loadout
-    if (!playerSkillIds.includes(selectedSkill.id)) {
-      message.warning('Only loadout skills can be used.');
-      return;
-    }
-
-    // canUseSkill gate
-    const check = canUseSkill(selectedSkill, player, battleState.skillCooldowns);
-    if (!check.canUse) {
-      message.warning(check.reason);
-      return;
-    }
-
-    // Frozen skips turn
-    if (player.control?.type === 'freeze') {
-      message.warning('You are frozen and skip this turn.');
-      // Hand off to enemy
-      handleEnemyTurn({ ...battleState, phase: 'enemy_turn' }, player, monster);
-      return;
-    }
-
-    let newState = { ...battleState };
-    let logs = [...battleState.battleLogs];
-    let newPlayer = { ...player };
-    let newMonster = { ...monster };
-
-    // Resolve skill
-    const result = executeSkill(newState, newPlayer, newMonster, selectedSkill, logs);
-    newPlayer = result.newAttacker;
-    newMonster = result.newDefender;
-    logs = result.newLogs;
-
-    // Apply cooldown
-    const newCooldowns = setSkillCooldown(battleState.skillCooldowns, selectedSkill);
-
-    newState = {
-      ...newState,
-      player: newPlayer,
-      monster: newMonster,
-      skillCooldowns: newCooldowns,
-      battleLogs: logs,
-    };
-
-    // Win / lose / draw
-    const result2 = checkBattleResult(newPlayer, newMonster);
-    if (result2) {
-      newState.phase = 'finished';
-      newState.result = result2;
-      logs.push(addLog(newState, {
-        type: 'battle_end',
-        statusText: result2 === 'player_win' ? 'Victory — player wins!' :
-          result2 === 'monster_win' ? 'Defeat — enemy wins!' : 'Draw!',
-        color: result2 === 'player_win' ? '#51cf66' : result2 === 'monster_win' ? '#ff6b6b' : '#ffd43b',
-      }));
-      setBattleState(newState);
-      return;
-    }
-
-    // Enemy phase
-    newState.phase = 'enemy_turn';
-    setBattleState(newState);
-
-    // Defer enemy action
-    setTimeout(() => {
-      handleEnemyTurn(newState, newPlayer, newMonster);
-    }, 500);
-  }, [battleState, selectedSkill, playerSkillIds]);
-
-  // Enemy turn
-  const handleEnemyTurn = useCallback((currentState: BattleState, currentPlayer: BattleUnit, currentMonster: BattleUnit) => {
-    let newState = { ...currentState };
-    let logs = [...currentState.battleLogs];
-    let player = { ...currentPlayer };
-    let monster = { ...currentMonster };
-
-    // Enemy frozen?
-    if (monster.control?.type === 'freeze') {
-      logs.push(addLog(newState, {
-        type: 'control',
-        actor: monster.name,
-        statusText: `${monster.name} is frozen and skips the turn!`,
-        color: '#74c0fc',
-      }));
-
-      newState = {
-        ...newState,
-        battleLogs: logs,
-        phase: 'round_end',
-      };
-
-      handleRoundEnd(newState, player, monster);
-      return;
-    }
-
-    // Enemy picks a skill (simplified AI)
-    const enemySkills = skillList.filter((s) => s.mpCost <= monster.mp);
-
-    // Prefer reactions when possible
-    let enemySkill: Skill | null = null;
-
-    for (const skill of enemySkills) {
-      if (skill.attachElement && player.element) {
-        const skillElem = skill.attachElement.element;
-        if (skillElem !== 'random') {
-          // Reaction possible?
-          if ((skillElem === 'fire' && player.element.element === 'water') ||
-            (skillElem === 'fire' && player.element.element === 'ice') ||
-            (skillElem === 'water' && player.element.element === 'fire') ||
-            (skillElem === 'thunder' && player.element.element === 'water') ||
-            (skillElem === 'grass' && player.element.element === 'fire')) {
-            enemySkill = skill;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!enemySkill && enemySkills.length > 0) {
-      // Otherwise random among top few
-      enemySkill = enemySkills[Math.floor(Math.random() * Math.min(3, enemySkills.length))];
-    }
-
-    if (enemySkill) {
-      const result = executeSkill(newState, monster, player, enemySkill, logs);
-      player = result.newDefender;
-      monster = result.newAttacker;
-      logs = result.newLogs;
-
-      // Enemy cooldown
-      const newCooldowns = setSkillCooldown(newState.skillCooldowns, enemySkill);
-      newState.skillCooldowns = newCooldowns;
-    }
-
-    newState.player = player;
-    newState.monster = monster;
-    newState.battleLogs = logs;
-
-    // Win / lose / draw
-    const battleResult = checkBattleResult(player, monster);
-    if (battleResult) {
-      newState.phase = 'finished';
-      newState.result = battleResult;
-      logs.push(addLog(newState, {
-        type: 'battle_end',
-        statusText: battleResult === 'player_win' ? 'Victory — player wins!' :
-          battleResult === 'monster_win' ? 'Defeat — enemy wins!' : 'Draw!',
-        color: battleResult === 'player_win' ? '#51cf66' : battleResult === 'monster_win' ? '#ff6b6b' : '#ffd43b',
-      }));
-      setBattleState(newState);
-      return;
-    }
-
-    // Round cleanup
-    newState.phase = 'round_end';
-    setBattleState(newState);
-
-    // Defer round end
-    setTimeout(() => {
-      handleRoundEnd(newState, player, monster);
-    }, 500);
-  }, [skillList]);
-
-  // Round end
-  const handleRoundEnd = useCallback((currentState: BattleState, currentPlayer: BattleUnit, currentMonster: BattleUnit) => {
-    let newState = { ...currentState };
-    let logs = [...currentState.battleLogs];
-    let player = { ...currentPlayer };
-    let monster = { ...currentMonster };
-
-    logs.push(addLog(newState, {
-      type: 'turn_end',
-      statusText: '─'.repeat(30),
-      color: '#6e7681',
-    }));
-
-    // Tick player end-of-turn
-    const playerResult = processTurnEnd(newState, player, logs);
-    player = playerResult.newUnit;
-    logs = playerResult.newLogs;
-
-    // Tick enemy end-of-turn
-    const monsterResult = processTurnEnd(newState, monster, logs);
-    monster = monsterResult.newUnit;
-    logs = monsterResult.newLogs;
-
-    // Reduce cooldowns
-    const newCooldowns = reduceCooldowns(newState.skillCooldowns);
-
-    // Win / lose / draw
-    const battleResult = checkBattleResult(player, monster);
-    if (battleResult) {
-      newState = {
-        ...newState,
-        player,
-        monster,
-        battleLogs: logs,
-        skillCooldowns: newCooldowns,
-        phase: 'finished',
-        result: battleResult,
-      };
-      logs.push(addLog(newState, {
-        type: 'battle_end',
-        statusText: battleResult === 'player_win' ? 'Victory — player wins!' :
-          battleResult === 'monster_win' ? 'Defeat — enemy wins!' : 'Draw!',
-        color: battleResult === 'player_win' ? '#51cf66' : battleResult === 'monster_win' ? '#ff6b6b' : '#ffd43b',
-      }));
-      setBattleState(newState);
-      return;
-    }
-
-    // Next round
-    const newTurn = newState.currentTurn + 1;
-    logs.push(addLog(newState, {
-      type: 'turn_start',
-      statusText: `Round ${newTurn} begins`,
-      color: '#569cd6',
-    }));
-
-    newState = {
-      ...newState,
-      player,
-      monster,
-      battleLogs: logs,
-      skillCooldowns: newCooldowns,
-      currentTurn: newTurn,
-      phase: 'player_turn',
-    };
-
-    setBattleState(newState);
-  }, []);
+    setAutoRunning(false);
+    setBattleState(final);
+  }, [battleState]);
 
   // Reset
   const handleReset = useCallback(() => {
+    setAutoRunning(false);
+    setBattleSpeed(1);
     setBattleState(null);
+    setArenaConfig(null);
     setSelectedSkill(null);
     setMonsterInitialElement(null);
   }, []);
@@ -506,7 +375,7 @@ export default function BattleSimulatorPage() {
   const renderConfigPanel = () => (
     <div className={styles.configPanel}>
       <BattleLocalTableSkillSourceLauncher
-        disabled={battleState !== null}
+        disabled={battleState !== null || arenaConfig !== null}
         activeSkillCount={skillList.length}
         onSkillsApplied={handleSkillsFromLocalTable}
       />
@@ -525,7 +394,7 @@ export default function BattleSimulatorPage() {
               className={styles.nameInput}
               value={playerConfig.name}
               onChange={(e) => updatePlayerStat('name', e.target.value)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
               maxLength={20}
             />
           </div>
@@ -537,7 +406,7 @@ export default function BattleSimulatorPage() {
               max={99999}
               value={playerConfig.hp}
               onChange={(v) => updatePlayerStat('hp', v)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
             />
           </div>
           <div className={styles.statItem}>
@@ -548,7 +417,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={playerConfig.atk}
               onChange={(v) => updatePlayerStat('atk', v)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
             />
           </div>
           <div className={styles.statItem}>
@@ -559,7 +428,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={playerConfig.def}
               onChange={(v) => updatePlayerStat('def', v)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
             />
           </div>
           <div className={styles.statItem}>
@@ -570,7 +439,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={playerConfig.spd}
               onChange={(v) => updatePlayerStat('spd', v)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
             />
           </div>
           <div className={styles.mpSection}>
@@ -582,7 +451,7 @@ export default function BattleSimulatorPage() {
                 max={999}
                 value={playerConfig.mp}
                 onChange={(v) => updatePlayerStat('mp', v)}
-                disabled={battleState !== null}
+                disabled={battleState !== null || arenaConfig !== null}
               />
             </div>
           </div>
@@ -603,7 +472,7 @@ export default function BattleSimulatorPage() {
               className={styles.nameInput}
               value={monsterConfig.name}
               onChange={(e) => updateMonsterStat('name', e.target.value)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
               maxLength={20}
             />
           </div>
@@ -615,7 +484,7 @@ export default function BattleSimulatorPage() {
               max={99999}
               value={monsterConfig.hp}
               onChange={(v) => updateMonsterStat('hp', v)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
             />
           </div>
           <div className={styles.statItem}>
@@ -626,7 +495,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={monsterConfig.atk}
               onChange={(v) => updateMonsterStat('atk', v)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
             />
           </div>
           <div className={styles.statItem}>
@@ -637,7 +506,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={monsterConfig.def}
               onChange={(v) => updateMonsterStat('def', v)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
             />
           </div>
           <div className={styles.statItem}>
@@ -648,7 +517,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={monsterConfig.spd}
               onChange={(v) => updateMonsterStat('spd', v)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
             />
           </div>
           <div className={styles.mpSection}>
@@ -660,7 +529,7 @@ export default function BattleSimulatorPage() {
                 max={999}
                 value={monsterConfig.mp}
                 onChange={(v) => updateMonsterStat('mp', v)}
-                disabled={battleState !== null}
+                disabled={battleState !== null || arenaConfig !== null}
               />
             </div>
           </div>
@@ -673,7 +542,7 @@ export default function BattleSimulatorPage() {
             <button
               className={`${styles.elementButton} ${monsterInitialElement === null ? styles.elementButtonActive : ''}`}
               onClick={() => setMonsterInitialElement(null)}
-              disabled={battleState !== null}
+              disabled={battleState !== null || arenaConfig !== null}
             >
               None
             </button>
@@ -682,10 +551,11 @@ export default function BattleSimulatorPage() {
                 key={elem}
                 className={`${styles.elementButton} ${monsterInitialElement === elem ? styles.elementButtonActive : ''}`}
                 onClick={() => setMonsterInitialElement(elem)}
-                disabled={battleState !== null}
+                disabled={battleState !== null || arenaConfig !== null}
                 style={{ color: monsterInitialElement === elem ? ELEMENT_CONFIG[elem].color : undefined }}
               >
-                {ELEMENT_CONFIG[elem].emoji} {ELEMENT_CONFIG[elem].name}
+                <ElementGlyph element={elem} size={8} />
+                {ELEMENT_CONFIG[elem].name}
               </button>
             ))}
           </div>
@@ -694,38 +564,69 @@ export default function BattleSimulatorPage() {
 
       {/* Actions */}
       <div className={styles.actionButtons}>
-        {battleState === null ? (
-          <button className={styles.startButton} onClick={handleStartBattle}>
-            Start battle
+        {battleState === null && !arenaConfig ? (
+          <button className={styles.startButton} onClick={handleEnterLoadout}>
+            Select skills
           </button>
-        ) : battleState.phase === 'finished' ? (
+        ) : battleState?.phase === 'setup' && !arenaConfig ? (
+          <>
+            <button
+              type="button"
+              className={styles.startButton}
+              onClick={handleLaunchArena}
+              disabled={playerSkillIds.length === 0}
+            >
+              Launch arena
+            </button>
+            <button type="button" className={styles.resetButton} onClick={handleCancelLoadout}>
+              Back
+            </button>
+          </>
+        ) : arenaConfig ? (
+          <button className={styles.resetButton} onClick={handleReset}>
+            Stop arena
+          </button>
+        ) : battleState?.phase === 'finished' ? (
           <button className={styles.startButton} onClick={handleReset}>
             Restart
           </button>
-        ) : battleState.phase === 'setup' ? (
-          <>
-            <button
-              className={styles.startButton}
-              onClick={handleConfirmBeginCombat}
-              disabled={playerSkillIds.length === 0}
-            >
-              Confirm
-            </button>
-            <button className={styles.resetButton} onClick={handleReset}>
-              Cancel
-            </button>
-          </>
         ) : (
           <>
+            <span className={styles.autoBattleHint}>
+              {autoRunning ? 'Auto battle…' : 'Paused'}
+            </span>
+            <div className={styles.speedGroup}>
+              {AUTO_BATTLE_SPEED_OPTIONS.map((speed) => (
+                <button
+                  key={speed}
+                  type="button"
+                  className={`${styles.speedButton} ${battleSpeed === speed ? styles.speedButtonActive : ''}`}
+                  onClick={() => setBattleSpeed(speed)}
+                >
+                  {speed}×
+                </button>
+              ))}
+            </div>
             <button
-              className={styles.executeButton}
-              onClick={handleUseSkill}
-              disabled={!selectedSkill}
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => setAutoRunning((running) => !running)}
             >
-              Use skill
+              {autoRunning ? (
+                <>
+                  <PauseOutlined /> Pause
+                </>
+              ) : (
+                <>
+                  <CaretRightOutlined /> Resume
+                </>
+              )}
             </button>
-            <button className={styles.resetButton} onClick={handleReset}>
-              Reset
+            <button type="button" className={styles.secondaryButton} onClick={handleSkipToEnd}>
+              <FastForwardOutlined /> Skip
+            </button>
+            <button type="button" className={styles.resetButton} onClick={handleReset}>
+              Stop
             </button>
           </>
         )}
@@ -738,13 +639,29 @@ export default function BattleSimulatorPage() {
     if (!battleState) {
       return (
         <div className={styles.battleStage}>
-          <div className={styles.emptyState}>
+          <div className={`${styles.mapSlot} ${styles.emptyState}`}>
             <div className={styles.emptyStateIcon}>
               <ThunderboltOutlined />
             </div>
             <div className={styles.emptyStateTitle}>Ready</div>
             <div className={styles.emptyStateDesc}>
-              Set stats, then press Start battle
+              Configure validated skills on the left, then Select skills — pick up to 6, then Launch arena
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (battleState.phase === 'setup') {
+      return (
+        <div className={styles.battleStage}>
+          <div className={`${styles.mapSlot} ${styles.emptyState}`} style={{ minHeight: 140 }}>
+            <div className={styles.emptyStateIcon}>
+              <SettingOutlined />
+            </div>
+            <div className={styles.emptyStateTitle}>Skill loadout</div>
+            <div className={styles.emptyStateDesc}>
+              Choose up to 6 skills in the panel below, then click Launch arena on the left.
             </div>
           </div>
         </div>
@@ -799,7 +716,7 @@ export default function BattleSimulatorPage() {
               {battleState.phase === 'player_turn' && <span style={{ color: '#51cf66', fontSize: 12 }}>Acting</span>}
             </div>
             <div className={styles.statusTurn}>
-              {battleState.phase === 'setup' ? 'Setup' : `Round ${battleState.currentTurn}`}
+              {`Round ${battleState.currentTurn}`}
             </div>
           </div>
           <div className={styles.progressBars}>
@@ -949,6 +866,10 @@ export default function BattleSimulatorPage() {
             <>
               <SettingOutlined /> Configure skills (max 6)
             </>
+          ) : autoRunning ? (
+            <>
+              <ThunderboltOutlined /> Auto battle
+            </>
           ) : (
             <>
               <AimOutlined /> Select skill
@@ -992,7 +913,7 @@ export default function BattleSimulatorPage() {
                     }}
                     title="Click to remove"
                   >
-                    {skillElement !== 'none' && ELEMENT_CONFIG[skillElement as Element]?.emoji}
+                    {skillElement !== 'none' && <ElementGlyph element={skillElement as Element} />}
                     {skill.name}
                     <span style={{ color: '#888', marginLeft: 4 }}>×</span>
                   </div>
@@ -1003,7 +924,20 @@ export default function BattleSimulatorPage() {
               )}
             </div>
             <div style={{ marginBottom: 12, fontSize: 12, color: '#8b949e' }}>
-              Click skill cards below to add (up to 6).
+              Click skill cards below to add . Enemy uses the same loadout in the map arena.
+            </div>
+            <div className={styles.actionButtons} style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                className={styles.startButton}
+                onClick={handleLaunchArena}
+                disabled={playerSkillIds.length === 0}
+              >
+                Launch arena
+              </button>
+              <button type="button" className={styles.resetButton} onClick={handleCancelLoadout}>
+                Back
+              </button>
             </div>
           </>
         )}
@@ -1028,7 +962,7 @@ export default function BattleSimulatorPage() {
               className={`${styles.elementTab} ${styles[`elementTab${elem.charAt(0).toUpperCase() + elem.slice(1)}`]} ${selectedElement === elem ? styles.elementTabActive : ''}`}
               onClick={() => setSelectedElement(elem)}
             >
-              {ELEMENT_CONFIG[elem].emoji}
+              <ElementGlyph element={elem} size={12} />
             </button>
           ))}
         </div>
@@ -1050,21 +984,25 @@ export default function BattleSimulatorPage() {
                   ${!isSetup && !canUse.canUse && cooldown === 0 ? styles.skillCardDisabled : ''}
                   ${cooldown > 0 ? styles.skillCardCooldown : ''}
                 `}
+                style={
+                  elementColor
+                    ? { borderColor: elementColor, boxShadow: isSelected ? `0 0 0 2px ${elementColor}33` : undefined }
+                    : undefined
+                }
                 onClick={() => {
+                  if (autoRunning) return;
                   if (isSetup) {
                     if (playerSkillIds.length < 6 && !playerSkillIds.includes(skill.id)) {
                       setPlayerSkillIds(prev => [...prev, skill.id]);
                     }
-                  } else {
-                    if (canUse.canUse) {
-                      setSelectedSkill(skill);
-                    }
+                  } else if (canUse.canUse) {
+                    setSelectedSkill(skill);
                   }
                 }}
               >
                 <div className={styles.skillCardHeader}>
                   <span className={styles.skillName} style={{ color: elementColor }}>
-                    {skillElement !== 'none' && ELEMENT_CONFIG[skillElement as Element]?.emoji}
+                    {skillElement !== 'none' && <ElementGlyph element={skillElement as Element} />}
                     {skill.name}
                   </span>
                   <span className={styles.skillMp}>
@@ -1088,7 +1026,7 @@ export default function BattleSimulatorPage() {
                 </div>
                 {skill.attachElement && skill.attachElement.element !== 'random' && (
                   <div className={styles.skillElement} style={{ color: elementColor }}>
-                    Attach: {ELEMENT_CONFIG[skill.attachElement.element].emoji}
+                    Attach: <ElementGlyph element={skill.attachElement.element} size={8} />
                     {ELEMENT_CONFIG[skill.attachElement.element].name}·
                     {ELEMENT_STRENGTH_CONFIG[skill.attachElement.strength].name}
                   </div>
@@ -1097,9 +1035,8 @@ export default function BattleSimulatorPage() {
                   <div className={styles.skillReaction}>
                     {skill.reactionTrigger.map((rt, i) => (
                       <span key={i}>
-                        vs {ELEMENT_CONFIG[rt.element].emoji}
-                        {ELEMENT_CONFIG[rt.element].name} → {REACTION_CONFIG[rt.reaction].emoji}
-                        {REACTION_CONFIG[rt.reaction].name}
+                        vs <ElementGlyph element={rt.element} size={8} />
+                        {ELEMENT_CONFIG[rt.element].name} → {REACTION_CONFIG[rt.reaction].name}
                       </span>
                     ))}
                   </div>
@@ -1155,7 +1092,7 @@ export default function BattleSimulatorPage() {
             <ThunderboltOutlined />
           </span>
           <div className={styles.headerTitle}>
-            <h1>Battle simulator v2.0</h1>
+            <h1>Battle simulator</h1>
             <p>Element reactions · Deterministic combat · Strategy</p>
           </div>
         </div>
@@ -1170,11 +1107,23 @@ export default function BattleSimulatorPage() {
       </header>
 
       <main className={styles.mainContent}>
-        {renderConfigPanel()}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {renderBattleStage()}
-          {renderSkillSelector()}
-          {renderBattleLog()}
+        <div className={styles.battleRow}>
+          {renderConfigPanel()}
+          <div className={styles.rightColumn}>
+            {arenaConfig ? (
+              <div className={styles.battleStage}>
+                <div className={styles.mapSlot}>
+                  <BattleArena config={arenaConfig} onStop={handleReset} />
+                </div>
+              </div>
+            ) : (
+              <>
+                {renderBattleStage()}
+                {renderSkillSelector()}
+                {renderBattleLog()}
+              </>
+            )}
+          </div>
         </div>
       </main>
     </div>

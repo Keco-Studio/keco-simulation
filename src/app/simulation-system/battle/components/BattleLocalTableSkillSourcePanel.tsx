@@ -6,7 +6,6 @@ import { Button, Collapse, Select, Tag, message } from 'antd';
 import {
   ArrowLeftOutlined,
   CheckCircleOutlined,
-  CloudOutlined,
   DeleteOutlined,
   FormOutlined,
   ImportOutlined,
@@ -14,6 +13,7 @@ import {
   TableOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
+import { useAuth } from '@studio/lib/contexts/AuthContext';
 import { useSupabase } from '@studio/lib/SupabaseContext';
 import type { Skill } from '../types';
 import {
@@ -30,7 +30,7 @@ import {
   type SkillDraftValidationResult,
 } from '../lib/localTableSkillSource/battleSkillDrafts';
 import {
-  listSelectableSimTables,
+  listSelectableTablesForSkillPicker,
   loadColumnValueOptions,
   loadTableColumns,
   type PickerValueOption,
@@ -38,7 +38,6 @@ import {
   type TableColumnInfo,
 } from '../lib/localTableSkillSource/simTablePickerData';
 import { ImportSkillByIdBlock } from './ImportSkillByIdBlock';
-import { ImportSkillFromStudioBlock } from './ImportSkillFromStudioBlock';
 import styles from './BattleLocalTableSkillSourcePanel.module.css';
 
 const FIELD_OPTIONS = BATTLE_SKILL_MAPPING_FIELDS.map((f) => ({
@@ -51,7 +50,7 @@ export type BattleLocalTableSkillSourcePanelHandle = {
   refreshTables: () => Promise<void>;
 };
 
-type ModalView = 'home' | 'createAttributes' | 'createById' | 'createFromStudio';
+type ModalView = 'home' | 'createAttributes' | 'createById';
 
 type Props = {
   disabled?: boolean;
@@ -324,6 +323,8 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
     ref,
   ) {
     const supabase = useSupabase();
+    const { userProfile, isAuthenticated } = useAuth();
+    const supabaseReady = Boolean(supabase && isAuthenticated && userProfile?.id);
     const isModal = layout === 'modal';
     const [modalView, setModalView] = useState<ModalView>('home');
     /** Draft being edited in create-by-attributes; committed only on confirm */
@@ -338,11 +339,16 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
     const refreshTables = useCallback(async () => {
       setTablesLoading(true);
       try {
-        setTables(await listSelectableSimTables());
+        setTables(
+          await listSelectableTablesForSkillPicker(
+            supabaseReady ? supabase : null,
+            userProfile?.id,
+          ),
+        );
       } finally {
         setTablesLoading(false);
       }
-    }, []);
+    }, [supabase, supabaseReady, userProfile?.id]);
 
     useEffect(() => {
       void refreshTables();
@@ -489,7 +495,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
                 disabled={disabled}
                 tables={tables}
                 tablesLoading={tablesLoading}
-                supabaseReady={Boolean(supabase)}
+                supabaseReady={supabaseReady}
                 onFieldChange={(fieldKey, ref) => updateDraftField(draft.draftId, fieldKey, ref)}
                 onRemove={() => removeDraft(draft.draftId)}
               />
@@ -537,11 +543,20 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
         <p className={styles.metaLine}>No skills configured yet.</p>
       );
 
+    const studioSignInHint = !supabaseReady ? (
+      <p className={styles.warnLine}>
+        Sign in with the same Supabase account as Keco Studio to include project libraries in the table
+        list.{' '}
+        <Link href="/simulation-system/battle/studio-libraries">Open Studio libraries</Link>
+      </p>
+    ) : null;
+
     const tablesWarning =
       tables.length === 0 && !tablesLoading ? (
         <p className={styles.warnLine}>
           No tables found.{' '}
           <Link href="/simulation-system/battle/local-tables">Create a local table</Link>
+          {!supabaseReady ? ' or sign in to list Keco Studio libraries.' : null}
         </p>
       ) : null;
 
@@ -559,8 +574,9 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           </Button>
           <h3 className={styles.sectionTitle}>Create by attributes</h3>
           <p className={styles.hint}>
-            Pick a field, then table, column, and value. Switch fields from the dropdown to bind more
-            properties. Nothing is added until you confirm.
+            Pick a field, then table (local scratch, Studio-linked bookmark, or a Studio library), column,
+            and value. Switch fields from the dropdown to bind more properties. Nothing is added until you
+            confirm.
           </p>
           {pendingDraft ? (
             <SkillDraftEditor
@@ -568,7 +584,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
               disabled={disabled}
               tables={tables}
               tablesLoading={tablesLoading}
-              supabaseReady={Boolean(supabase)}
+              supabaseReady={supabaseReady}
               onFieldChange={updatePendingDraftField}
               onRemove={cancelPendingCreate}
               hideRemoveButton
@@ -576,6 +592,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           ) : (
             <p className={styles.metaLine}>No draft in progress.</p>
           )}
+          {studioSignInHint}
           {tablesWarning}
           <div className={styles.createConfirmRow}>
             <Button disabled={disabled} onClick={cancelPendingCreate}>
@@ -585,28 +602,6 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
               Add skill
             </Button>
           </div>
-        </div>
-      );
-    }
-
-    if (isModal && modalView === 'createFromStudio') {
-      return (
-        <div className={rootClass}>
-          <Button
-            type="link"
-            size="small"
-            className={styles.backLink}
-            icon={<ArrowLeftOutlined />}
-            onClick={() => setModalView('home')}
-          >
-            Back
-          </Button>
-          <h3 className={styles.sectionTitle}>Import from Keco Studio</h3>
-          <ImportSkillFromStudioBlock
-            disabled={disabled}
-            onImportDraft={handleImportDraft}
-            confirmButtonLabel="Add skill"
-          />
         </div>
       );
     }
@@ -623,19 +618,21 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           >
             Back
           </Button>
-          <h3 className={styles.sectionTitle}>Import by id (local table)</h3>
+          <h3 className={styles.sectionTitle}>Import by id</h3>
           <p className={styles.hint}>
-            Select table, id column, and row id, then confirm to add the skill to the list.
+            Select a local or Studio library table, id column, and row id, then confirm to add the skill to
+            the list.
           </p>
           <ImportSkillByIdBlock
             disabled={disabled}
             tables={tables}
             tablesLoading={tablesLoading}
-            supabaseReady={Boolean(supabase)}
+            supabaseReady={supabaseReady}
             onImportDraft={handleImportDraft}
             showSectionTitle={false}
             confirmButtonLabel="Add skill"
           />
+          {studioSignInHint}
           {tablesWarning}
         </div>
       );
@@ -660,15 +657,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
               onClick={() => setModalView('createById')}
               block
             >
-              By id (local table row)
-            </Button>
-            <Button
-              icon={<CloudOutlined />}
-              disabled={disabled}
-              onClick={() => setModalView('createFromStudio')}
-              block
-            >
-              From Keco Studio
+              By id (table row)
             </Button>
           </div>
           {validationBlock}
@@ -691,14 +680,8 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           disabled={disabled}
           tables={tables}
           tablesLoading={tablesLoading}
-          supabaseReady={Boolean(supabase)}
+          supabaseReady={supabaseReady}
           onImportDraft={handleImportDraft}
-        />
-
-        <ImportSkillFromStudioBlock
-          disabled={disabled}
-          onImportDraft={handleImportDraft}
-          confirmButtonLabel="Import row as skill"
         />
 
         <div className={styles.actions}>
@@ -724,6 +707,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           ) : null}
         </div>
 
+        {studioSignInHint}
         {tablesWarning}
         {draftsList}
         {validationBlock}

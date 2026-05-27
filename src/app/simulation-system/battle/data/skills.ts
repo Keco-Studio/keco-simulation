@@ -551,6 +551,8 @@ export function inferSkillTabElement(skill: Skill): Element | 'none' {
   const ae = skill.attachElement;
   if (ae?.element && ae.element !== 'random') return ae.element;
   if (ae?.element === 'random') return 'none';
+  const rt = skill.reactionTrigger?.[0]?.element;
+  if (rt) return rt;
   const id = skill.id;
   if (id.startsWith('pugong')) return 'none';
   if (id.startsWith('huo_')) return 'fire';
