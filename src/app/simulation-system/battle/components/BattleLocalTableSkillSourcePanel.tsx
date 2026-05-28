@@ -391,11 +391,13 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
       setLastResult(null);
     }, []);
 
-    const handleImportDraft = useCallback((draft: BattleSkillDraft) => {
-      setDrafts((prev) => [...prev, draft]);
+    const handleImportDraft = useCallback((draftOrDrafts: BattleSkillDraft | BattleSkillDraft[]) => {
+      const toAdd = Array.isArray(draftOrDrafts) ? draftOrDrafts : [draftOrDrafts];
+      if (toAdd.length === 0) return;
+      setDrafts((prev) => [...prev, ...toAdd]);
       setLastResult(null);
       if (isModal) {
-        setExpandedDraftKey(draft.draftId);
+        setExpandedDraftKey(toAdd[toAdd.length - 1]!.draftId);
         setModalView('home');
       }
     }, [isModal]);
@@ -620,17 +622,18 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           </Button>
           <h3 className={styles.sectionTitle}>Import by id</h3>
           <p className={styles.hint}>
-            Select a local or Studio library table, id column, and row id, then confirm to add the skill to
-            the list.
+            Select a local or Studio library table, id column, and one or more row ids, then confirm to add
+            skills to the list.
           </p>
           <ImportSkillByIdBlock
             disabled={disabled}
             tables={tables}
             tablesLoading={tablesLoading}
             supabaseReady={supabaseReady}
+            existingDrafts={drafts}
             onImportDraft={handleImportDraft}
             showSectionTitle={false}
-            confirmButtonLabel="Add skill"
+            confirmButtonLabel="Add skills"
           />
           {studioSignInHint}
           {tablesWarning}
@@ -681,6 +684,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           tables={tables}
           tablesLoading={tablesLoading}
           supabaseReady={supabaseReady}
+          existingDrafts={drafts}
           onImportDraft={handleImportDraft}
         />
 

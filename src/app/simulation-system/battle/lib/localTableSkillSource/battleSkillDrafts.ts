@@ -86,6 +86,60 @@ export function saveBattleSkillDrafts(drafts: BattleSkillDraft[]): void {
   localStorage.setItem(BATTLE_SKILL_DRAFTS_STORAGE_KEY, JSON.stringify(payload));
 }
 
+/** Resolved battle skill id (same rules as Validate & apply). */
+export function resolvedDraftSkillId(draft: BattleSkillDraft): string | null {
+  const raw = draft.fields.id?.value?.trim();
+  if (!raw) return null;
+  const resolved = resolveSkillId(raw);
+  return 'error' in resolved ? null : resolved.id;
+}
+
+export function draftImportDisplayId(draft: BattleSkillDraft): string {
+  return draft.fields.id?.value?.trim() || draft.fields.name?.value?.trim() || 'unknown';
+}
+
+export type DraftImportReject = {
+  displayId: string;
+  resolvedId: string;
+  reason: string;
+};
+
+/** Skip drafts whose skill id is already in `existing` or earlier in `incoming`. */
+export function partitionDraftsBySkillId(
+  incoming: BattleSkillDraft[],
+  existing: BattleSkillDraft[],
+): { accepted: BattleSkillDraft[]; rejected: DraftImportReject[] } {
+  const seen = new Set<string>();
+  for (const d of existing) {
+    const id = resolvedDraftSkillId(d);
+    if (id) seen.add(id);
+  }
+
+  const accepted: BattleSkillDraft[] = [];
+  const rejected: DraftImportReject[] = [];
+
+  for (const draft of incoming) {
+    const displayId = draftImportDisplayId(draft);
+    const resolvedId = resolvedDraftSkillId(draft);
+    if (!resolvedId) {
+      accepted.push(draft);
+      continue;
+    }
+    if (seen.has(resolvedId)) {
+      rejected.push({
+        displayId,
+        resolvedId,
+        reason: `Skill id "${resolvedId}" already exists.`,
+      });
+      continue;
+    }
+    seen.add(resolvedId);
+    accepted.push(draft);
+  }
+
+  return { accepted, rejected };
+}
+
 export function draftToFlatRow(draft: BattleSkillDraft): SkillFlatRow {
   const base = emptySkillFlatRow();
   const pick = (key: BattleSkillColumnMappingKey): string => draft.fields[key]?.value?.trim() ?? '';

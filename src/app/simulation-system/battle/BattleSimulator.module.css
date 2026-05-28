@@ -947,6 +947,56 @@
   }
 }
 
+.loadoutTargetRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.loadoutTargetTab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.loadoutTargetTab:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.loadoutTargetTabPlayer.loadoutTargetTabActive {
+  color: #51cf66;
+  border-color: #51cf66;
+  background: rgba(81, 207, 102, 0.1);
+}
+
+.loadoutTargetTabMonster.loadoutTargetTabActive {
+  color: #ff6b6b;
+  border-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.loadoutSectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 @media (max-width: 768px) {
   .mainContent {
     padding: 12px;

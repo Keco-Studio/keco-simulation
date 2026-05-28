@@ -108,6 +108,14 @@
   border-bottom: none;
 }
 
+.bindingSelectMulti {
+  min-width: 0;
+}
+
+.bindingSelectMulti:global(.ant-select) {
+  width: 100%;
+}
+
 .sectionTitle {
   margin: 0 0 6px;
   font-size: 13px;
