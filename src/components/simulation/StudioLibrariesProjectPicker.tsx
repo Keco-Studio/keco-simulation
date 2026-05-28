@@ -8,7 +8,6 @@ import { useAuth } from '@studio/lib/contexts/AuthContext';
 import { useSupabase } from '@studio/lib/SupabaseContext';
 import { listProjects } from '@studio/lib/services/projectService';
 import AuthForm from '@studio/components/authform/AuthForm';
-import hubStyles from '@/app/simulation-system/battle/studio-libraries/StudioLibrariesEmbed.module.css';
 
 function isLikelyProjectId(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
@@ -74,9 +73,13 @@ export function StudioLibrariesProjectPicker({
 
   if (!isAuthenticated || !userProfile) {
     return (
-      <div className={hubStyles.signInCenter}>
-        <AuthForm variant="embedded" />
-      </div>
+      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+          Sign in with the same Supabase account you use in Keco Studio. This app runs on a different origin than
+          Studio, so you need a session here too before we can list your projects.
+        </Typography.Paragraph>
+        <AuthForm />
+      </Space>
     );
   }
 

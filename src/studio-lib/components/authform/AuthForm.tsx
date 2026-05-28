@@ -1,11 +1,7 @@
 "use client";
 
 import { FormEvent, useState, useEffect, Suspense } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  isAlreadyOnPostLoginPath,
-  resolvePostLoginRedirect,
-} from "@/lib/authPostLoginRedirect";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import loginImg from "@studio/assets/images/loginImg_2.png";
 import { useSupabase } from "@studio/lib/SupabaseContext";
@@ -27,25 +23,10 @@ type LoginState = {
   password: string;
 };
 
-export type AuthFormVariant = "full" | "embedded";
-
-type AuthFormContentProps = {
-  variant: AuthFormVariant;
-};
-
-function AuthFormContent({ variant }: AuthFormContentProps) {
-  const embedded = variant === "embedded";
+function AuthFormContent() {
   const supabase = useSupabase();
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  const resolveRedirectTarget = () =>
-    resolvePostLoginRedirect({
-      explicitRedirect: searchParams.get("redirect"),
-      pathname,
-      search: searchParams.toString() ? `?${searchParams.toString()}` : "",
-    });
   const [mode, setMode] = useState<Mode>("login");
   const [regForm, setRegForm] = useState<RegisterState>({
     email: "",
@@ -141,10 +122,12 @@ function AuthFormContent({ variant }: AuthFormContentProps) {
       setMessage("Signed in successfully");
       setPasswordError(false);
 
-      const target = resolveRedirectTarget();
-      const search = searchParams.toString();
-      if (!isAlreadyOnPostLoginPath(target, pathname, search ? `?${search}` : "")) {
-        router.push(target);
+      // Handle redirect after successful login
+      const redirectPath = searchParams.get('redirect');
+      if (redirectPath) {
+        router.push(redirectPath);
+      } else {
+        router.push('/projects');
       }
     } catch (err: any) {
       if (err?.message.includes("Invalid login credentials")) {
@@ -167,8 +150,10 @@ function AuthFormContent({ variant }: AuthFormContentProps) {
     try {
       // Ensure we use the current origin (localhost:3000 for dev, vercel.app for prod)
       const currentOrigin = window.location.origin;
-      const target = resolveRedirectTarget();
-      const redirectTo = `${currentOrigin}/auth/callback?redirect=${encodeURIComponent(target)}`;
+      const redirectPath = searchParams.get('redirect');
+      const redirectTo = redirectPath
+        ? `${currentOrigin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`
+        : `${currentOrigin}/auth/callback`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -190,10 +175,21 @@ function AuthFormContent({ variant }: AuthFormContentProps) {
 
   const isRegister = mode === "register";
 
-  const formBlock = (
-    <>
-          <div className={embedded ? styles.formSideEmbedded : styles.formSide}>
-            {!embedded ? (
+  return (
+    <div className={styles.page}>
+      {/* Header */}
+      <header className={styles.header}>
+        <div className={styles.headerLeft}>
+          <div className={styles.headerLogo}>
+            <Image src={loginProductIcon} alt="Logo" width={112} height={48} />
+            <div className={styles.brandSlogan}>for game designers</div>
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.card}>
+        <div className={styles.cardInner}>
+          <div className={styles.formSide}>
             <button
               className={styles.backBtn}
               aria-label="Back"
@@ -201,8 +197,7 @@ function AuthFormContent({ variant }: AuthFormContentProps) {
             >
               <Image src={loginLeftArrowIcon} alt="Back" width={20} height={20} className="icon-20" />
             </button>
-            ) : null}
-            <h1 className={embedded ? styles.titleEmbedded : styles.title}>
+            <h1 className={styles.title}>
               {isRegister ? "REGISTER" : (
                 <>
                   <span className={styles.titleMain}>Login to </span>
@@ -346,7 +341,6 @@ function AuthFormContent({ variant }: AuthFormContentProps) {
                     />
                   </label>
                   {errorMsg ? <div className={styles.error}>{errorMsg}</div> : null}
-                  {!embedded ? (
                   <button
                     type="button"
                     className={styles.forgotPassword}
@@ -356,7 +350,6 @@ function AuthFormContent({ variant }: AuthFormContentProps) {
                   >
                     Forget you password?
                   </button>
-                  ) : null}
                   <button type="submit" className={`${styles.submit} ${styles.submitLogin}`} disabled={loading}>
                     {loading ? "Logging in..." : "Login"}
                   </button>
@@ -384,37 +377,7 @@ function AuthFormContent({ variant }: AuthFormContentProps) {
               )}
             </div>
           </div>
-    </>
-  );
 
-  if (embedded) {
-    return (
-      <div className={styles.embeddedRoot}>
-        <div className={styles.embeddedCard}>
-          <div className={styles.embeddedBrand}>
-            <Image src={loginProductIcon} alt="Keco" width={96} height={40} />
-            <span className={styles.embeddedBrandTagline}>for game designers</span>
-          </div>
-          <div className={styles.embeddedCardInner}>{formBlock}</div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.headerLeft}>
-          <div className={styles.headerLogo}>
-            <Image src={loginProductIcon} alt="Logo" width={112} height={48} />
-            <div className={styles.brandSlogan}>for game designers</div>
-          </div>
-        </div>
-      </header>
-
-      <div className={styles.card}>
-        <div className={styles.cardInner}>
-          {formBlock}
           <div className={styles.imageSide}>
             <Image
               src={loginImg}
@@ -431,31 +394,22 @@ function AuthFormContent({ variant }: AuthFormContentProps) {
   );
 }
 
-type AuthFormProps = {
-  variant?: AuthFormVariant;
-};
-
-function AuthFormWithVariant({ variant = "full" }: AuthFormProps) {
-  const embedded = variant === "embedded";
+export default function AuthForm() {
   return (
-    <Suspense
-      fallback={
-        <div className={embedded ? styles.embeddedRoot : styles.page}>
-          <div className={embedded ? styles.embeddedCard : styles.card}>
-            <div className={embedded ? styles.embeddedCardInner : styles.cardInner}>
-              <div className={embedded ? styles.formSideEmbedded : styles.formSide}>Loading...</div>
+    <Suspense fallback={
+      <div className={styles.page}>
+        <div className={styles.card}>
+          <div className={styles.cardInner}>
+            <div className={styles.formSide}>
+              <div>Loading...</div>
             </div>
           </div>
         </div>
-      }
-    >
-      <AuthFormContent variant={variant} />
+      </div>
+    }>
+      <AuthFormContent />
     </Suspense>
   );
-}
-
-export default function AuthForm(props: AuthFormProps) {
-  return <AuthFormWithVariant {...props} />;
 }
 
 

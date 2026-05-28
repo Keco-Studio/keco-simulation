@@ -6,7 +6,6 @@ const frameAncestorList = [defaultKecoDevOrigins, extraFrameAncestors].filter(Bo
 
 const nextConfig = {
   reactStrictMode: false,
-  transpilePackages: ['@keco/battle-engine', '@keco/battle-core'],
   async headers() {
     return [
       {

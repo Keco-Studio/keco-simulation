@@ -4,12 +4,17 @@
 
 import type { Element, ElementStrength, ReactionType, Skill, SkillType } from '../../types';
 import { ELEMENT_STRENGTH_CONFIG } from '../../types';
-import {
-  parseElementKey,
-  parseReactionKey,
-  parseSpecialEffectType,
-  parseStrengthKey,
-} from './elementLabelCodec';
+
+const ELEMENTS: Element[] = ['fire', 'water', 'thunder', 'grass', 'ice'];
+const REACTIONS: ReactionType[] = [
+  'vaporize',
+  'melt',
+  'electrify',
+  'overload',
+  'burn',
+  'freeze',
+  'quicken',
+];
 
 function parseNum(s: string, fallback: number): number {
   const n = Number(String(s).trim());
@@ -22,12 +27,20 @@ function parseIntNonNeg(s: string, fallback: number): number {
   return n;
 }
 
+function isElement(s: string): s is Element {
+  return ELEMENTS.includes(s as Element);
+}
+
 function isStrength(s: string): s is ElementStrength {
   return s === 'weak' || s === 'medium' || s === 'strong';
 }
 
 function isSkillType(s: string): s is SkillType {
   return s === 'attack' || s === 'heal';
+}
+
+function isReactionType(s: string): s is ReactionType {
+  return (REACTIONS as readonly string[]).includes(s);
 }
 
 /** One reaction-trigger pair row (element + reaction); persisted only when both are valid. */
@@ -170,16 +183,16 @@ export function flatRowToSkill(row: SkillFlatRow): { skill: Skill } | { error: s
     description: row.description.trim() || '—',
   };
 
-  const attachParsed = parseElementKey(row.attachElement);
-  if (attachParsed) {
+  const attachEl = row.attachElement.trim();
+  if (attachEl && (attachEl === 'random' || isElement(attachEl))) {
     const strengthRaw = row.attachStrength.trim();
-    const strength: ElementStrength = parseStrengthKey(strengthRaw) ?? (isStrength(strengthRaw) ? strengthRaw : 'weak');
+    const strength: ElementStrength = isStrength(strengthRaw) ? strengthRaw : 'weak';
     const defaultDur = ELEMENT_STRENGTH_CONFIG[strength].duration;
     const duration = row.attachDuration.trim()
       ? parseIntNonNeg(row.attachDuration, defaultDur)
       : defaultDur;
     skill.attachElement = {
-      element: attachParsed,
+      element: attachEl === 'random' ? 'random' : attachEl,
       strength,
       duration: duration > 0 ? duration : defaultDur,
     };
@@ -200,12 +213,12 @@ export function flatRowToSkill(row: SkillFlatRow): { skill: Skill } | { error: s
     skill.crowdControl = { type: 'freeze', duration: freeze };
   }
 
-  const specialType = parseSpecialEffectType(row.specialType);
-  if (specialType) {
+  const st = row.specialType.trim();
+  if (st === 'heal' || st === 'atk_debuff' || st === 'def_debuff') {
     const value = parseNum(row.specialValue, 0);
-    const duration = parseIntNonNeg(row.specialDuration, specialType === 'heal' ? 0 : 2);
+    const duration = parseIntNonNeg(row.specialDuration, st === 'heal' ? 0 : 2);
     skill.specialEffect = {
-      type: specialType,
+      type: st,
       value: value < 0 ? 0 : value,
       duration,
     };
@@ -213,9 +226,10 @@ export function flatRowToSkill(row: SkillFlatRow): { skill: Skill } | { error: s
 
   const triggers: { element: Element; reaction: ReactionType }[] = [];
   for (const p of row.reactionTriggers) {
-    const el = parseElementKey(p.element);
-    const re = parseReactionKey(p.reaction);
-    if (!el || el === 'random' || !re) continue;
+    const el = p.element.trim();
+    const re = p.reaction.trim();
+    if (!el || !re) continue;
+    if (!isElement(el) || !isReactionType(re)) continue;
     triggers.push({ element: el, reaction: re });
   }
   if (triggers.length > 0) {

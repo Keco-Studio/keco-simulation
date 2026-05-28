@@ -1,8 +1,0 @@
-.glyph {
-  display: inline-block;
-  border-radius: 50%;
-  margin-right: 4px;
-  vertical-align: middle;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
-}

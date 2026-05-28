@@ -41,7 +41,7 @@ export function BattleLocalTableSkillSourceLauncher({
         <p className={styles.triggerMeta}>
           {displayCount > 0
             ? `${displayCount} skill(s) configured for battle`
-            : 'Bind skills from local or Studio tables'}
+            : 'Import from Keco Studio or local tables'}
         </p>
         <Button
           type="default"

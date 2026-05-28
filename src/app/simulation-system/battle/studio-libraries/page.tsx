@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button, Card, Input, Space, Typography } from 'antd';
 import CopiedStudioProjectHub from '@/components/simulation/CopiedStudioProjectHub';
 import { StudioLibrariesProjectPicker } from '@/components/simulation/StudioLibrariesProjectPicker';
-import { StudioLibrariesSessionActions } from '@/components/simulation/StudioLibrariesSessionActions';
 import { getStudioOrigin, isStudioEmbedConfigured } from '../../../../lib/studioEmbedConfig';
 import { StudioLibrariesBreadcrumb } from '../components/StudioLibrariesBreadcrumb';
 import styles from './StudioLibrariesEmbed.module.css';
@@ -27,27 +26,17 @@ function NativeStudioLibrariesInner() {
 
   if (!urlProjectId || !isLikelyProjectId(urlProjectId)) {
     return (
-      <div className={styles.hubPage}>
+      <div className={styles.fallback}>
         <StudioLibrariesBreadcrumb />
-        <div className={styles.hubMain}>
-          <section className={styles.hubPanel}>
-            <header className={styles.hubHeader}>
-              <div className={styles.hubHeaderText}>
-                <Typography.Title level={4} style={{ margin: 0 }}>
-                  Project library (Keco Studio UI)
-                </Typography.Title>
-                <Typography.Paragraph type="secondary" style={{ marginBottom: 0, marginTop: 8 }}>
-                  Pick a project you collaborate on. Sign in with the same Supabase account as Keco Studio — this app
-                  uses a separate origin, so you need a session here before we can list your projects.
-                </Typography.Paragraph>
-              </div>
-              <StudioLibrariesSessionActions />
-            </header>
-            <div className={styles.hubBody}>
-              <StudioLibrariesProjectPicker />
-            </div>
-          </section>
-        </div>
+        <Card title="Project library (Keco Studio UI)" style={{ marginTop: 16 }}>
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+              Pick a project you collaborate on. The list comes from Supabase for the account you sign in with below
+              (use the same account as in Keco Studio).
+            </Typography.Paragraph>
+            <StudioLibrariesProjectPicker />
+          </Space>
+        </Card>
       </div>
     );
   }
@@ -55,10 +44,7 @@ function NativeStudioLibrariesInner() {
   return (
     <div className={styles.wrap}>
       <div className={styles.toolbar}>
-        <div className={styles.toolbarRow}>
-          <StudioLibrariesBreadcrumb />
-          <StudioLibrariesSessionActions />
-        </div>
+        <StudioLibrariesBreadcrumb />
         <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
           Studio project root rendered in this app (copied from keco-studio).{' '}
           <Link href="/simulation-system/battle/studio-libraries">Change project</Link>

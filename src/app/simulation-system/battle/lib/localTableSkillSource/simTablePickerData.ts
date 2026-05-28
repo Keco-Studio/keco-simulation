@@ -143,38 +143,6 @@ export function rowOptionsFromTable(
 
 export async function listSelectableSimTables(): Promise<SelectableTableInfo[]> {
   const metas = await listTableMetas();
-  return metasToSelectableTableInfos(metas);
-}
-
-/** Local scratch/linked tables plus direct Studio libraries (when signed in). */
-export async function listSelectableTablesForSkillPicker(
-  supabase: SupabaseClient | null,
-  userId?: string,
-): Promise<SelectableTableInfo[]> {
-  const metas = await listTableMetas();
-  const local = metasToSelectableTableInfos(metas);
-
-  if (!supabase || !userId) return local;
-
-  const linkedStudioIds = new Set(
-    metas.map((m) => m.studioLibraryId).filter((id): id is string => Boolean(id)),
-  );
-
-  const studioLibs = await listStudioLibrariesForSkillImport(supabase, userId);
-  const directStudio: SelectableTableInfo[] = studioLibs
-    .filter((l) => !linkedStudioIds.has(l.libraryId))
-    .map((l) => ({
-      id: studioSkillSourceTableId(l.libraryId),
-      name: l.label,
-      kind: 'studio' as const,
-    }));
-
-  return [...local, ...directStudio].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-  );
-}
-
-function metasToSelectableTableInfos(metas: SimTableMeta[]): SelectableTableInfo[] {
   return metas
     .filter((m) => m.id !== SIM_LOCAL_WORKSPACE_TABLE_ID)
     .map((m) => ({

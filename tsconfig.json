@@ -19,9 +19,6 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@keco/battle-core": [
-        "./packages/keco-battle-core/src/index.ts"
-      ],
       "@/*": [
         "./src/*"
       ],

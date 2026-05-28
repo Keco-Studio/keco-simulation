@@ -9,14 +9,6 @@
   padding: 8px 16px 12px;
 }
 
-.toolbarRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .frameWrap {
   flex: 1;
   min-height: 560px;
@@ -36,55 +28,4 @@
 .fallback {
   padding: 24px;
   max-width: 560px;
-}
-
-.hubPage {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.hubMain {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.hubPanel {
-  width: 100%;
-  max-width: 40rem;
-  padding: 24px;
-  background: #fafafa;
-  border: 1px solid #e8e8e8;
-  border-radius: 12px;
-}
-
-.hubHeader {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e8e8e8;
-}
-
-.hubHeaderText {
-  flex: 1 1 16rem;
-  min-width: 0;
-}
-
-.hubBody {
-  width: 100%;
-}
-
-.signInCenter {
-  display: flex;
-  justify-content: center;
-  width: 100%;
 }
