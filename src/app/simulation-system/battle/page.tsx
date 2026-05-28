@@ -26,6 +26,7 @@ import {
 } from './types';
 import { filterSkillsByTab, getBuiltinSkills, inferSkillTabElement } from './data/skills';
 import { BattleLocalTableSkillSourceLauncher } from './components/BattleLocalTableSkillSourceLauncher';
+import { ElementGlyph } from './components/ElementGlyph';
 import {
   createInitialBattleState,
   canUseSkill,
@@ -116,8 +117,10 @@ export default function BattleSimulatorPage() {
   // Skills from local table mapping (fallback: built-in until first successful validate)
   const [skillList, setSkillList] = useState<Skill[]>(() => getBuiltinSkills());
 
-  // Loadout (max 6)
+  // Loadouts (max 6 each)
   const [playerSkillIds, setPlayerSkillIds] = useState<string[]>([]);
+  const [monsterSkillIds, setMonsterSkillIds] = useState<string[]>([]);
+  const [loadoutTarget, setLoadoutTarget] = useState<'player' | 'monster'>('player');
 
   // Log scroll ref
   const logRef = useRef<HTMLDivElement>(null);
@@ -126,13 +129,29 @@ export default function BattleSimulatorPage() {
     if (skills.length > 0) setSkillList(skills);
   }, []);
 
+  const defaultLoadoutIds = useCallback(
+    () => skillList.slice(0, Math.min(6, skillList.length)).map((s) => s.id),
+    [skillList],
+  );
+
   useEffect(() => {
+    const fallback = defaultLoadoutIds();
     setPlayerSkillIds((prev) => {
       const valid = prev.filter((id) => skillList.some((s) => s.id === id));
       if (valid.length > 0) return valid;
-      return skillList.slice(0, Math.min(6, skillList.length)).map((s) => s.id);
+      return fallback;
     });
-  }, [skillList]);
+    setMonsterSkillIds((prev) => {
+      const valid = prev.filter((id) => skillList.some((s) => s.id === id));
+      if (valid.length > 0) return valid;
+      return fallback;
+    });
+  }, [skillList, defaultLoadoutIds]);
+
+  useEffect(() => {
+    if (!logRef.current || !battleState?.battleLogs.length) return;
+    logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [battleState?.battleLogs.length]);
 
   // --- Derived ---
 
@@ -142,6 +161,14 @@ export default function BattleSimulatorPage() {
       .map((id) => skillList.find((s) => s.id === id))
       .filter((s): s is Skill => s !== undefined);
   }, [playerSkillIds, skillList]);
+
+  const monsterConfiguredSkills = useMemo(() => {
+    return monsterSkillIds
+      .map((id) => skillList.find((s) => s.id === id))
+      .filter((s): s is Skill => s !== undefined);
+  }, [monsterSkillIds, skillList]);
+
+  const activeLoadoutIds = loadoutTarget === 'player' ? playerSkillIds : monsterSkillIds;
 
   // Skills shown depend on phase
   const displayedSkills = useMemo(() => {
@@ -185,9 +212,12 @@ export default function BattleSimulatorPage() {
 
   // Start setup phase
   const handleStartBattle = useCallback(() => {
-    // Validate names
     if (!playerConfig.name || !monsterConfig.name) {
       message.warning('Enter both unit names');
+      return;
+    }
+    if (skillList.length === 0) {
+      message.warning('Open Configure skills… and apply validated skills before battle');
       return;
     }
 
@@ -228,13 +258,17 @@ export default function BattleSimulatorPage() {
 
     setBattleState(initialState);
     setSelectedSkill(null);
-  }, [playerConfig, monsterConfig, monsterInitialElement]);
+  }, [playerConfig, monsterConfig, monsterInitialElement, skillList.length]);
 
   // Leave setup → turn 1
   const handleConfirmBeginCombat = useCallback(() => {
     if (!battleState || battleState.phase !== 'setup') return;
     if (playerSkillIds.length === 0) {
-      message.warning('Pick at least one skill');
+      message.warning('Pick at least one player skill');
+      return;
+    }
+    if (monsterSkillIds.length === 0) {
+      message.warning('Pick at least one enemy skill');
       return;
     }
     const base = { ...battleState, currentTurn: 1, phase: 'player_turn' as const };
@@ -254,7 +288,7 @@ export default function BattleSimulatorPage() {
       battleLogs: logs,
     });
     setSelectedSkill(null);
-  }, [battleState, playerSkillIds.length]);
+  }, [battleState, playerSkillIds.length, monsterSkillIds.length]);
 
   // Player skill
   const handleUseSkill = useCallback(() => {
@@ -356,8 +390,14 @@ export default function BattleSimulatorPage() {
       return;
     }
 
-    // Enemy picks a skill (simplified AI)
-    const enemySkills = skillList.filter((s) => s.mpCost <= monster.mp);
+    // Enemy picks a skill from loadout (fallback: full skill list)
+    const enemyPool =
+      monsterSkillIds.length > 0
+        ? monsterSkillIds
+            .map((id) => skillList.find((s) => s.id === id))
+            .filter((s): s is Skill => s !== undefined)
+        : skillList;
+    const enemySkills = enemyPool.filter((s) => s.mpCost <= monster.mp);
 
     // Prefer reactions when possible
     let enemySkill: Skill | null = null;
@@ -422,7 +462,7 @@ export default function BattleSimulatorPage() {
     setTimeout(() => {
       handleRoundEnd(newState, player, monster);
     }, 500);
-  }, [skillList]);
+  }, [skillList, monsterSkillIds]);
 
   // Round end
   const handleRoundEnd = useCallback((currentState: BattleState, currentPlayer: BattleUnit, currentMonster: BattleUnit) => {
@@ -707,7 +747,7 @@ export default function BattleSimulatorPage() {
             <button
               className={styles.startButton}
               onClick={handleConfirmBeginCombat}
-              disabled={playerSkillIds.length === 0}
+              disabled={playerSkillIds.length === 0 || monsterSkillIds.length === 0}
             >
               Confirm
             </button>
@@ -947,7 +987,7 @@ export default function BattleSimulatorPage() {
         <div className={styles.skillSelectorTitle} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {isSetup ? (
             <>
-              <SettingOutlined /> Configure skills (max 6)
+              <SettingOutlined /> Configure loadouts (max 6 each)
             </>
           ) : (
             <>
@@ -959,15 +999,25 @@ export default function BattleSimulatorPage() {
         {/* Pre-battle: configured list + library */}
         {isSetup && (
           <>
-            <div style={{ marginBottom: 12, padding: '8px 12px', background: '#1e1e1e', borderRadius: 6, fontSize: 12 }}>
-              <span style={{ color: '#8b949e' }}>Selected: </span>
-              <span style={{ color: playerSkillIds.length >= 6 ? '#f0883e' : '#50fa7b' }}>
-                {playerSkillIds.length}/6
-              </span>
-              {playerSkillIds.length >= 6 && (
-                <span style={{ color: '#f0883e', marginLeft: 8 }}>Maximum reached</span>
-              )}
+            <div className={styles.loadoutTargetRow}>
+              <button
+                type="button"
+                className={`${styles.loadoutTargetTab} ${styles.loadoutTargetTabPlayer} ${loadoutTarget === 'player' ? styles.loadoutTargetTabActive : ''}`}
+                onClick={() => setLoadoutTarget('player')}
+              >
+                <UserOutlined />
+                Player {playerSkillIds.length}/6
+              </button>
+              <button
+                type="button"
+                className={`${styles.loadoutTargetTab} ${styles.loadoutTargetTabMonster} ${loadoutTarget === 'monster' ? styles.loadoutTargetTabActive : ''}`}
+                onClick={() => setLoadoutTarget('monster')}
+              >
+                <BugOutlined />
+                Enemy {monsterSkillIds.length}/6
+              </button>
             </div>
+            <p className={styles.loadoutSectionTitle}>Player loadout</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               {playerConfiguredSkills.map((skill) => {
                 const skillElement = getSkillElement(skill);
@@ -981,29 +1031,65 @@ export default function BattleSimulatorPage() {
                       gap: 4,
                       padding: '4px 8px',
                       background: elementColor ? `${elementColor}20` : '#2d2d2d',
-                      border: `1px solid ${elementColor || '#555'}`,
+                      border: `1px solid ${elementColor || '#51cf66'}`,
                       borderRadius: 4,
                       fontSize: 12,
                       color: elementColor || '#fff',
                       cursor: 'pointer',
                     }}
                     onClick={() => {
-                      setPlayerSkillIds(prev => prev.filter(id => id !== skill.id));
+                      setPlayerSkillIds((prev) => prev.filter((id) => id !== skill.id));
                     }}
-                    title="Click to remove"
+                    title="Click to remove from player"
                   >
-                    {skillElement !== 'none' && ELEMENT_CONFIG[skillElement as Element]?.emoji}
+                    {skillElement !== 'none' && <ElementGlyph element={skillElement as Element} />}
                     {skill.name}
                     <span style={{ color: '#888', marginLeft: 4 }}>×</span>
                   </div>
                 );
               })}
               {playerConfiguredSkills.length === 0 && (
-                <div style={{ color: '#666', fontSize: 12 }}>Pick skills from the grid below...</div>
+                <div style={{ color: '#666', fontSize: 12 }}>No player skills selected</div>
+              )}
+            </div>
+            <p className={styles.loadoutSectionTitle}>Enemy loadout</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              {monsterConfiguredSkills.map((skill) => {
+                const skillElement = getSkillElement(skill);
+                const elementColor = skillElement !== 'none' ? ELEMENT_CONFIG[skillElement as Element]?.color : undefined;
+                return (
+                  <div
+                    key={skill.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 8px',
+                      background: elementColor ? `${elementColor}20` : '#2d2d2d',
+                      border: `1px solid ${elementColor || '#ff6b6b'}`,
+                      borderRadius: 4,
+                      fontSize: 12,
+                      color: elementColor || '#fff',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      setMonsterSkillIds((prev) => prev.filter((id) => id !== skill.id));
+                    }}
+                    title="Click to remove from enemy"
+                  >
+                    {skillElement !== 'none' && <ElementGlyph element={skillElement as Element} />}
+                    {skill.name}
+                    <span style={{ color: '#888', marginLeft: 4 }}>×</span>
+                  </div>
+                );
+              })}
+              {monsterConfiguredSkills.length === 0 && (
+                <div style={{ color: '#666', fontSize: 12 }}>No enemy skills selected</div>
               )}
             </div>
             <div style={{ marginBottom: 12, fontSize: 12, color: '#8b949e' }}>
-              Click skill cards below to add (up to 6).
+              Switch Player / Enemy above, then click skill cards below to add to that loadout (max 6
+              each). Skills come from Configure skills on the left.
             </div>
           </>
         )}
@@ -1028,7 +1114,7 @@ export default function BattleSimulatorPage() {
               className={`${styles.elementTab} ${styles[`elementTab${elem.charAt(0).toUpperCase() + elem.slice(1)}`]} ${selectedElement === elem ? styles.elementTabActive : ''}`}
               onClick={() => setSelectedElement(elem)}
             >
-              {ELEMENT_CONFIG[elem].emoji}
+              <ElementGlyph element={elem} size={12} />
             </button>
           ))}
         </div>
@@ -1038,6 +1124,10 @@ export default function BattleSimulatorPage() {
             const cooldown = skillCooldowns[skill.id] || 0;
             const canUse = canUseSkill(skill, player, skillCooldowns);
             const isSelected = selectedSkill?.id === skill.id;
+            const inPlayerLoadout = playerSkillIds.includes(skill.id);
+            const inEnemyLoadout = monsterSkillIds.includes(skill.id);
+            const inActiveLoadout = activeLoadoutIds.includes(skill.id);
+            const loadoutFull = activeLoadoutIds.length >= 6;
             const skillElement = getSkillElement(skill);
             const elementColor = skillElement !== 'none' ? ELEMENT_CONFIG[skillElement as Element]?.color : undefined;
 
@@ -1047,24 +1137,53 @@ export default function BattleSimulatorPage() {
                 className={`
                   ${styles.skillCard}
                   ${isSelected ? styles.skillCardSelected : ''}
+                  ${isSetup && inActiveLoadout ? styles.skillCardSelected : ''}
                   ${!isSetup && !canUse.canUse && cooldown === 0 ? styles.skillCardDisabled : ''}
                   ${cooldown > 0 ? styles.skillCardCooldown : ''}
                 `}
+                style={
+                  elementColor
+                    ? {
+                        borderColor: elementColor,
+                        boxShadow:
+                          isSelected || (isSetup && inActiveLoadout)
+                            ? `0 0 0 2px ${elementColor}33`
+                            : undefined,
+                      }
+                    : isSetup && inActiveLoadout
+                      ? { boxShadow: '0 0 0 2px rgba(81, 207, 102, 0.35)' }
+                      : undefined
+                }
                 onClick={() => {
                   if (isSetup) {
-                    if (playerSkillIds.length < 6 && !playerSkillIds.includes(skill.id)) {
-                      setPlayerSkillIds(prev => [...prev, skill.id]);
+                    if (loadoutFull || inActiveLoadout) return;
+                    if (loadoutTarget === 'player') {
+                      setPlayerSkillIds((prev) => [...prev, skill.id]);
+                    } else {
+                      setMonsterSkillIds((prev) => [...prev, skill.id]);
                     }
-                  } else {
-                    if (canUse.canUse) {
-                      setSelectedSkill(skill);
-                    }
+                  } else if (canUse.canUse) {
+                    setSelectedSkill(skill);
                   }
                 }}
               >
+                {isSetup && (inPlayerLoadout || inEnemyLoadout) && (
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 4, flexWrap: 'wrap' }}>
+                    {inPlayerLoadout && (
+                      <span style={{ fontSize: 10, color: '#51cf66', border: '1px solid #51cf66', borderRadius: 3, padding: '0 4px' }}>
+                        P
+                      </span>
+                    )}
+                    {inEnemyLoadout && (
+                      <span style={{ fontSize: 10, color: '#ff6b6b', border: '1px solid #ff6b6b', borderRadius: 3, padding: '0 4px' }}>
+                        E
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className={styles.skillCardHeader}>
                   <span className={styles.skillName} style={{ color: elementColor }}>
-                    {skillElement !== 'none' && ELEMENT_CONFIG[skillElement as Element]?.emoji}
+                    {skillElement !== 'none' && <ElementGlyph element={skillElement as Element} />}
                     {skill.name}
                   </span>
                   <span className={styles.skillMp}>
