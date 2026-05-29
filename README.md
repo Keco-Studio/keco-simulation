@@ -41,6 +41,16 @@ npm run export:battle-simulation-xlsx
 
 Output goes to `exports/` (gitignore or commit as you prefer).
 
+## Battle map static assets (`public/`)
+
+`public/assets`, `public/enemy`, and `public/player` are **copied from** `battle-poc/public/` and committed in this repo (do not use symlinks; Vercel cannot build those).
+
+To refresh after POC asset changes (from a sibling `battle-poc` checkout):
+
+```bash
+cp -a ../battle-poc/public/{assets,enemy,player} public/
+```
+
 ## Relation to the main repo
 
 - App logic lives in this repository; **keco-studio** keeps only the iframe shell and sidebar toggle.

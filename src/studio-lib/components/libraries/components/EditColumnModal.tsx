@@ -734,7 +734,8 @@ export function EditColumnModal({
                 />
               </svg>
             }
-            getPopupContainer={(node) => node.parentElement ?? document.body}
+            getPopupContainer={() => modalRef.current ?? document.body}
+            listHeight={204}
             popupRender={(originNode) => (
               <div className={styles.dataTypeDropdown}>
                 <div className={styles.dataTypeSearchWrap}>
@@ -754,7 +755,7 @@ export function EditColumnModal({
                     onMouseDown={(e) => e.stopPropagation()}
                   />
                 </div>
-                {originNode}
+                <div className={styles.dataTypeOptionsList}>{originNode}</div>
               </div>
             )}
             onOpenChange={(open) => {
@@ -1146,7 +1147,7 @@ export function EditColumnModal({
                   error: null,
                 }))
               }
-              getPopupContainer={(node) => node.parentElement ?? document.body}
+              getPopupContainer={() => modalRef.current ?? document.body}
               options={editColumnModal.libraries.map((lib) => ({
                 label: lib.name,
                 value: lib.id,
