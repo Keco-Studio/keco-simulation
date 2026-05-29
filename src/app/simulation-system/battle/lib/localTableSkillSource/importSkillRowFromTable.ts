@@ -8,7 +8,7 @@ import {
 } from './battleLocalTableSkillSource';
 import type { BattleSkillDraft, LocalTableCellRef } from './battleSkillDrafts';
 import { cellValueToString } from './cellDisplayValue';
-import type { TableColumnInfo } from './simTablePickerData';
+import { ASSET_NAME_COLUMN_KEY, type TableColumnInfo } from './simTablePickerData';
 import type { SimTableRow } from '@/lib/simLocalTables/types';
 
 /** Normalize header / column key for case-insensitive alias lookup. */
@@ -90,6 +90,8 @@ function skillKeysForHeaderToken(token: string): BattleSkillColumnMappingKey[] {
 }
 
 function candidatesForColumn(col: TableColumnInfo): BattleSkillColumnMappingKey[] {
+  // Studio asset name: fixed UI label "Name" is not a user-defined header; never auto-map.
+  if (col.key === ASSET_NAME_COLUMN_KEY) return [];
   const fromLabel = skillKeysForHeaderToken(col.label);
   const fromKey = skillKeysForHeaderToken(col.key);
   const merged = new Set<BattleSkillColumnMappingKey>([...fromLabel, ...fromKey]);
@@ -200,11 +202,12 @@ export function buildDraftFromTableRow(args: {
 
   if (!fields.name?.value?.trim()) {
     const nameCol = [...columnToField.entries()].find(([, k]) => k === 'name')?.[0];
+    const assetName = cellValueToString(row.values[ASSET_NAME_COLUMN_KEY]).trim();
     const fallback =
-      (nameCol ? cellValueToString(row.values[nameCol]).trim() : '') || idStored;
+      (nameCol ? cellValueToString(row.values[nameCol]).trim() : '') || assetName || idStored;
     fields.name = {
       tableId,
-      columnKey: nameCol ?? idColumnKey,
+      columnKey: nameCol ?? (assetName ? ASSET_NAME_COLUMN_KEY : idColumnKey),
       value: fallback,
     };
   }

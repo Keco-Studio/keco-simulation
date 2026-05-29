@@ -43,6 +43,7 @@ export function ImportSkillHeaderMappingModal({ open, ambiguities, onCancel, onC
       cancelText="Cancel"
       destroyOnHidden
       width={480}
+      zIndex={1100}
     >
       <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
         Some table headers match more than one skill field. Choose how each column should map.
