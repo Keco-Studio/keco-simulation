@@ -25,7 +25,15 @@ import {
   ELEMENT_STRENGTH_CONFIG,
   REACTION_CONFIG,
 } from './types';
-import { filterSkillsByTab, getBuiltinSkills, inferSkillTabElement } from './data/skills';
+import { filterSkillsByTab, inferSkillTabElement } from './data/skills';
+import {
+  BATTLE_SKILLS_UPDATED_EVENT,
+  hydrateBattlePageSkills,
+  readBattleSkillsForInitialRender,
+} from './lib/skills/battleSkillsStorage';
+import { SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT } from '@/lib/simLocalTables/simLocalTablesEvents';
+import { useAuth } from '@studio/lib/contexts/AuthContext';
+import { useSupabase } from '@studio/lib/SupabaseContext';
 import { BattleLocalTableSkillSourceLauncher } from './components/BattleLocalTableSkillSourceLauncher';
 import { ElementGlyph } from './components/ElementGlyph';
 import { BattleArena, type BattleArenaConfig } from './components/BattleArena/BattleArena';
@@ -84,6 +92,10 @@ const formatLogEntry = (entry: BattleLogEntry, index: number, playerName: string
 type BattleMode = 'turn' | 'map';
 
 export default function BattleSimulatorPage() {
+  const supabase = useSupabase();
+  const { userProfile, isAuthenticated } = useAuth();
+  const supabaseReady = Boolean(supabase && isAuthenticated && userProfile?.id);
+
   // --- State ---
 
   // Player stats
@@ -118,8 +130,28 @@ export default function BattleSimulatorPage() {
   // Active element tab
   const [selectedElement, setSelectedElement] = useState<string>('all');
 
-  // Skills from local table mapping (fallback: built-in until first successful validate)
-  const [skillList, setSkillList] = useState<Skill[]>(() => getBuiltinSkills());
+  // Skills from Configure skills / persistence (built-in only when nothing saved yet)
+  const [skillList, setSkillList] = useState<Skill[]>(() => readBattleSkillsForInitialRender());
+
+  useEffect(() => {
+    let cancelled = false;
+    const syncSkills = () => {
+      void hydrateBattlePageSkills(supabaseReady ? supabase : null).then((skills) => {
+        if (!cancelled) setSkillList(skills);
+      });
+    };
+    syncSkills();
+    const onSkillsUpdated = () => syncSkills();
+    window.addEventListener(BATTLE_SKILLS_UPDATED_EVENT, onSkillsUpdated);
+    window.addEventListener(SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT, onSkillsUpdated);
+    window.addEventListener('focus', onSkillsUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(BATTLE_SKILLS_UPDATED_EVENT, onSkillsUpdated);
+      window.removeEventListener(SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT, onSkillsUpdated);
+      window.removeEventListener('focus', onSkillsUpdated);
+    };
+  }, [supabase, supabaseReady]);
 
   // Loadouts (max 6 each)
   const [playerSkillIds, setPlayerSkillIds] = useState<string[]>([]);

@@ -20,6 +20,8 @@ export type LocalTableCellRef = {
 
 export type BattleSkillDraft = {
   draftId: string;
+  /** Stable row id in the source table (scratch row id or Studio asset id). */
+  sourceRowId?: string;
   fields: Partial<Record<BattleSkillColumnMappingKey, LocalTableCellRef>>;
 };
 
@@ -51,6 +53,7 @@ export function loadBattleSkillDrafts(): BattleSkillDraft[] {
       .filter((d) => d && typeof d === 'object' && typeof d.draftId === 'string')
       .map((d) => ({
         draftId: d.draftId,
+        sourceRowId: typeof d.sourceRowId === 'string' && d.sourceRowId.trim() ? d.sourceRowId : undefined,
         fields: sanitizeFields(d.fields),
       }));
   } catch {

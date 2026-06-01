@@ -26,9 +26,11 @@ import {
   createEmptyDraft,
   loadBattleSkillDrafts,
   saveBattleSkillDrafts,
-  validateSkillDrafts,
   type SkillDraftValidationResult,
 } from '../lib/localTableSkillSource/battleSkillDrafts';
+import { validateSkillDraftsFromLiveTables } from '../lib/localTableSkillSource/refreshDraftsFromLiveTables';
+import { saveBattleSkillsToStorage } from '../lib/skills/battleSkillsStorage';
+import { DEFAULT_BATTLE_SKILL_MODULE_ID } from '../lib/skills/battleSkillModulesStorage';
 import {
   listSelectableTablesForSkillPicker,
   loadColumnValueOptions,
@@ -46,7 +48,7 @@ const FIELD_OPTIONS = BATTLE_SKILL_MAPPING_FIELDS.map((f) => ({
 }));
 
 export type BattleLocalTableSkillSourcePanelHandle = {
-  runValidate: (silent?: boolean) => SkillDraftValidationResult;
+  runValidate: (silent?: boolean) => Promise<SkillDraftValidationResult>;
   refreshTables: () => Promise<void>;
 };
 
@@ -443,23 +445,33 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
     }, []);
 
     const runValidate = useCallback(
-      (silent = false) => {
+      async (silent = false) => {
         setValidating(true);
         try {
-          const result = validateSkillDrafts(drafts);
-          setLastResult(result);
-          if (result.ok) {
-            onSkillsApplied(result.skills);
-            if (!silent) message.success(`Applied ${result.skills.length} skill(s).`);
+          const live = await validateSkillDraftsFromLiveTables(
+            supabaseReady ? supabase : null,
+            drafts,
+          );
+          setDrafts(live.refreshedDrafts);
+          setLastResult(live);
+          if (live.ok) {
+            saveBattleSkillsToStorage(DEFAULT_BATTLE_SKILL_MODULE_ID, live.skills);
+            onSkillsApplied(live.skills);
+            if (!silent) message.success(`Applied ${live.skills.length} skill(s).`);
           } else if (!silent) {
             message.error('Fix validation issues below.');
           }
-          return result;
+          if (!silent && live.warnings.length > 0) {
+            message.warning(
+              `${live.warnings.length} skill(s) could not be matched to a table row; using last saved values.`,
+            );
+          }
+          return live;
         } finally {
           setValidating(false);
         }
       },
-      [drafts, onSkillsApplied],
+      [drafts, onSkillsApplied, supabase, supabaseReady],
     );
 
     useEffect(() => {
@@ -469,7 +481,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
         (d) => d.fields.id?.value?.trim() && d.fields.name?.value?.trim(),
       );
       if (!hasRequired) return;
-      runValidate(true);
+      void runValidate(true);
     }, [drafts, runValidate, isModal]);
 
     useImperativeHandle(

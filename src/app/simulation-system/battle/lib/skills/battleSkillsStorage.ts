@@ -5,7 +5,11 @@
 
 import type { Skill } from '../../types';
 import { getBuiltinSkills } from '../../data/skills';
+import { loadBattleSkillDrafts } from '../localTableSkillSource/battleSkillDrafts';
+import { validateSkillDraftsFromLiveTables } from '../localTableSkillSource/refreshDraftsFromLiveTables';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  DEFAULT_BATTLE_SKILL_MODULE_ID,
   loadBattleSkillModulesState,
   saveSkillsForModuleWithMirror,
   resetModuleSkillsToBuiltin,
@@ -63,8 +67,36 @@ export async function loadBattleSkillsFromPersistence(): Promise<Skill[]> {
   return mod.skills;
 }
 
-export function saveBattleSkillsToStorage(moduleId: string, skills: Skill[]): void {
-  saveSkillsForModuleWithMirror(moduleId, skills);
+/** Sync read for battle page first paint (may be stale until hydrate runs). */
+export function readBattleSkillsForInitialRender(): Skill[] {
+  if (typeof window === 'undefined') return getBuiltinSkills();
+  return getBuiltinSkills();
+}
+
+/**
+ * Restore skills: re-read drafts from live tables, validate, persist; else module storage.
+ */
+export async function hydrateBattlePageSkills(
+  supabase: SupabaseClient | null = null,
+): Promise<Skill[]> {
+  const drafts = loadBattleSkillDrafts();
+  if (drafts.length > 0) {
+    const result = await validateSkillDraftsFromLiveTables(supabase, drafts);
+    if (result.ok) {
+      // Silent save: page hydrate listens to BATTLE_SKILLS_UPDATED_EVENT and would loop otherwise.
+      saveBattleSkillsToStorage(DEFAULT_BATTLE_SKILL_MODULE_ID, result.skills, { notify: false });
+      return result.skills;
+    }
+  }
+  return loadBattleSkillsFromPersistence();
+}
+
+export function saveBattleSkillsToStorage(
+  moduleId: string,
+  skills: Skill[],
+  options?: { notify?: boolean },
+): void {
+  saveSkillsForModuleWithMirror(moduleId, skills, options);
 }
 
 /** Reset one module's skills to built-in defaults (other modules unchanged). */
