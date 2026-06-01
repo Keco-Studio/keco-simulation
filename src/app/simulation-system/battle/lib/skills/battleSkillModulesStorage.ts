@@ -115,12 +115,19 @@ function normalizeModulesState(state: BattleSkillModulesState): BattleSkillModul
   return { activeModuleId: active, modules };
 }
 
-function writeStateSync(state: BattleSkillModulesState): void {
+type WriteStateOptions = {
+  /** When false, persist without firing BATTLE_SKILLS_UPDATED_EVENT (avoids hydrate feedback loops). */
+  notify?: boolean;
+};
+
+function writeStateSync(state: BattleSkillModulesState, options?: WriteStateOptions): void {
   if (typeof window === 'undefined') return;
   const json = JSON.stringify(state);
   localStorage.setItem(BATTLE_SKILL_MODULES_STORAGE_KEY, json);
   void idbWriteBattleSkillModulesJson(json);
-  notifyBattleSkillModulesUpdated();
+  if (options?.notify !== false) {
+    notifyBattleSkillModulesUpdated();
+  }
 }
 
 export function notifyBattleSkillModulesUpdated(): void {
@@ -146,7 +153,7 @@ export async function loadBattleSkillModulesState(): Promise<BattleSkillModulesS
 
   const fromIdb = parseModulesJson(await idbReadBattleSkillModulesJson());
   if (fromIdb) {
-    writeStateSync(fromIdb);
+    writeStateSync(fromIdb, { notify: false });
     return fromIdb;
   }
 
@@ -158,7 +165,11 @@ export async function loadBattleSkillModulesState(): Promise<BattleSkillModulesS
   return fresh;
 }
 
-export function saveSkillsForModuleWithMirror(moduleId: string, skills: Skill[]): void {
+export function saveSkillsForModuleWithMirror(
+  moduleId: string,
+  skills: Skill[],
+  options?: WriteStateOptions,
+): void {
   if (typeof window === 'undefined') return;
   const raw = readLocalStorageModulesRaw();
   let state = parseModulesJson(raw) ?? createDefaultState();
@@ -171,7 +182,7 @@ export function saveSkillsForModuleWithMirror(moduleId: string, skills: Skill[])
   } else {
     state = { ...state, modules: [...state.modules, nextMod] };
   }
-  writeStateSync(state);
+  writeStateSync(state, options);
 }
 
 export function resetModuleSkillsToBuiltin(moduleId: string): void {

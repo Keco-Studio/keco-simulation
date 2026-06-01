@@ -212,7 +212,7 @@ export function buildDraftFromTableRow(args: {
     };
   }
 
-  return { draftId: crypto.randomUUID(), fields };
+  return { draftId: crypto.randomUUID(), sourceRowId: row.id, fields };
 }
 
 export function skillFieldLabel(key: BattleSkillColumnMappingKey): string {

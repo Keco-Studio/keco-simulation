@@ -27,10 +27,10 @@ export function BattleLocalTableSkillSourceModal({
   const [draftCount, setDraftCount] = useState(0);
   const [applying, setApplying] = useState(false);
 
-  const handleApply = useCallback(() => {
+  const handleApply = useCallback(async () => {
     setApplying(true);
     try {
-      const result = panelRef.current?.runValidate(false);
+      const result = await panelRef.current?.runValidate(false);
       if (result?.ok) onClose();
     } finally {
       setApplying(false);

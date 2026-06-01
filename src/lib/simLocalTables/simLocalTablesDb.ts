@@ -3,6 +3,7 @@
  */
 
 import type { SimLocalColumnDef, SimTableMeta, SimTableRow, WriteBackQueueItem } from './types';
+import { notifySimLocalTableRowsUpdated } from './simLocalTablesEvents';
 
 function isSimLocalColumnDef(x: unknown): x is SimLocalColumnDef {
   if (!x || typeof x !== 'object') return false;
@@ -153,7 +154,10 @@ export async function putTableRows(tableId: string, rows: SimTableRow[]): Promis
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_ROWS, 'readwrite');
     tx.objectStore(STORE_ROWS).put({ tableId, rows });
-    tx.oncomplete = () => resolve();
+    tx.oncomplete = () => {
+      notifySimLocalTableRowsUpdated(tableId);
+      resolve();
+    };
     tx.onerror = () => reject(tx.error ?? new Error('putTableRows failed'));
   });
 }
