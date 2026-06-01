@@ -941,7 +941,7 @@ export default function BattleSimulatorPage() {
   );
 
   const renderModePicker = () => (
-    <div className={styles.battleStage}>
+    <div className={`${styles.battleStage} ${styles.battleStageFill}`}>
       <div className={`${styles.mapSlot} ${styles.emptyState}`}>
         <div className={styles.emptyStateIcon}>
           <ThunderboltOutlined />
@@ -990,7 +990,7 @@ export default function BattleSimulatorPage() {
       }
 
       return (
-        <div className={styles.battleStage}>
+        <div className={`${styles.battleStage} ${styles.battleStageFill}`}>
           <div className={`${styles.mapSlot} ${styles.emptyState}`}>
             <div className={styles.emptyStateIcon}>
               {battleMode === 'map' ? <EnvironmentOutlined /> : <AimOutlined />}
@@ -1006,20 +1006,9 @@ export default function BattleSimulatorPage() {
       );
     }
 
-    if (battleState.phase === 'setup' && battleMode === 'map') {
-      return (
-        <div className={styles.battleStage}>
-          <div className={`${styles.mapSlot} ${styles.emptyState}`} style={{ minHeight: 140 }}>
-            <div className={styles.emptyStateIcon}>
-              <SettingOutlined />
-            </div>
-            <div className={styles.emptyStateTitle}>Skill loadout</div>
-            <div className={styles.emptyStateDesc}>
-              Choose up to 6 skills each for player and enemy below, then click Launch arena.
-            </div>
-          </div>
-        </div>
-      );
+    // Loadout UI lives in skillSelector; avoid a second placeholder card that overlaps it.
+    if (battleState.phase === 'setup') {
+      return null;
     }
 
     if (battleState.phase === 'finished') {
@@ -1060,7 +1049,7 @@ export default function BattleSimulatorPage() {
     const { player, monster } = battleState;
 
     return (
-      <div className={styles.battleStage}>
+      <div className={`${styles.battleStage} ${styles.battleStageFill}`}>
         {/* Player status */}
         <div className={styles.combatantStatus}>
           <div className={styles.statusHeader}>
@@ -1214,7 +1203,7 @@ export default function BattleSimulatorPage() {
     const isSetup = battleState.phase === 'setup';
 
     return (
-      <div className={styles.skillSelector}>
+      <div className={`${styles.skillSelector} ${isSetup ? styles.skillSelectorExpanded : ''}`}>
         <div className={styles.skillSelectorTitle} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {isSetup ? (
             <>
@@ -1327,10 +1316,10 @@ export default function BattleSimulatorPage() {
               <button
                 type="button"
                 className={styles.startButton}
-                onClick={handleConfirmBeginCombat}
+                onClick={battleMode === 'map' ? handleLaunchArena : handleConfirmBeginCombat}
                 disabled={playerSkillIds.length === 0 || monsterSkillIds.length === 0}
               >
-                Confirm
+                {battleMode === 'map' ? 'Launch arena' : 'Confirm'}
               </button>
               <button type="button" className={styles.resetButton} onClick={handleCancelLoadout}>
                 Back
@@ -1487,7 +1476,7 @@ export default function BattleSimulatorPage() {
   };
 
   const renderBattleLog = () => {
-    if (!battleState) {
+    if (!battleState || battleState.phase === 'setup') {
       return null;
     }
 
@@ -1538,7 +1527,7 @@ export default function BattleSimulatorPage() {
           {renderConfigPanel()}
           <div className={styles.rightColumn}>
             {arenaConfig ? (
-              <div className={styles.battleStage}>
+              <div className={`${styles.battleStage} ${styles.battleStageFill}`}>
                 <div className={styles.mapSlot}>
                   <BattleArena config={arenaConfig} onStop={handleReset} />
                 </div>
