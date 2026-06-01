@@ -220,7 +220,7 @@ export default function BattleSimulatorPage() {
     setMonsterConfig(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  // Start setup phase
+  /** Turn-based: open skill loadout (setup phase). */
   const handleStartBattle = useCallback(() => {
     if (!playerConfig.name || !monsterConfig.name) {
       message.warning('Enter both unit names');
@@ -317,6 +317,7 @@ export default function BattleSimulatorPage() {
     [playerConfig.name, monsterConfig.name, skillList.length],
   );
 
+  /** Map arena: open skill loadout (setup phase). */
   const handleEnterLoadout = useCallback(() => {
     if (!playerConfig.name || !monsterConfig.name) {
       message.warning('Enter both unit names');
@@ -428,23 +429,19 @@ export default function BattleSimulatorPage() {
 
     const { player, monster } = battleState;
 
-    // Skill must be in loadout
     if (!playerSkillIds.includes(selectedSkill.id)) {
       message.warning('Only loadout skills can be used.');
       return;
     }
 
-    // canUseSkill gate
     const check = canUseSkill(selectedSkill, player, battleState.skillCooldowns);
     if (!check.canUse) {
       message.warning(check.reason);
       return;
     }
 
-    // Frozen skips turn
     if (player.control?.type === 'freeze') {
       message.warning('You are frozen and skip this turn.');
-      // Hand off to enemy
       handleEnemyTurn({ ...battleState, phase: 'enemy_turn' }, player, monster);
       return;
     }
@@ -1073,7 +1070,7 @@ export default function BattleSimulatorPage() {
               {battleState.phase === 'player_turn' && <span style={{ color: '#51cf66', fontSize: 12 }}>Acting</span>}
             </div>
             <div className={styles.statusTurn}>
-              {battleState.phase === 'setup' ? 'Setup' : `Round ${battleState.currentTurn}`}
+              Round {battleState.currentTurn}
             </div>
           </div>
           <div className={styles.progressBars}>
@@ -1325,6 +1322,19 @@ export default function BattleSimulatorPage() {
             <div style={{ marginBottom: 12, fontSize: 12, color: '#8b949e' }}>
               Switch Player / Enemy above, then click skill cards below to add to that loadout (max 6
               each). Skills come from Configure skills on the left.
+            </div>
+            <div className={styles.actionButtons} style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                className={styles.startButton}
+                onClick={handleConfirmBeginCombat}
+                disabled={playerSkillIds.length === 0 || monsterSkillIds.length === 0}
+              >
+                Confirm
+              </button>
+              <button type="button" className={styles.resetButton} onClick={handleCancelLoadout}>
+                Back
+              </button>
             </div>
           </>
         )}
