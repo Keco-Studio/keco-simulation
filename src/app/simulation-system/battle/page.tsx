@@ -122,18 +122,6 @@ export default function BattleSimulatorPage() {
   const [monsterSkillIds, setMonsterSkillIds] = useState<string[]>([]);
   const [loadoutTarget, setLoadoutTarget] = useState<'player' | 'monster'>('player');
 
-  // Map arena (battle-core BT + keco damage)
-  const [arenaConfig, setArenaConfig] = useState<BattleArenaConfig | null>(null);
-
-  // Legacy turn-based auto (keco engine only) — kept for fallback
-  const [autoRunning, setAutoRunning] = useState(false);
-  const [battleSpeed, setBattleSpeed] = useState<AutoBattleSpeed>(1);
-  const autoBattleConfigRef = useRef({
-    skillList: [] as Skill[],
-    playerSkillIds: [] as string[],
-    enemySkillIds: [] as string[],
-  });
-
   // Log scroll ref
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -159,44 +147,6 @@ export default function BattleSimulatorPage() {
       return fallback;
     });
   }, [skillList, defaultLoadoutIds]);
-
-  useEffect(() => {
-    autoBattleConfigRef.current = {
-      skillList,
-      playerSkillIds,
-      enemySkillIds: monsterSkillIds,
-    };
-  }, [skillList, playerSkillIds, monsterSkillIds]);
-
-  useEffect(() => {
-    if (!autoRunning || !battleState) return;
-    if (battleState.phase === 'finished' || battleState.result) {
-      setAutoRunning(false);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setBattleState((prev) => {
-        if (!prev || prev.phase === 'finished' || prev.result) {
-          setAutoRunning(false);
-          return prev;
-        }
-        const cfg = autoBattleConfigRef.current;
-        const step = advanceAutoBattleStep(prev, {
-          skillList: cfg.skillList,
-          playerSkillIds: cfg.playerSkillIds,
-          enemySkillIds: cfg.enemySkillIds,
-          maxTurns: 100,
-        });
-        if (step.finished) {
-          setAutoRunning(false);
-        }
-        return step.state;
-      });
-    }, Math.round(AUTO_BATTLE_BASE_MS / battleSpeed));
-
-    return () => window.clearTimeout(timer);
-  }, [autoRunning, battleState, battleSpeed]);
 
   useEffect(() => {
     if (!logRef.current || !battleState?.battleLogs.length) return;
@@ -260,39 +210,7 @@ export default function BattleSimulatorPage() {
     setMonsterConfig(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const buildArenaConfig = useCallback(
-    (playerLoadout: string[], enemyLoadout: string[]): BattleArenaConfig => ({
-      mapWidth: 16,
-      mapHeight: 16,
-      playerName: playerConfig.name,
-      playerStats: {
-        maxHp: playerConfig.hp,
-        atk: playerConfig.atk,
-        def: playerConfig.def,
-        spd: playerConfig.spd,
-      },
-      playerHp: playerConfig.hp,
-      playerMp: playerConfig.mp,
-      playerMaxMp: playerConfig.mp,
-      playerSkillIds: playerLoadout,
-      enemyName: monsterConfig.name,
-      enemyStats: {
-        maxHp: monsterConfig.hp,
-        atk: monsterConfig.atk,
-        def: monsterConfig.def,
-        spd: monsterConfig.spd,
-      },
-      enemyHp: monsterConfig.hp,
-      enemyMp: monsterConfig.mp,
-      enemyMaxMp: monsterConfig.mp,
-      enemySkillIds: enemyLoadout,
-      skills: skillList,
-      monsterInitialElement,
-    }),
-    [playerConfig, monsterConfig, monsterInitialElement, skillList],
-  );
-
-  /** Step 1: open skill loadout (setup phase) before map arena. */
+  /** Step 1: open skill loadout (setup phase). */
   const handleEnterLoadout = useCallback(() => {
     if (!playerConfig.name || !monsterConfig.name) {
       message.warning('Enter both unit names');
@@ -342,29 +260,63 @@ export default function BattleSimulatorPage() {
     setSelectedSkill(null);
   }, [playerConfig, monsterConfig, monsterInitialElement, skillList.length]);
 
-  /** Step 2: start map arena with the selected loadout (max 6). */
-  const handleLaunchArena = useCallback(() => {
-    const fallback = defaultLoadoutIds();
-    const playerLoadout = playerSkillIds.length > 0 ? playerSkillIds : fallback;
-    const enemyLoadout = monsterSkillIds.length > 0 ? monsterSkillIds : fallback;
+  const handleCancelLoadout = useCallback(() => {
+    setBattleState(null);
+    setSelectedSkill(null);
+  }, []);
 
-    if (playerLoadout.length === 0 || enemyLoadout.length === 0) {
-      message.warning('Select at least one skill for player and enemy');
+  // Leave setup → turn 1
+  const handleConfirmBeginCombat = useCallback(() => {
+    if (!battleState || battleState.phase !== 'setup') return;
+    if (playerSkillIds.length === 0) {
+      message.warning('Pick at least one player skill');
+      return;
+    }
+    if (monsterSkillIds.length === 0) {
+      message.warning('Pick at least one enemy skill');
+      return;
+    }
+    const base = { ...battleState, currentTurn: 1, phase: 'player_turn' as const };
+    let logs = [...battleState.battleLogs];
+    logs.push(addLog(base, {
+      type: 'battle_start',
+      statusText: 'Combat started!',
+      color: '#dcdcaa',
+    }));
+    logs.push(addLog(base, {
+      type: 'battle_start',
+      statusText: `Speed — ${base.player.name} ${base.player.spd} vs ${base.monster.name} ${base.monster.spd}`,
+      color: '#8b949e',
+    }));
+    setBattleState({
+      ...base,
+      battleLogs: logs,
+    });
+    setSelectedSkill(null);
+  }, [battleState, playerSkillIds.length, monsterSkillIds.length]);
+
+  // Player skill
+  const handleUseSkill = useCallback(() => {
+    if (!battleState || !selectedSkill || battleState.phase !== 'player_turn') return;
+
+    const { player, monster } = battleState;
+
+    if (!playerSkillIds.includes(selectedSkill.id)) {
+      message.warning('Only loadout skills can be used.');
       return;
     }
 
-    if (playerLoadout.length !== playerSkillIds.length) {
-      setPlayerSkillIds(playerLoadout);
-    }
-    if (enemyLoadout.length !== monsterSkillIds.length) {
-      setMonsterSkillIds(enemyLoadout);
+    const check = canUseSkill(selectedSkill, player, battleState.skillCooldowns);
+    if (!check.canUse) {
+      message.warning(check.reason);
+      return;
     }
 
-    setAutoRunning(false);
-    setBattleState(null);
-    setArenaConfig(buildArenaConfig(playerLoadout, enemyLoadout));
-    setSelectedSkill(null);
-  }, [playerSkillIds, monsterSkillIds, defaultLoadoutIds, buildArenaConfig]);
+    if (player.control?.type === 'freeze') {
+      message.warning('You are frozen and skip this turn.');
+      handleEnemyTurn({ ...battleState, phase: 'enemy_turn' }, player, monster);
+      return;
+    }
 
     let newState = { ...battleState };
     let logs = [...battleState.battleLogs];
@@ -784,7 +736,7 @@ export default function BattleSimulatorPage() {
       {/* Actions */}
       <div className={styles.actionButtons}>
         {battleState === null ? (
-          <button className={styles.startButton} onClick={handleStartBattle}>
+          <button className={styles.startButton} onClick={handleEnterLoadout}>
             Start battle
           </button>
         ) : battleState.phase === 'finished' ? (
@@ -795,7 +747,7 @@ export default function BattleSimulatorPage() {
           <>
             <button
               className={styles.startButton}
-              onClick={handleLaunchArena}
+              onClick={handleConfirmBeginCombat}
               disabled={playerSkillIds.length === 0 || monsterSkillIds.length === 0}
             >
               Confirm
@@ -834,7 +786,7 @@ export default function BattleSimulatorPage() {
             <div className={styles.emptyStateTitle}>Ready</div>
             <div className={styles.emptyStateDesc}>
               Configure validated skills on the left, then Select skills — pick up to 6 for player and
-              enemy, then Launch arena
+              enemy, then Confirm to begin
             </div>
           </div>
         </div>
@@ -850,7 +802,7 @@ export default function BattleSimulatorPage() {
             </div>
             <div className={styles.emptyStateTitle}>Skill loadout</div>
             <div className={styles.emptyStateDesc}>
-              Choose up to 6 skills each for player and enemy in the panel below, then click Launch arena.
+              Choose up to 6 skills each for player and enemy in the panel below, then click Confirm.
             </div>
           </div>
         </div>
@@ -905,7 +857,7 @@ export default function BattleSimulatorPage() {
               {battleState.phase === 'player_turn' && <span style={{ color: '#51cf66', fontSize: 12 }}>Acting</span>}
             </div>
             <div className={styles.statusTurn}>
-              {battleState.phase === 'setup' ? 'Setup' : `Round ${battleState.currentTurn}`}
+              Round {battleState.currentTurn}
             </div>
           </div>
           <div className={styles.progressBars}>
@@ -1055,10 +1007,6 @@ export default function BattleSimulatorPage() {
             <>
               <SettingOutlined /> Configure loadouts (max 6 each)
             </>
-          ) : autoRunning ? (
-            <>
-              <ThunderboltOutlined /> Auto battle
-            </>
           ) : (
             <>
               <AimOutlined /> Select skill
@@ -1165,10 +1113,10 @@ export default function BattleSimulatorPage() {
               <button
                 type="button"
                 className={styles.startButton}
-                onClick={handleLaunchArena}
+                onClick={handleConfirmBeginCombat}
                 disabled={playerSkillIds.length === 0 || monsterSkillIds.length === 0}
               >
-                Launch arena
+                Confirm
               </button>
               <button type="button" className={styles.resetButton} onClick={handleCancelLoadout}>
                 Back
