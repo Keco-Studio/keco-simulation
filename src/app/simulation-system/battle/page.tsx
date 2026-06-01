@@ -210,8 +210,8 @@ export default function BattleSimulatorPage() {
     setMonsterConfig(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  // Start setup phase
-  const handleStartBattle = useCallback(() => {
+  /** Step 1: open skill loadout (setup phase). */
+  const handleEnterLoadout = useCallback(() => {
     if (!playerConfig.name || !monsterConfig.name) {
       message.warning('Enter both unit names');
       return;
@@ -260,6 +260,11 @@ export default function BattleSimulatorPage() {
     setSelectedSkill(null);
   }, [playerConfig, monsterConfig, monsterInitialElement, skillList.length]);
 
+  const handleCancelLoadout = useCallback(() => {
+    setBattleState(null);
+    setSelectedSkill(null);
+  }, []);
+
   // Leave setup → turn 1
   const handleConfirmBeginCombat = useCallback(() => {
     if (!battleState || battleState.phase !== 'setup') return;
@@ -296,23 +301,19 @@ export default function BattleSimulatorPage() {
 
     const { player, monster } = battleState;
 
-    // Skill must be in loadout
     if (!playerSkillIds.includes(selectedSkill.id)) {
       message.warning('Only loadout skills can be used.');
       return;
     }
 
-    // canUseSkill gate
     const check = canUseSkill(selectedSkill, player, battleState.skillCooldowns);
     if (!check.canUse) {
       message.warning(check.reason);
       return;
     }
 
-    // Frozen skips turn
     if (player.control?.type === 'freeze') {
       message.warning('You are frozen and skip this turn.');
-      // Hand off to enemy
       handleEnemyTurn({ ...battleState, phase: 'enemy_turn' }, player, monster);
       return;
     }
@@ -735,7 +736,7 @@ export default function BattleSimulatorPage() {
       {/* Actions */}
       <div className={styles.actionButtons}>
         {battleState === null ? (
-          <button className={styles.startButton} onClick={handleStartBattle}>
+          <button className={styles.startButton} onClick={handleEnterLoadout}>
             Start battle
           </button>
         ) : battleState.phase === 'finished' ? (
@@ -784,7 +785,24 @@ export default function BattleSimulatorPage() {
             </div>
             <div className={styles.emptyStateTitle}>Ready</div>
             <div className={styles.emptyStateDesc}>
-              Set stats, then press Start battle
+              Configure validated skills on the left, then Select skills — pick up to 6 for player and
+              enemy, then Confirm to begin
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (battleState.phase === 'setup') {
+      return (
+        <div className={styles.battleStage}>
+          <div className={`${styles.mapSlot} ${styles.emptyState}`} style={{ minHeight: 140 }}>
+            <div className={styles.emptyStateIcon}>
+              <SettingOutlined />
+            </div>
+            <div className={styles.emptyStateTitle}>Skill loadout</div>
+            <div className={styles.emptyStateDesc}>
+              Choose up to 6 skills each for player and enemy in the panel below, then click Confirm.
             </div>
           </div>
         </div>
@@ -839,7 +857,7 @@ export default function BattleSimulatorPage() {
               {battleState.phase === 'player_turn' && <span style={{ color: '#51cf66', fontSize: 12 }}>Acting</span>}
             </div>
             <div className={styles.statusTurn}>
-              {battleState.phase === 'setup' ? 'Setup' : `Round ${battleState.currentTurn}`}
+              Round {battleState.currentTurn}
             </div>
           </div>
           <div className={styles.progressBars}>
@@ -1090,6 +1108,19 @@ export default function BattleSimulatorPage() {
             <div style={{ marginBottom: 12, fontSize: 12, color: '#8b949e' }}>
               Switch Player / Enemy above, then click skill cards below to add to that loadout (max 6
               each). Skills come from Configure skills on the left.
+            </div>
+            <div className={styles.actionButtons} style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                className={styles.startButton}
+                onClick={handleConfirmBeginCombat}
+                disabled={playerSkillIds.length === 0 || monsterSkillIds.length === 0}
+              >
+                Confirm
+              </button>
+              <button type="button" className={styles.resetButton} onClick={handleCancelLoadout}>
+                Back
+              </button>
             </div>
           </>
         )}
