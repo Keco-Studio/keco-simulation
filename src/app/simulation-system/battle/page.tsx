@@ -15,6 +15,7 @@ import {
   ArrowLeftOutlined,
   ClockCircleOutlined,
   AimOutlined,
+  EnvironmentOutlined,
 } from '@ant-design/icons';
 import type { Combatant, BattleUnit, BattleState, Element, Skill, BattleLogEntry } from './types';
 import {
@@ -27,6 +28,7 @@ import {
 import { filterSkillsByTab, getBuiltinSkills, inferSkillTabElement } from './data/skills';
 import { BattleLocalTableSkillSourceLauncher } from './components/BattleLocalTableSkillSourceLauncher';
 import { ElementGlyph } from './components/ElementGlyph';
+import { BattleArena, type BattleArenaConfig } from './components/BattleArena/BattleArena';
 import {
   createInitialBattleState,
   canUseSkill,
@@ -79,6 +81,8 @@ const formatLogEntry = (entry: BattleLogEntry, index: number, playerName: string
 
 // --- Page ---
 
+type BattleMode = 'turn' | 'map';
+
 export default function BattleSimulatorPage() {
   // --- State ---
 
@@ -121,6 +125,12 @@ export default function BattleSimulatorPage() {
   const [playerSkillIds, setPlayerSkillIds] = useState<string[]>([]);
   const [monsterSkillIds, setMonsterSkillIds] = useState<string[]>([]);
   const [loadoutTarget, setLoadoutTarget] = useState<'player' | 'monster'>('player');
+
+  // Battle mode: null = pick on right; turn = manual clicks; map = arena
+  const [battleMode, setBattleMode] = useState<BattleMode | null>(null);
+  const [arenaConfig, setArenaConfig] = useState<BattleArenaConfig | null>(null);
+
+  const sessionLocked = battleState !== null || arenaConfig !== null;
 
   // Log scroll ref
   const logRef = useRef<HTMLDivElement>(null);
@@ -210,8 +220,8 @@ export default function BattleSimulatorPage() {
     setMonsterConfig(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  /** Step 1: open skill loadout (setup phase). */
-  const handleEnterLoadout = useCallback(() => {
+  /** Turn-based: open skill loadout (setup phase). */
+  const handleStartBattle = useCallback(() => {
     if (!playerConfig.name || !monsterConfig.name) {
       message.warning('Enter both unit names');
       return;
@@ -259,6 +269,124 @@ export default function BattleSimulatorPage() {
     setBattleState(initialState);
     setSelectedSkill(null);
   }, [playerConfig, monsterConfig, monsterInitialElement, skillList.length]);
+
+  const buildArenaConfig = useCallback(
+    (playerLoadout: string[], enemyLoadout: string[]): BattleArenaConfig => ({
+      mapWidth: 16,
+      mapHeight: 16,
+      playerName: playerConfig.name,
+      playerStats: {
+        maxHp: playerConfig.hp,
+        atk: playerConfig.atk,
+        def: playerConfig.def,
+        spd: playerConfig.spd,
+      },
+      playerHp: playerConfig.hp,
+      playerMp: playerConfig.mp,
+      playerMaxMp: playerConfig.mp,
+      playerSkillIds: playerLoadout,
+      enemyName: monsterConfig.name,
+      enemyStats: {
+        maxHp: monsterConfig.hp,
+        atk: monsterConfig.atk,
+        def: monsterConfig.def,
+        spd: monsterConfig.spd,
+      },
+      enemyHp: monsterConfig.hp,
+      enemyMp: monsterConfig.mp,
+      enemyMaxMp: monsterConfig.mp,
+      enemySkillIds: enemyLoadout,
+      skills: skillList,
+      monsterInitialElement,
+    }),
+    [playerConfig, monsterConfig, monsterInitialElement, skillList],
+  );
+
+  const handleSelectBattleMode = useCallback(
+    (mode: BattleMode) => {
+      if (!playerConfig.name || !monsterConfig.name) {
+        message.warning('Enter both unit names');
+        return;
+      }
+      if (skillList.length === 0) {
+        message.warning('Open Configure skills… and apply validated skills before battle');
+        return;
+      }
+      setBattleMode(mode);
+    },
+    [playerConfig.name, monsterConfig.name, skillList.length],
+  );
+
+  /** Map arena: open skill loadout (setup phase). */
+  const handleEnterLoadout = useCallback(() => {
+    if (!playerConfig.name || !monsterConfig.name) {
+      message.warning('Enter both unit names');
+      return;
+    }
+    if (skillList.length === 0) {
+      message.warning('Open Configure skills… and apply validated skills before battle');
+      return;
+    }
+
+    setArenaConfig(null);
+    setSelectedSkill(null);
+
+    const initialState = createInitialBattleState({
+      player: {
+        id: 'player',
+        type: 'player',
+        name: playerConfig.name,
+        hp: playerConfig.hp,
+        atk: playerConfig.atk,
+        def: playerConfig.def,
+        spd: playerConfig.spd,
+        mp: playerConfig.mp,
+      },
+      monster: {
+        id: 'monster',
+        type: 'monster',
+        name: monsterConfig.name,
+        hp: monsterConfig.hp,
+        atk: monsterConfig.atk,
+        def: monsterConfig.def,
+        spd: monsterConfig.spd,
+        mp: monsterConfig.mp,
+      },
+      monsterInitialElement: monsterInitialElement ?? undefined,
+      maxTurns: 100,
+    });
+
+    initialState.battleLogs.push(addLog(initialState, {
+      type: 'battle_start',
+      statusText: 'Pre-battle: pick up to 6 skills below, then Launch arena',
+      color: '#8b949e',
+    }));
+
+    setBattleState(initialState);
+    setSelectedSkill(null);
+  }, [playerConfig, monsterConfig, monsterInitialElement, skillList.length]);
+
+  const handleLaunchArena = useCallback(() => {
+    const fallback = defaultLoadoutIds();
+    const playerLoadout = playerSkillIds.length > 0 ? playerSkillIds : fallback;
+    const enemyLoadout = monsterSkillIds.length > 0 ? monsterSkillIds : fallback;
+
+    if (playerLoadout.length === 0 || enemyLoadout.length === 0) {
+      message.warning('Select at least one skill for player and enemy');
+      return;
+    }
+
+    if (playerLoadout.length !== playerSkillIds.length) {
+      setPlayerSkillIds(playerLoadout);
+    }
+    if (enemyLoadout.length !== monsterSkillIds.length) {
+      setMonsterSkillIds(enemyLoadout);
+    }
+
+    setBattleState(null);
+    setArenaConfig(buildArenaConfig(playerLoadout, enemyLoadout));
+    setSelectedSkill(null);
+  }, [playerSkillIds, monsterSkillIds, defaultLoadoutIds, buildArenaConfig]);
 
   const handleCancelLoadout = useCallback(() => {
     setBattleState(null);
@@ -537,6 +665,8 @@ export default function BattleSimulatorPage() {
   // Reset
   const handleReset = useCallback(() => {
     setBattleState(null);
+    setArenaConfig(null);
+    setBattleMode(null);
     setSelectedSkill(null);
     setMonsterInitialElement(null);
   }, []);
@@ -547,7 +677,7 @@ export default function BattleSimulatorPage() {
   const renderConfigPanel = () => (
     <div className={styles.configPanel}>
       <BattleLocalTableSkillSourceLauncher
-        disabled={battleState !== null}
+        disabled={sessionLocked}
         activeSkillCount={skillList.length}
         onSkillsApplied={handleSkillsFromLocalTable}
       />
@@ -566,7 +696,7 @@ export default function BattleSimulatorPage() {
               className={styles.nameInput}
               value={playerConfig.name}
               onChange={(e) => updatePlayerStat('name', e.target.value)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
               maxLength={20}
             />
           </div>
@@ -578,7 +708,7 @@ export default function BattleSimulatorPage() {
               max={99999}
               value={playerConfig.hp}
               onChange={(v) => updatePlayerStat('hp', v)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
             />
           </div>
           <div className={styles.statItem}>
@@ -589,7 +719,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={playerConfig.atk}
               onChange={(v) => updatePlayerStat('atk', v)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
             />
           </div>
           <div className={styles.statItem}>
@@ -600,7 +730,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={playerConfig.def}
               onChange={(v) => updatePlayerStat('def', v)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
             />
           </div>
           <div className={styles.statItem}>
@@ -611,7 +741,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={playerConfig.spd}
               onChange={(v) => updatePlayerStat('spd', v)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
             />
           </div>
           <div className={styles.mpSection}>
@@ -623,7 +753,7 @@ export default function BattleSimulatorPage() {
                 max={999}
                 value={playerConfig.mp}
                 onChange={(v) => updatePlayerStat('mp', v)}
-                disabled={battleState !== null}
+                disabled={sessionLocked}
               />
             </div>
           </div>
@@ -644,7 +774,7 @@ export default function BattleSimulatorPage() {
               className={styles.nameInput}
               value={monsterConfig.name}
               onChange={(e) => updateMonsterStat('name', e.target.value)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
               maxLength={20}
             />
           </div>
@@ -656,7 +786,7 @@ export default function BattleSimulatorPage() {
               max={99999}
               value={monsterConfig.hp}
               onChange={(v) => updateMonsterStat('hp', v)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
             />
           </div>
           <div className={styles.statItem}>
@@ -667,7 +797,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={monsterConfig.atk}
               onChange={(v) => updateMonsterStat('atk', v)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
             />
           </div>
           <div className={styles.statItem}>
@@ -678,7 +808,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={monsterConfig.def}
               onChange={(v) => updateMonsterStat('def', v)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
             />
           </div>
           <div className={styles.statItem}>
@@ -689,7 +819,7 @@ export default function BattleSimulatorPage() {
               max={9999}
               value={monsterConfig.spd}
               onChange={(v) => updateMonsterStat('spd', v)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
             />
           </div>
           <div className={styles.mpSection}>
@@ -701,7 +831,7 @@ export default function BattleSimulatorPage() {
                 max={999}
                 value={monsterConfig.mp}
                 onChange={(v) => updateMonsterStat('mp', v)}
-                disabled={battleState !== null}
+                disabled={sessionLocked}
               />
             </div>
           </div>
@@ -714,7 +844,7 @@ export default function BattleSimulatorPage() {
             <button
               className={`${styles.elementButton} ${monsterInitialElement === null ? styles.elementButtonActive : ''}`}
               onClick={() => setMonsterInitialElement(null)}
-              disabled={battleState !== null}
+              disabled={sessionLocked}
             >
               None
             </button>
@@ -723,7 +853,7 @@ export default function BattleSimulatorPage() {
                 key={elem}
                 className={`${styles.elementButton} ${monsterInitialElement === elem ? styles.elementButtonActive : ''}`}
                 onClick={() => setMonsterInitialElement(elem)}
-                disabled={battleState !== null}
+                disabled={sessionLocked}
                 style={{ color: monsterInitialElement === elem ? ELEMENT_CONFIG[elem].color : undefined }}
               >
                 {ELEMENT_CONFIG[elem].emoji} {ELEMENT_CONFIG[elem].name}
@@ -735,10 +865,46 @@ export default function BattleSimulatorPage() {
 
       {/* Actions */}
       <div className={styles.actionButtons}>
-        {battleState === null ? (
-          <button className={styles.startButton} onClick={handleEnterLoadout}>
-            Start battle
-          </button>
+        {battleMode === null ? (
+          <p className={styles.modeHint}>Choose a battle mode on the right →</p>
+        ) : battleMode === 'map' ? (
+          arenaConfig ? (
+            <button type="button" className={styles.resetButton} onClick={handleReset}>
+              Stop arena
+            </button>
+          ) : battleState === null ? (
+            <>
+              <button type="button" className={styles.startButton} onClick={handleEnterLoadout}>
+                Select skills
+              </button>
+              <button type="button" className={styles.resetButton} onClick={() => setBattleMode(null)}>
+                Change mode
+              </button>
+            </>
+          ) : battleState.phase === 'setup' ? (
+            <>
+              <button
+                type="button"
+                className={styles.startButton}
+                onClick={handleLaunchArena}
+                disabled={playerSkillIds.length === 0 || monsterSkillIds.length === 0}
+              >
+                Launch arena
+              </button>
+              <button type="button" className={styles.resetButton} onClick={handleCancelLoadout}>
+                Back
+              </button>
+            </>
+          ) : null
+        ) : battleState === null ? (
+          <>
+            <button className={styles.startButton} onClick={handleStartBattle}>
+              Start battle
+            </button>
+            <button type="button" className={styles.resetButton} onClick={() => setBattleMode(null)}>
+              Change mode
+            </button>
+          </>
         ) : battleState.phase === 'finished' ? (
           <button className={styles.startButton} onClick={handleReset}>
             Restart
@@ -774,26 +940,73 @@ export default function BattleSimulatorPage() {
     </div>
   );
 
+  const renderModePicker = () => (
+    <div className={styles.battleStage}>
+      <div className={`${styles.mapSlot} ${styles.emptyState}`}>
+        <div className={styles.emptyStateIcon}>
+          <ThunderboltOutlined />
+        </div>
+        <div className={styles.emptyStateTitle}>Choose battle mode</div>
+        <div className={styles.emptyStateDesc}>
+          Configure stats and skills on the left, then pick how you want to fight.
+        </div>
+        <div className={styles.modePickerGrid}>
+          <button
+            type="button"
+            className={`${styles.modeCard} ${styles.modeCardMap}`}
+            onClick={() => handleSelectBattleMode('map')}
+          >
+            <span className={`${styles.modeCardIcon} ${styles.modeCardIconMap}`}>
+              <EnvironmentOutlined />
+            </span>
+            <span className={styles.modeCardTitle}>Map arena</span>
+            <span className={styles.modeCardDesc}>
+              Top-down map battle with AI movement, skills, and visual combat effects.
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.modeCard} ${styles.modeCardTurn}`}
+            onClick={() => handleSelectBattleMode('turn')}
+          >
+            <span className={`${styles.modeCardIcon} ${styles.modeCardIconTurn}`}>
+              <AimOutlined />
+            </span>
+            <span className={styles.modeCardTitle}>Manual turn-based</span>
+            <span className={styles.modeCardDesc}>
+              Classic turn flow — pick skills each round and click to execute attacks.
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // Battle stage
   const renderBattleStage = () => {
     if (!battleState) {
+      if (battleMode === null) {
+        return renderModePicker();
+      }
+
       return (
         <div className={styles.battleStage}>
-          <div className={styles.emptyState}>
+          <div className={`${styles.mapSlot} ${styles.emptyState}`}>
             <div className={styles.emptyStateIcon}>
-              <ThunderboltOutlined />
+              {battleMode === 'map' ? <EnvironmentOutlined /> : <AimOutlined />}
             </div>
             <div className={styles.emptyStateTitle}>Ready</div>
             <div className={styles.emptyStateDesc}>
-              Configure validated skills on the left, then Select skills — pick up to 6 for player and
-              enemy, then Confirm to begin
+              {battleMode === 'map'
+                ? 'Click Select skills on the left, configure loadouts, then Launch arena.'
+                : 'Click Start battle on the left, configure loadouts, then Confirm to begin.'}
             </div>
           </div>
         </div>
       );
     }
 
-    if (battleState.phase === 'setup') {
+    if (battleState.phase === 'setup' && battleMode === 'map') {
       return (
         <div className={styles.battleStage}>
           <div className={`${styles.mapSlot} ${styles.emptyState}`} style={{ minHeight: 140 }}>
@@ -802,7 +1015,7 @@ export default function BattleSimulatorPage() {
             </div>
             <div className={styles.emptyStateTitle}>Skill loadout</div>
             <div className={styles.emptyStateDesc}>
-              Choose up to 6 skills each for player and enemy in the panel below, then click Confirm.
+              Choose up to 6 skills each for player and enemy below, then click Launch arena.
             </div>
           </div>
         </div>
@@ -1005,7 +1218,8 @@ export default function BattleSimulatorPage() {
         <div className={styles.skillSelectorTitle} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {isSetup ? (
             <>
-              <SettingOutlined /> Configure loadouts (max 6 each)
+              <SettingOutlined />{' '}
+              {battleMode === 'map' ? 'Configure loadouts for arena' : 'Configure loadouts (max 6 each)'}
             </>
           ) : (
             <>
@@ -1320,11 +1534,23 @@ export default function BattleSimulatorPage() {
       </header>
 
       <main className={styles.mainContent}>
-        {renderConfigPanel()}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {renderBattleStage()}
-          {renderSkillSelector()}
-          {renderBattleLog()}
+        <div className={styles.battleRow}>
+          {renderConfigPanel()}
+          <div className={styles.rightColumn}>
+            {arenaConfig ? (
+              <div className={styles.battleStage}>
+                <div className={styles.mapSlot}>
+                  <BattleArena config={arenaConfig} onStop={handleReset} />
+                </div>
+              </div>
+            ) : (
+              <>
+                {renderBattleStage()}
+                {renderSkillSelector()}
+                {renderBattleLog()}
+              </>
+            )}
+          </div>
         </div>
       </main>
     </div>

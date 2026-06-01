@@ -11,7 +11,14 @@ import { listLibraries } from '@studio/lib/services/libraryService';
 import { listProjects } from '@studio/lib/services/projectService';
 import type { SimTableMeta } from '@/lib/simLocalTables/types';
 import { SIM_LOCAL_WORKSPACE_TABLE_ID } from '@/lib/simLocalTables/constants';
+import { BATTLE_SKILLS_SHEET_HEADERS } from '@/app/simulation-system/battle/lib/skills/battleSkillsSheetSpec';
+import {
+  buildSkillSheetEmptyRow,
+  buildSkillSheetScratchMeta,
+} from '@/lib/simLocalTables/skillSheetTableTemplate';
 import { deleteTableCascade, listTableMetas, putTableMeta, putTableRows } from '@/lib/simLocalTables/simLocalTablesDb';
+
+export type LocalTableCreateTemplate = 'blank' | 'skill_sheet';
 
 export default function LocalTablesHubClient() {
   const router = useRouter();
@@ -24,9 +31,11 @@ export default function LocalTablesHubClient() {
   const [form] = Form.useForm<{
     name: string;
     linkStudio: boolean;
+    template: LocalTableCreateTemplate;
   }>();
 
   const linkStudio = Form.useWatch('linkStudio', form);
+  const createTemplate = Form.useWatch('template', form);
 
   const { data: hubWorkspaceProjects = [], isLoading: hubWsProjectsLoading } = useQuery({
     queryKey: ['hubWorkspaceProjects', userProfile?.id],
@@ -110,17 +119,32 @@ export default function LocalTablesHubClient() {
         return;
       }
 
-      const meta: SimTableMeta = {
-        id,
-        name: v.name.trim() || 'Untitled table',
-        columnKeys: [firstKey],
-        columnLabels: ['Column 1'],
-        createdAt: now,
-        updatedAt: now,
-        dirty: false,
-      };
-      await putTableMeta(meta);
-      await putTableRows(id, [{ id: crypto.randomUUID(), values: { [firstKey]: '' } }]);
+      if (v.template === 'skill_sheet') {
+        const sheet = buildSkillSheetScratchMeta(id, v.name.trim() || 'Untitled table', now);
+        const meta: SimTableMeta = {
+          id,
+          name: v.name.trim() || 'Untitled table',
+          ...sheet,
+          createdAt: now,
+          updatedAt: now,
+          dirty: false,
+          skillSheetTemplate: true,
+        };
+        await putTableMeta(meta);
+        await putTableRows(id, [buildSkillSheetEmptyRow(crypto.randomUUID())]);
+      } else {
+        const meta: SimTableMeta = {
+          id,
+          name: v.name.trim() || 'Untitled table',
+          columnKeys: [firstKey],
+          columnLabels: ['Column 1'],
+          createdAt: now,
+          updatedAt: now,
+          dirty: false,
+        };
+        await putTableMeta(meta);
+        await putTableRows(id, [{ id: crypto.randomUUID(), values: { [firstKey]: '' } }]);
+      }
       message.success('Table created');
       setOpen(false);
       form.resetFields();
@@ -248,6 +272,8 @@ export default function LocalTablesHubClient() {
                       </>
                     )}
                   </span>
+                ) : m.skillSheetTemplate ? (
+                  'This device only · Skill battle template'
                 ) : (
                   'This device only (IndexedDB scratch)'
                 )
@@ -268,14 +294,34 @@ export default function LocalTablesHubClient() {
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ linkStudio: false }}
+          initialValues={{ linkStudio: false, template: 'blank' }}
         >
           <Form.Item name="name" label="Name" rules={[{ required: true, message: 'Enter a table name' }]}>
             <Input placeholder="e.g. Battle notes or Library mirror" />
           </Form.Item>
           <Form.Item name="linkStudio" valuePropName="checked">
-            <Checkbox>Link all Keco Studio projects (every library; Supabase + reference columns)</Checkbox>
+            <Checkbox
+              onChange={(e) => {
+                if (e.target.checked) form.setFieldValue('template', 'blank');
+              }}
+            >
+              Link all Keco Studio projects (every library; Supabase + reference columns)
+            </Checkbox>
           </Form.Item>
+          {!linkStudio ? (
+            <Form.Item
+              name="template"
+              label="Table template"
+              extra="Skill battle template: columns match the skills editor sheet (id, name, MP, attachTurns, …) for Import by id and skill binding."
+            >
+              <Select
+                options={[
+                  { value: 'blank', label: 'Blank (one string column)' },
+                  { value: 'skill_sheet', label: 'Skill battle template' },
+                ]}
+              />
+            </Form.Item>
+          ) : null}
           {linkStudio ? (
             !authLoading && !isAuthenticated ? (
               <Typography.Paragraph type="warning">
@@ -288,6 +334,12 @@ export default function LocalTablesHubClient() {
                 open the first one; you can switch to any other library in the editor.
               </Typography.Paragraph>
             )
+          ) : createTemplate === 'skill_sheet' ? (
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+              Opens with {BATTLE_SKILLS_SHEET_HEADERS.length} columns and one empty row. Headers align with{' '}
+              <Typography.Text code>Battle skills</Typography.Text> Excel export and{' '}
+              <strong>Import by id</strong> on the skills editor.
+            </Typography.Paragraph>
           ) : null}
         </Form>
       </Modal>

@@ -46,6 +46,8 @@ export type SimTableMeta = {
    * you have access to (picker is populated from every project). Created from “link all” flow.
    */
   studioMultiProject?: boolean;
+  /** Scratch table created from the battle skill sheet column template. */
+  skillSheetTemplate?: boolean;
 };
 
 export type SimTableRow = {
