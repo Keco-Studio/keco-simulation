@@ -54,7 +54,40 @@ type Props = {
   config: BattleArenaConfig;
   onFinished?: (session: BattleSession) => void;
   onStop?: () => void;
+  hideInternalLog?: boolean;
+  onLogLinesChange?: (lines: string[]) => void;
+  /** Hides debug toolbar and floating actor HP bars for the design battle screen. */
+  presentation?: 'debug' | 'design';
+  onBattleStateChange?: (state: BattleArenaUiState) => void;
 };
+
+export type BattleArenaUiState = {
+  tick: number;
+  phase: string;
+  playerHp: number;
+  playerMaxHp: number;
+  playerMp: number;
+  playerMaxMp: number;
+  enemyHp: number;
+  enemyMaxHp: number;
+  enemyMp: number;
+  enemyMaxMp: number;
+};
+
+function extractUiState(session: BattleSession): BattleArenaUiState {
+  return {
+    tick: session.tick,
+    phase: session.phase,
+    playerHp: session.left.resources.hp,
+    playerMaxHp: session.left.resources.maxHp,
+    playerMp: session.left.resources.mp,
+    playerMaxMp: session.left.resources.maxMp,
+    enemyHp: session.right.resources.hp,
+    enemyMaxHp: session.right.resources.maxHp,
+    enemyMp: session.right.resources.mp,
+    enemyMaxMp: session.right.resources.maxMp,
+  };
+}
 
 const TICK_MS = 200;
 const SPEED_OPTIONS = [1, 2, 4] as const;
@@ -125,7 +158,24 @@ function defaultSpawn(mapW: number, mapH: number) {
   };
 }
 
-export function BattleArena({ config, onFinished, onStop }: Props) {
+export function BattleArena({
+  config,
+  onFinished,
+  onStop,
+  hideInternalLog = false,
+  onLogLinesChange,
+  presentation = 'debug',
+  onBattleStateChange,
+}: Props) {
+  const isDesignPresentation = presentation === 'design';
+  const onLogLinesChangeRef = useRef(onLogLinesChange);
+  const onBattleStateChangeRef = useRef(onBattleStateChange);
+  onLogLinesChangeRef.current = onLogLinesChange;
+  onBattleStateChangeRef.current = onBattleStateChange;
+
+  const publishBattleState = useCallback((s: BattleSession) => {
+    onBattleStateChangeRef.current?.(extractUiState(s));
+  }, []);
   const mapBgUrl = config.mapBackgroundUrl ?? POC_ARENA_MAP_BG;
   const controllerRef = useRef<MapBattleController | null>(null);
   const arenaRootRef = useRef<HTMLDivElement>(null);
@@ -215,7 +265,11 @@ export function BattleArena({ config, onFinished, onStop }: Props) {
         lastKecoLogCount.current = kecoLogLen;
       }
       if (newLines.length) {
-        setLogLines((prev) => [...prev.slice(-100), ...newLines]);
+        setLogLines((prev) => {
+          const next = [...prev.slice(-100), ...newLines];
+          onLogLinesChangeRef.current?.(next);
+          return next;
+        });
       }
     },
     [pushFloatText, pushImpactFx, pushProjectileFx, triggerCombatFx],
@@ -279,11 +333,12 @@ export function BattleArena({ config, onFinished, onStop }: Props) {
     syncActorMotion(step.session);
     const next = { ...step.session };
     setSession(next);
+    publishBattleState(next);
     if (next.result !== 'ongoing') {
       finalizeBattle(next);
     }
     return next;
-  }, [appendStepLogs, finalizeBattle, syncActorMotion]);
+  }, [appendStepLogs, finalizeBattle, publishBattleState, syncActorMotion]);
 
   const initSession = useCallback(() => {
     const spawn = defaultSpawn(config.mapWidth, config.mapHeight);
@@ -342,8 +397,11 @@ export function BattleArena({ config, onFinished, onStop }: Props) {
     clearTransientFx();
     resetCombatFx();
     setResultOverlay(null);
-    setLogLines(['BT auto · keco element damage']);
-  }, [clearTransientFx, config, resetCombatFx]);
+    const initialLogs = ['BT auto · keco element damage'];
+    setLogLines(initialLogs);
+    onLogLinesChangeRef.current?.(initialLogs);
+    publishBattleState(s);
+  }, [clearTransientFx, config, publishBattleState, resetCombatFx]);
 
   const handleBattleAgain = useCallback(() => {
     setResultOverlay(null);
@@ -380,9 +438,13 @@ export function BattleArena({ config, onFinished, onStop }: Props) {
     if (!el) return;
     const r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) return;
-    setViewportSize({
-      width: Math.max(1, Math.floor(r.width)),
-      height: Math.max(1, Math.floor(r.height)),
+    const width = Math.max(1, Math.floor(r.width));
+    const height = Math.max(1, Math.floor(r.height));
+    setViewportSize((prev) => {
+      if (Math.abs(prev.width - width) <= 1 && Math.abs(prev.height - height) <= 1) {
+        return prev;
+      }
+      return { width, height };
     });
   }, []);
 
@@ -392,12 +454,14 @@ export function BattleArena({ config, onFinished, onStop }: Props) {
     measureViewport();
     const observer = new ResizeObserver(() => measureViewport());
     observer.observe(el);
+    window.addEventListener('resize', measureViewport);
     const raf = requestAnimationFrame(() => requestAnimationFrame(measureViewport));
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
+      window.removeEventListener('resize', measureViewport);
     };
-  }, [measureViewport, session]);
+  }, [measureViewport]);
 
   useEffect(() => {
     const canvas = mapCanvasRef.current;
@@ -511,12 +575,14 @@ export function BattleArena({ config, onFinished, onStop }: Props) {
             className={styles.actor}
             style={{ left: playerScreen.x, top: playerScreen.y }}
           >
-            <div className={styles.hpBlock}>
-              <div className={styles.hpLabelPlayer}>HP</div>
-              <div className={`${styles.hpTrack} ${styles.hpTrackPlayer}`}>
-                <div className={styles.hpFillPlayer} style={{ width: `${playerHpPct}%` }} />
+            {!isDesignPresentation ? (
+              <div className={styles.hpBlock}>
+                <div className={styles.hpLabelPlayer}>HP</div>
+                <div className={`${styles.hpTrack} ${styles.hpTrackPlayer}`}>
+                  <div className={styles.hpFillPlayer} style={{ width: `${playerHpPct}%` }} />
+                </div>
               </div>
-            </div>
+            ) : null}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={playerSprite}
@@ -538,12 +604,14 @@ export function BattleArena({ config, onFinished, onStop }: Props) {
             className={styles.actor}
             style={{ left: enemyScreen.x, top: enemyScreen.y }}
           >
-            <div className={styles.hpBlock}>
-              <div className={styles.hpLabelEnemy}>HP</div>
-              <div className={`${styles.hpTrack} ${styles.hpTrackEnemy}`}>
-                <div className={styles.hpFillEnemy} style={{ width: `${enemyHpPct}%` }} />
+            {!isDesignPresentation ? (
+              <div className={styles.hpBlock}>
+                <div className={styles.hpLabelEnemy}>HP</div>
+                <div className={`${styles.hpTrack} ${styles.hpTrackEnemy}`}>
+                  <div className={styles.hpFillEnemy} style={{ width: `${enemyHpPct}%` }} />
+                </div>
               </div>
-            </div>
+            ) : null}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={enemySprite}
@@ -572,55 +640,59 @@ export function BattleArena({ config, onFinished, onStop }: Props) {
           floatTexts={floatTexts}
         />
 
-        <div className={styles.logHud}>
-          <div className={styles.logHudTitle}>Battle Log</div>
-          <div className={styles.logHudBody}>
-            {logLines.length === 0 ? (
-              <div className={styles.logLine}>Waiting for events…</div>
-            ) : (
-              logLines.map((line, i) => (
-                <div key={i} className={styles.logLine}>
-                  {line}
-                </div>
-              ))
-            )}
+        {!hideInternalLog && !isDesignPresentation ? (
+          <div className={`${styles.logHud} logHud`}>
+            <div className={styles.logHudTitle}>Battle Log</div>
+            <div className={styles.logHudBody}>
+              {logLines.length === 0 ? (
+                <div className={styles.logLine}>Waiting for events…</div>
+              ) : (
+                logLines.map((line, i) => (
+                  <div key={i} className={styles.logLine}>
+                    {line}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-        </div>
+        ) : null}
 
-        <div className={styles.toolbarDock}>
-          <span className={styles.statusChip}>
-            T{session.tick} · {session.phase}
-          </span>
-          {SPEED_OPTIONS.map((s) => (
+        {!isDesignPresentation ? (
+          <div className={styles.toolbarDock}>
+            <span className={styles.statusChip}>
+              T{session.tick} · {session.phase}
+            </span>
+            {SPEED_OPTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={`${styles.toolbarBtn} ${speed === s ? styles.speedActive : ''}`}
+                onClick={() => setSpeed(s)}
+              >
+                {s}x
+              </button>
+            ))}
+            <button type="button" className={styles.toolbarBtn} onClick={() => setRunning((r) => !r)}>
+              {running ? 'Pause' : 'Resume'}
+            </button>
             <button
-              key={s}
               type="button"
-              className={`${styles.toolbarBtn} ${speed === s ? styles.speedActive : ''}`}
-              onClick={() => setSpeed(s)}
+              className={styles.toolbarBtn}
+              disabled={session.result !== 'ongoing'}
+              onClick={() => runOneTick()}
             >
-              {s}x
+              Step
             </button>
-          ))}
-          <button type="button" className={styles.toolbarBtn} onClick={() => setRunning((r) => !r)}>
-            {running ? 'Pause' : 'Resume'}
-          </button>
-          <button
-            type="button"
-            className={styles.toolbarBtn}
-            disabled={session.result !== 'ongoing'}
-            onClick={() => runOneTick()}
-          >
-            Step
-          </button>
-          <button type="button" className={styles.toolbarBtn} onClick={handleSkip}>
-            Skip
-          </button>
-          {onStop ? (
-            <button type="button" className={styles.toolbarBtn} onClick={onStop}>
-              Stop
+            <button type="button" className={styles.toolbarBtn} onClick={handleSkip}>
+              Skip
             </button>
-          ) : null}
-        </div>
+            {onStop ? (
+              <button type="button" className={styles.toolbarBtn} onClick={onStop}>
+                Stop
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {resultOverlay ? (
           <BattleResultOverlay
             open

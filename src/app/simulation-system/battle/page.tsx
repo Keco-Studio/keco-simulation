@@ -48,6 +48,20 @@ import {
   addLog,
 } from './core/battleLogic';
 import styles from './BattleSimulator.module.css';
+import { BattleDesignShell } from './components/design/BattleDesignShell';
+import { ConfigureSkillStep } from './components/design/ConfigureSkillStep';
+import { ConfigurePlayerStep } from './components/design/ConfigurePlayerStep';
+import { StartBattleStep } from './components/design/StartBattleStep';
+import { KecoLoginModal } from './components/design/KecoLoginModal';
+import { StudioSyncModal } from './components/design/StudioSyncModal';
+import {
+  SKILL_SHEET_READY_KEY,
+  type WizardStep,
+} from './components/design/battleDesignConstants';
+import {
+  DEFAULT_BATTLE_SKILL_MODULE_ID,
+  resetModuleSkillsToBuiltin,
+} from './lib/skills/battleSkillModulesStorage';
 
 // --- Helpers ---
 
@@ -162,14 +176,66 @@ export default function BattleSimulatorPage() {
   const [battleMode, setBattleMode] = useState<BattleMode | null>(null);
   const [arenaConfig, setArenaConfig] = useState<BattleArenaConfig | null>(null);
 
+  const [wizardStep, setWizardStep] = useState<WizardStep>(1);
+  const [skillSheetView, setSkillSheetView] = useState<'onboarding' | 'library'>('onboarding');
+  const [skillSheetLabel, setSkillSheetLabel] = useState('seedcrop');
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [pendingSyncAfterLogin, setPendingSyncAfterLogin] = useState(false);
+
   const sessionLocked = battleState !== null || arenaConfig !== null;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (localStorage.getItem(SKILL_SHEET_READY_KEY) === '1') {
+      setSkillSheetView('library');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLoginOpen(false);
+    }
+  }, [isAuthenticated]);
 
   // Log scroll ref
   const logRef = useRef<HTMLDivElement>(null);
 
   const handleSkillsFromLocalTable = useCallback((skills: Skill[]) => {
-    if (skills.length > 0) setSkillList(skills);
+    if (skills.length > 0) {
+      setSkillList(skills);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(SKILL_SHEET_READY_KEY, '1');
+      }
+      setSkillSheetView('library');
+    }
   }, []);
+
+  const markSkillSheetReady = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SKILL_SHEET_READY_KEY, '1');
+    }
+    setSkillSheetView('library');
+  }, []);
+
+  const handleUseDefaultSheet = useCallback(() => {
+    resetModuleSkillsToBuiltin(DEFAULT_BATTLE_SKILL_MODULE_ID);
+    void hydrateBattlePageSkills(supabaseReady ? supabase : null).then((skills) => {
+      setSkillList(skills);
+      markSkillSheetReady();
+      setSkillSheetLabel('Default sheet');
+      message.success('Default skill sheet loaded');
+    });
+  }, [markSkillSheetReady, supabase, supabaseReady]);
+
+  const handleSyncStudio = useCallback(() => {
+    if (!isAuthenticated) {
+      setPendingSyncAfterLogin(true);
+      setLoginOpen(true);
+      return;
+    }
+    setSyncOpen(true);
+  }, [isAuthenticated]);
 
   const defaultLoadoutIds = useCallback(
     () => skillList.slice(0, Math.min(6, skillList.length)).map((s) => s.id),
@@ -419,6 +485,48 @@ export default function BattleSimulatorPage() {
     setArenaConfig(buildArenaConfig(playerLoadout, enemyLoadout));
     setSelectedSkill(null);
   }, [playerSkillIds, monsterSkillIds, defaultLoadoutIds, buildArenaConfig]);
+
+  const handleLaunchArenaDirect = useCallback(() => {
+    if (!playerConfig.name || !monsterConfig.name) {
+      message.warning('Enter both unit names');
+      return false;
+    }
+    if (skillList.length === 0) {
+      message.warning('Configure and apply skills before battle');
+      return false;
+    }
+
+    const fallback = defaultLoadoutIds();
+    const playerLoadout = playerSkillIds.length > 0 ? playerSkillIds : fallback;
+    const enemyLoadout = monsterSkillIds.length > 0 ? monsterSkillIds : fallback;
+
+    if (playerLoadout.length === 0 || enemyLoadout.length === 0) {
+      message.warning('Select at least one skill for player and enemy');
+      return false;
+    }
+
+    if (playerLoadout.length !== playerSkillIds.length) {
+      setPlayerSkillIds(playerLoadout);
+    }
+    if (enemyLoadout.length !== monsterSkillIds.length) {
+      setMonsterSkillIds(enemyLoadout);
+    }
+
+    setBattleState(null);
+    setBattleMode('map');
+    setArenaConfig(buildArenaConfig(playerLoadout, enemyLoadout));
+    setSelectedSkill(null);
+    setWizardStep(3);
+    return true;
+  }, [
+    playerConfig.name,
+    monsterConfig.name,
+    skillList.length,
+    defaultLoadoutIds,
+    playerSkillIds,
+    monsterSkillIds,
+    buildArenaConfig,
+  ]);
 
   const handleCancelLoadout = useCallback(() => {
     setBattleState(null);
@@ -701,6 +809,7 @@ export default function BattleSimulatorPage() {
     setBattleMode(null);
     setSelectedSkill(null);
     setMonsterInitialElement(null);
+    setWizardStep(2);
   }, []);
 
   // --- Render ---
@@ -1533,47 +1642,84 @@ export default function BattleSimulatorPage() {
   }, [battleState?.battleLogs.length]);
 
   return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <div className={styles.headerLeft}>
-          <span className={styles.headerIcon}>
-            <ThunderboltOutlined />
-          </span>
-          <div className={styles.headerTitle}>
-            <h1>Battle simulator v2.0</h1>
-            <p>Element reactions · Deterministic combat · Strategy</p>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <Link href="/simulation-system/battle/skills" className={styles.backButton}>
-            Skill sheet
-          </Link>
-          <Link href="/simulation-system" className={styles.backButton}>
-            <ArrowLeftOutlined /> Back
-          </Link>
-        </div>
-      </header>
+    <BattleDesignShell
+      step={wizardStep}
+      onStepChange={setWizardStep}
+      canEnterStep2={skillSheetView === 'library' && skillList.length > 0}
+      canEnterStep3={arenaConfig !== null}
+      onOpenLogin={() => setLoginOpen(true)}
+    >
+      {wizardStep === 1 ? (
+        <ConfigureSkillStep
+          view={skillSheetView}
+          skills={skillList}
+          onSkillsApplied={handleSkillsFromLocalTable}
+          onUseDefaultSheet={handleUseDefaultSheet}
+          onSyncStudio={handleSyncStudio}
+          onContinue={() => {
+            markSkillSheetReady();
+            setWizardStep(2);
+          }}
+        />
+      ) : null}
 
-      <main className={styles.mainContent}>
-        <div className={styles.battleRow}>
-          {renderConfigPanel()}
-          <div className={styles.rightColumn}>
-            {arenaConfig ? (
-              <div className={`${styles.battleStage} ${styles.battleStageFill}`}>
-                <div className={styles.mapSlot}>
-                  <BattleArena config={arenaConfig} onStop={handleReset} />
-                </div>
-              </div>
-            ) : (
-              <>
-                {renderBattleStage()}
-                {renderSkillSelector()}
-                {renderBattleLog()}
-              </>
-            )}
-          </div>
-        </div>
-      </main>
-    </div>
+      {wizardStep === 2 ? (
+        <ConfigurePlayerStep
+          skillList={skillList}
+          skillSheetLabel={skillSheetLabel}
+          playerConfig={playerConfig}
+          monsterConfig={monsterConfig}
+          monsterInitialElement={monsterInitialElement}
+          playerSkillIds={playerSkillIds}
+          monsterSkillIds={monsterSkillIds}
+          onSkillsApplied={handleSkillsFromLocalTable}
+          onUpdatePlayer={updatePlayerStat}
+          onUpdateMonster={updateMonsterStat}
+          onSetMonsterElement={setMonsterInitialElement}
+          onTogglePlayerSkill={(id) =>
+            setPlayerSkillIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+          }
+          onToggleMonsterSkill={(id) =>
+            setMonsterSkillIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+          }
+          onRemovePlayerSkill={(id) =>
+            setPlayerSkillIds((prev) => prev.filter((x) => x !== id))
+          }
+          onRemoveMonsterSkill={(id) =>
+            setMonsterSkillIds((prev) => prev.filter((x) => x !== id))
+          }
+          onStartBattle={() => {
+            handleLaunchArenaDirect();
+          }}
+        />
+      ) : null}
+
+      {wizardStep === 3 && arenaConfig ? (
+        <StartBattleStep arenaConfig={arenaConfig} onStop={handleReset} />
+      ) : null}
+
+      <KecoLoginModal
+        open={loginOpen}
+        onClose={() => {
+          setLoginOpen(false);
+          setPendingSyncAfterLogin(false);
+        }}
+        onSignedIn={() => {
+          if (pendingSyncAfterLogin) {
+            setPendingSyncAfterLogin(false);
+            setSyncOpen(true);
+          }
+        }}
+      />
+
+      <StudioSyncModal
+        open={syncOpen}
+        onClose={() => setSyncOpen(false)}
+        onSynced={() => {
+          markSkillSheetReady();
+          setSkillSheetLabel('Studio library');
+        }}
+      />
+    </BattleDesignShell>
   );
 }

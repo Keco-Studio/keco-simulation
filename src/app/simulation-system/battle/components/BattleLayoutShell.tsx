@@ -10,6 +10,7 @@ import { BattleBreadcrumb } from './BattleBreadcrumb';
 export function BattleLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hideBattleCrumb =
+    pathname === '/simulation-system/battle' ||
     pathname.startsWith('/simulation-system/battle/skills') ||
     pathname.startsWith('/simulation-system/battle/studio-libraries') ||
     pathname.startsWith('/simulation-system/battle/local-tables');
