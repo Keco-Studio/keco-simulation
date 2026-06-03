@@ -8,7 +8,7 @@ const { criticalHpRatio: CRITICAL_HP_RATIO, earlyTickThreshold: EARLY_TICK_THRES
 /**
  * Validates a DecisionAction against current battle state and remaps
  * invalid actions to the best valid alternative. Includes loop detection,
- * early-flee prevention, and critical-HP forced retreat.
+ * early-flee prevention, and critical-HP fallbacks (no forced map-edge retreat).
  */
 export function applyGuardrail(
   ctx: DecisionContext,
@@ -51,7 +51,7 @@ export function applyGuardrail(
   return result
 }
 
-// ── Critical HP: forced retreat when dangerously low ──
+// ── Critical HP: prefer in-range skills / basic attack; never dash to map edge ──
 
 function guardCriticalHp(ctx: DecisionContext, action: DecisionAction): GuardrailResult | null {
   if (ctx.actorHpRatio >= CRITICAL_HP_RATIO) return null
@@ -66,19 +66,19 @@ function guardCriticalHp(ctx: DecisionContext, action: DecisionAction): Guardrai
     }
   }
 
-  const edgeX = ctx.actor.team === 'left'
-    ? ctx.mapBounds.minX + MAP_EDGE.halfCell
-    : ctx.mapBounds.maxX - MAP_EDGE.halfCell
-  if (Math.abs(edgeX - ctx.actor.position.x) > MAP_EDGE.halfCell) {
+  const best = ctx.readySkills.filter((s) => s.inRange).sort((a, b) => b.definition.ratio - a.definition.ratio)[0]
+  if (best) {
     return {
-      action: {
-        type: 'dash',
-        target: { x: edgeX, y: ctx.actor.position.y },
-        moveStep: MOVE_STEP.retreatFast,
-        path: action.path + '>guardrail:critical_hp_retreat',
-      },
+      action: { type: 'cast_skill', skillId: best.definition.id, path: action.path + '>guardrail:critical_hp_cast' },
       rewritten: true,
-      rewriteReason: 'critical_hp_forced_retreat',
+      rewriteReason: 'critical_hp_fight_back',
+    }
+  }
+  if (ctx.distance <= MELEE_RANGE) {
+    return {
+      action: { type: 'basic_attack', path: action.path + '>guardrail:critical_hp_basic' },
+      rewritten: true,
+      rewriteReason: 'critical_hp_fight_back',
     }
   }
   return null

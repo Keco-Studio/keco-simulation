@@ -1,5 +1,6 @@
 import type { BattleUnit } from '@keco/battle-engine';
 import type { BattleEntity } from '../battle-core/domain/entities/battle-entity';
+import type { BattleSession } from '../battle-core/domain/entities/battle-session';
 
 export function entityToKecoUnit(entity: BattleEntity): BattleUnit {
   return {
@@ -20,7 +21,36 @@ export function entityToKecoUnit(entity: BattleEntity): BattleUnit {
   };
 }
 
-export function applyKecoUnitToEntity(entity: BattleEntity, unit: BattleUnit): BattleEntity {
+/**
+ * Merge live entity vitals with keco-only combat state (element, buffs, etc.).
+ * Entity HP/MP are authoritative — keco.units can lag behind tick regen.
+ */
+export function mergeEntityIntoKecoUnit(
+  entity: BattleEntity,
+  kecoUnit: BattleUnit | undefined,
+): BattleUnit {
+  const fromEntity = entityToKecoUnit(entity);
+  if (!kecoUnit) return fromEntity;
+  return {
+    ...fromEntity,
+    element: kecoUnit.element,
+    dot: kecoUnit.dot,
+    buffs: kecoUnit.buffs,
+    control: kecoUnit.control,
+  };
+}
+
+export type ApplyKecoUnitOptions = {
+  /** When false, HP syncs but MP stays on the entity (target of someone else's skill). */
+  syncMp?: boolean;
+};
+
+export function applyKecoUnitToEntity(
+  entity: BattleEntity,
+  unit: BattleUnit,
+  options?: ApplyKecoUnitOptions,
+): BattleEntity {
+  const syncMp = options?.syncMp !== false;
   return {
     ...entity,
     atk: unit.atk,
@@ -31,8 +61,24 @@ export function applyKecoUnitToEntity(entity: BattleEntity, unit: BattleUnit): B
       ...entity.resources,
       hp: unit.hp,
       maxHp: unit.maxHp,
-      mp: unit.mp,
-      maxMp: unit.maxMp,
+      ...(syncMp ? { mp: unit.mp, maxMp: unit.maxMp } : {}),
+    },
+  };
+}
+
+/** Keep keco.units vitals aligned with session entities after passive regen etc. */
+export function syncKecoUnitsFromEntities(session: BattleSession): BattleSession {
+  if (!session.keco) return session;
+  const { left, right, keco } = session;
+  return {
+    ...session,
+    keco: {
+      ...keco,
+      units: {
+        ...keco.units,
+        [left.id]: mergeEntityIntoKecoUnit(left, keco.units[left.id]),
+        [right.id]: mergeEntityIntoKecoUnit(right, keco.units[right.id]),
+      },
     },
   };
 }

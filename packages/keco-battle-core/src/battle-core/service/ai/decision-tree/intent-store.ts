@@ -152,13 +152,6 @@ export class IntentStore {
 
   private inferCurrentMode(ctx: DecisionContext): TacticalMode {
     if (
-      ctx.actorHpRatio <= BATTLE_BALANCE.tacticalLowHpRetreatRatio &&
-      ctx.distance <= BATTLE_BALANCE.tacticalKiteMinDistance &&
-      ctx.actorHpRatio < ctx.targetHpRatio
-    ) {
-      return 'retreat'
-    }
-    if (
       ctx.targetHpRatio <= BATTLE_BALANCE.tacticalTargetLowHpFinishRatio &&
       ctx.distance <= Math.max(MELEE_RANGE + 0.4, ctx.preferredRange)
     ) {

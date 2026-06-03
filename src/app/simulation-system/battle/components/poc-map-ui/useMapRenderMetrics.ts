@@ -10,23 +10,38 @@ export function useMapRenderMetrics({
   viewportSize,
   mapWidth,
   mapHeight,
+  fit = 'contain',
 }: {
   viewportSize: ViewportSize;
   mapWidth: number;
   mapHeight: number;
+  /** contain = letterbox; cover = fill viewport (may crop edges) */
+  fit?: 'contain' | 'cover';
 }) {
   const mapAspect = mapWidth / Math.max(1, mapHeight);
   const viewAspect = viewportSize.width / Math.max(1, viewportSize.height);
-  const renderWidth =
-    viewAspect > mapAspect
-      ? Math.floor(viewportSize.height * mapAspect)
-      : Math.floor(viewportSize.width);
-  const renderHeight =
-    viewAspect > mapAspect
-      ? Math.floor(viewportSize.height)
-      : Math.floor(viewportSize.width / mapAspect);
-  const renderOffsetX = Math.max(0, Math.floor((viewportSize.width - renderWidth) / 2));
-  const renderOffsetY = Math.max(0, Math.floor((viewportSize.height - renderHeight) / 2));
+
+  let renderWidth: number;
+  let renderHeight: number;
+
+  if (fit === 'cover') {
+    if (viewAspect > mapAspect) {
+      renderWidth = Math.floor(viewportSize.width);
+      renderHeight = Math.floor(viewportSize.width / mapAspect);
+    } else {
+      renderHeight = Math.floor(viewportSize.height);
+      renderWidth = Math.floor(viewportSize.height * mapAspect);
+    }
+  } else if (viewAspect > mapAspect) {
+    renderWidth = Math.floor(viewportSize.height * mapAspect);
+    renderHeight = Math.floor(viewportSize.height);
+  } else {
+    renderWidth = Math.floor(viewportSize.width);
+    renderHeight = Math.floor(viewportSize.width / mapAspect);
+  }
+
+  const renderOffsetX = Math.floor((viewportSize.width - renderWidth) / 2);
+  const renderOffsetY = Math.floor((viewportSize.height - renderHeight) / 2);
 
   const mapCellDisplayPx = useMemo(
     () => Math.min(renderWidth / Math.max(1, mapWidth), renderHeight / Math.max(1, mapHeight)) * 0.92,

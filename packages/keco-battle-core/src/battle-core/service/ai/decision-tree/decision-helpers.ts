@@ -6,7 +6,7 @@
  */
 import { canTriggerElementReaction } from '@keco/battle-engine'
 import type { Element } from '@keco/battle-engine'
-import type { DecisionContext, ReadySkill } from './decision-context'
+import type { DecisionAction, DecisionContext, ReadySkill } from './decision-context'
 import {
   APPROACH_MIN_STAY,
   APPROACH_STAY_OFFSET,
@@ -57,6 +57,80 @@ export function pickElementSetupSkillInRange(ctx: DecisionContext): ReadySkill |
   if (candidates.length === 0) return null
   candidates.sort((a, b) => b.definition.ratio - a.definition.ratio)
   return candidates[0]
+}
+
+function pickBestReactionReadySkill(ctx: DecisionContext): ReadySkill | null {
+  const targetElem = targetElementAura(ctx)
+  if (!targetElem || !ctx.session.keco) return null
+
+  const skillById = ctx.session.keco.skillById
+  const candidates = ctx.readySkills.filter((s) => {
+    const kecoSkill = skillById[s.definition.id]
+    const skillElem = kecoSkill?.attachElement?.element
+    if (!skillElem || skillElem === 'random') return false
+    return canTriggerElementReaction(skillElem, targetElem)
+  })
+  if (candidates.length === 0) return null
+  candidates.sort((a, b) => b.definition.ratio - a.definition.ratio)
+  return candidates[0]
+}
+
+function pickBestElementSetupReadySkill(ctx: DecisionContext): ReadySkill | null {
+  if (!ctx.session.keco || targetElementAura(ctx)) return null
+
+  const skillById = ctx.session.keco.skillById
+  const candidates = ctx.readySkills.filter((s) => {
+    const kecoSkill = skillById[s.definition.id]
+    const skillElem = kecoSkill?.attachElement?.element
+    return Boolean(skillElem && skillElem !== 'random')
+  })
+  if (candidates.length === 0) return null
+  candidates.sort((a, b) => b.definition.ratio - a.definition.ratio)
+  return candidates[0]
+}
+
+/**
+ * Global element-reaction priority: cast in-range reaction, dash to reaction range,
+ * then apply element setup when the target has no aura yet.
+ */
+export function preferElementReactionAction(ctx: DecisionContext): DecisionAction | null {
+  if (!ctx.session.keco) return null
+
+  const inRangeReaction = pickReactionSkillInRange(ctx)
+  if (inRangeReaction) {
+    return {
+      type: 'cast_skill',
+      skillId: inRangeReaction.definition.id,
+      path: 'root>priority>cast_reaction',
+    }
+  }
+
+  const reactionSkill = pickBestReactionReadySkill(ctx)
+  if (reactionSkill && !reactionSkill.inRange) {
+    const approach = computeApproach(ctx, reactionSkill.definition.range)
+    if (approach) {
+      return { type: 'dash', target: approach, path: 'root>priority>dash_for_reaction' }
+    }
+  }
+
+  const setupInRange = pickElementSetupSkillInRange(ctx)
+  if (setupInRange) {
+    return {
+      type: 'cast_skill',
+      skillId: setupInRange.definition.id,
+      path: 'root>priority>cast_element_setup',
+    }
+  }
+
+  const setupSkill = pickBestElementSetupReadySkill(ctx)
+  if (setupSkill && !setupSkill.inRange) {
+    const approach = computeApproach(ctx, setupSkill.definition.range)
+    if (approach) {
+      return { type: 'dash', target: approach, path: 'root>priority>dash_for_element_setup' }
+    }
+  }
+
+  return null
 }
 
 /**

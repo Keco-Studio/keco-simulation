@@ -1,6 +1,7 @@
 import { BattleSession } from '../domain/entities/battle-session'
 import { processBattleCommands, type BattleCommandWalkContext } from './command-processor'
 import { tickStatusEffects } from './effect-processor'
+import { syncKecoUnitsFromEntities } from '../../keco/entitySync'
 
 export type TickEngineResult = {
   session: BattleSession
@@ -45,10 +46,11 @@ function recoverPassiveResources(session: BattleSession): BattleSession {
       }
     }
   }
-  return {
+  const withRecovery = {
     ...session,
     left: recoverEntity(session.left),
     right: recoverEntity(session.right)
   }
+  return syncKecoUnitsFromEntities(withRecovery)
 }
 

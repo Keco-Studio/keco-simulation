@@ -8,6 +8,7 @@ import { BattleStatusEffect } from '../domain/types/effect-types'
 import { getBattleSkillDefinition } from '../content/skills/basic-skill-catalog'
 import { applyFreezeToEntity } from './effect-processor'
 import { BATTLE_BALANCE } from '../config/battle-balance'
+import { applyFinalDamageVariance } from '@keco/battle-engine'
 import { resolveKecoCastSkill } from '../../keco/resolveKecoCastSkill'
 import { defaultBasicKecoSkill } from '../../keco/kecoSkillBridge'
 
@@ -829,7 +830,7 @@ function computeBasicDamage(actor: BattleEntity, target: BattleEntity): number {
   const raw =
     (actor.atk - target.def * 0.5 + Math.random() * 2) * BATTLE_BALANCE.basicDamageMultiplier
   const reduced = target.defending ? raw * 0.6 : raw
-  return Math.max(1, Math.floor(reduced))
+  return Math.max(1, applyFinalDamageVariance(Math.max(1, reduced)))
 }
 
 function computeSkillDamage(actor: BattleEntity, target: BattleEntity, ratio: number): number {
@@ -837,7 +838,7 @@ function computeSkillDamage(actor: BattleEntity, target: BattleEntity, ratio: nu
     (actor.atk * Math.max(0.5, ratio) - target.def * 0.45 + Math.random() * 2.5) *
     BATTLE_BALANCE.skillDamageMultiplier
   const reduced = target.defending ? raw * 0.62 : raw
-  return Math.max(1, Math.floor(reduced))
+  return Math.max(1, applyFinalDamageVariance(Math.max(1, reduced)))
 }
 
 function applyDamageWithShieldAndRage(

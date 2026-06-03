@@ -10,9 +10,8 @@ import {
 } from './battleLocalTableSkillSource';
 import type { BattleSkillDraft, SkillDraftValidationResult } from './battleSkillDrafts';
 import { saveBattleSkillDrafts, validateSkillDrafts } from './battleSkillDrafts';
-import { cellValueToString } from './cellDisplayValue';
-import { findRowByIdCell } from './importSkillRowFromTable';
-import { loadTableRows } from './simTablePickerData';
+import { attributeBindingsFromDraftFields, refreshDraftFromLiveTables } from './buildDraftsFromAttributeBindings';
+import { loadTableRows, type TableColumnInfo } from './simTablePickerData';
 
 export type DraftRefreshWarning = {
   draftId: string;
@@ -25,6 +24,11 @@ export type RefreshDraftsFromLiveTablesResult = {
   warnings: DraftRefreshWarning[];
 };
 
+type TableSnapshot = {
+  rows: SimTableRow[];
+  columns: TableColumnInfo[];
+};
+
 function draftLabel(draft: BattleSkillDraft, index: number): string {
   return (
     draft.fields.name?.value?.trim() ||
@@ -33,65 +37,46 @@ function draftLabel(draft: BattleSkillDraft, index: number): string {
   );
 }
 
-function anchorTableId(draft: BattleSkillDraft): string | null {
-  const idTable = draft.fields.id?.tableId?.trim();
-  if (idTable) return idTable;
-  for (const f of BATTLE_SKILL_MAPPING_FIELDS) {
-    const tid = draft.fields[f.key]?.tableId?.trim();
-    if (tid) return tid;
+function collectTableIds(draft: BattleSkillDraft): string[] {
+  const ids = new Set<string>();
+  const bindings = attributeBindingsFromDraftFields(draft.fields);
+  for (const binding of Object.values(bindings)) {
+    if (binding?.tableId) ids.add(binding.tableId);
   }
-  return null;
-}
-
-function findRowForDraft(draft: BattleSkillDraft, rows: SimTableRow[]): SimTableRow | null {
-  if (draft.sourceRowId) {
-    const byId = rows.find((r) => r.id === draft.sourceRowId);
-    if (byId) return byId;
-  }
-  const idRef = draft.fields.id;
-  if (!idRef?.columnKey || !idRef.value?.trim()) return null;
-  return findRowByIdCell(rows, idRef.columnKey, idRef.value);
-}
-
-function applyRowToDraft(
-  draft: BattleSkillDraft,
-  row: SimTableRow,
-  tableId: string,
-): BattleSkillDraft {
-  const fields = { ...draft.fields };
-  for (const f of BATTLE_SKILL_MAPPING_FIELDS) {
-    const ref = fields[f.key];
-    if (!ref || ref.tableId !== tableId || !ref.columnKey) continue;
-    const live = cellValueToString(row.values[ref.columnKey]).trim();
-    fields[f.key] = { ...ref, value: live };
-  }
-  return { ...draft, sourceRowId: row.id, fields };
+  return [...ids];
 }
 
 export async function refreshDraftsFromLiveTables(
   drafts: BattleSkillDraft[],
-  loadRows: (tableId: string) => Promise<SimTableRow[] | null>,
+  loadTable: (tableId: string) => Promise<TableSnapshot | null>,
 ): Promise<RefreshDraftsFromLiveTablesResult> {
-  const rowCache = new Map<string, SimTableRow[]>();
+  const tableCache = new Map<string, TableSnapshot>();
   const warnings: DraftRefreshWarning[] = [];
   const next: BattleSkillDraft[] = [];
 
   for (let i = 0; i < drafts.length; i++) {
     const draft = drafts[i]!;
-    const tableId = anchorTableId(draft);
-    if (!tableId) {
+    const tableIds = collectTableIds(draft);
+    if (tableIds.length === 0) {
       next.push(draft);
       continue;
     }
 
-    let rows = rowCache.get(tableId);
-    if (rows === undefined) {
-      rows = (await loadRows(tableId)) ?? [];
-      rowCache.set(tableId, rows);
+    const rowsByTable = new Map<string, TableSnapshot['rows']>();
+    const columnsByTable = new Map<string, TableColumnInfo[]>();
+
+    for (const tableId of tableIds) {
+      let snapshot = tableCache.get(tableId);
+      if (snapshot === undefined) {
+        snapshot = (await loadTable(tableId)) ?? { rows: [], columns: [] };
+        tableCache.set(tableId, snapshot);
+      }
+      rowsByTable.set(tableId, snapshot.rows);
+      columnsByTable.set(tableId, snapshot.columns);
     }
 
-    const row = findRowForDraft(draft, rows);
-    if (!row) {
+    const refreshed = refreshDraftFromLiveTables(draft, rowsByTable, columnsByTable);
+    if (!refreshed.ok) {
       warnings.push({
         draftId: draft.draftId,
         label: draftLabel(draft, i),
@@ -102,7 +87,7 @@ export async function refreshDraftsFromLiveTables(
       continue;
     }
 
-    next.push(applyRowToDraft(draft, row, tableId));
+    next.push(refreshed.draft);
   }
 
   return { drafts: next, warnings };
@@ -114,7 +99,8 @@ export async function refreshDraftsFromLiveTablesWithSupabase(
 ): Promise<RefreshDraftsFromLiveTablesResult> {
   return refreshDraftsFromLiveTables(drafts, async (tableId) => {
     const loaded = await loadTableRows(supabase, tableId);
-    return loaded?.rows ?? null;
+    if (!loaded) return null;
+    return { rows: loaded.rows, columns: loaded.columns };
   });
 }
 
