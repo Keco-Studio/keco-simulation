@@ -25,9 +25,15 @@ import {
   type LocalTableCellRef,
   createEmptyDraft,
   loadBattleSkillDrafts,
+  partitionDraftsBySkillId,
   saveBattleSkillDrafts,
   type SkillDraftValidationResult,
 } from '../lib/localTableSkillSource/battleSkillDrafts';
+import {
+  attributeBindingsFromDraftFields,
+  buildDraftsFromAttributeBindings,
+  hasAnchorIdBinding,
+} from '../lib/localTableSkillSource/buildDraftsFromAttributeBindings';
 import { validateSkillDraftsFromLiveTables } from '../lib/localTableSkillSource/refreshDraftsFromLiveTables';
 import { saveBattleSkillsToStorage } from '../lib/skills/battleSkillsStorage';
 import { DEFAULT_BATTLE_SKILL_MODULE_ID } from '../lib/skills/battleSkillModulesStorage';
@@ -35,10 +41,12 @@ import {
   listSelectableTablesForSkillPicker,
   loadColumnValueOptions,
   loadTableColumns,
+  loadTableRows,
   type PickerValueOption,
   type SelectableTableInfo,
   type TableColumnInfo,
 } from '../lib/localTableSkillSource/simTablePickerData';
+import type { SimTableRow } from '@/lib/simLocalTables/types';
 import { ImportSkillByIdBlock } from './ImportSkillByIdBlock';
 import styles from './BattleLocalTableSkillSourcePanel.module.css';
 
@@ -72,6 +80,7 @@ function FieldBindingRow({
   tablesLoading,
   supabaseReady,
   onChange,
+  columnOnly = false,
 }: {
   fieldKey: BattleSkillColumnMappingKey;
   cellRef?: LocalTableCellRef;
@@ -80,6 +89,8 @@ function FieldBindingRow({
   tablesLoading: boolean;
   supabaseReady: boolean;
   onChange: (ref: LocalTableCellRef | undefined) => void;
+  /** When true, bind table + column only (bulk import by row). */
+  columnOnly?: boolean;
 }) {
   const supabase = useSupabase();
   const [columns, setColumns] = useState<TableColumnInfo[]>([]);
@@ -112,6 +123,10 @@ function FieldBindingRow({
   }, [tableId, supabase, supabaseReady]);
 
   useEffect(() => {
+    if (columnOnly) {
+      setValueOptions([]);
+      return;
+    }
     if (!tableId || !columnKey) {
       setValueOptions([]);
       return;
@@ -128,7 +143,7 @@ function FieldBindingRow({
     return () => {
       cancelled = true;
     };
-  }, [tableId, columnKey, supabase, supabaseReady]);
+  }, [columnOnly, tableId, columnKey, supabase, supabaseReady]);
 
   return (
     <div className={styles.bindingBlock}>
@@ -175,28 +190,35 @@ function FieldBindingRow({
               : undefined
           }
         />
-        <Select
-          className={styles.bindingSelect}
-          placeholder="Value"
-          disabled={disabled || !tableId || !columnKey || valuesLoading}
-          loading={valuesLoading}
-          allowClear
-          showSearch
-          optionFilterProp="label"
-          value={cellRef?.value || undefined}
-          onChange={(val) => {
-            if (!tableId || !columnKey) return;
-            onChange({ tableId, columnKey, value: val ?? '' });
-          }}
-          options={valueOptions.map((o) => ({ value: o.value, label: o.label || o.value }))}
-          notFoundContent={valueOptions.length === 0 ? 'No values in this column' : undefined}
-        />
+        {!columnOnly ? (
+          <Select
+            className={styles.bindingSelect}
+            placeholder="Value"
+            disabled={disabled || !tableId || !columnKey || valuesLoading}
+            loading={valuesLoading}
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            value={cellRef?.value || undefined}
+            onChange={(val) => {
+              if (!tableId || !columnKey) return;
+              onChange({ tableId, columnKey, value: val ?? '' });
+            }}
+            options={valueOptions.map((o) => ({ value: o.value, label: o.label || o.value }))}
+            notFoundContent={valueOptions.length === 0 ? 'No values in this column' : undefined}
+          />
+        ) : null}
       </div>
       {fieldDef?.hint && <span className={styles.mappingHint}>{fieldDef.hint}</span>}
-      {fieldKey === 'id' ? (
+      {fieldKey === 'id' && !columnOnly ? (
         <span className={styles.mappingHint}>
           Value list matches the table cell. <strong>Validate &amp; apply</strong> converts skill id to
           battle code form (spaces → underscores) if needed.
+        </span>
+      ) : fieldKey === 'id' && columnOnly ? (
+        <span className={styles.mappingHint}>
+          Each non-empty cell in this column becomes one skill. Other fields resolve by matching skill id
+          in their table (same column name, or auto-detected id column).
         </span>
       ) : null}
     </div>
@@ -212,6 +234,7 @@ function SkillDraftEditor({
   onFieldChange,
   onRemove,
   hideRemoveButton = false,
+  columnOnly = false,
 }: {
   draft: BattleSkillDraft;
   disabled?: boolean;
@@ -221,6 +244,7 @@ function SkillDraftEditor({
   onFieldChange: (fieldKey: BattleSkillColumnMappingKey, ref: LocalTableCellRef | undefined) => void;
   onRemove: () => void;
   hideRemoveButton?: boolean;
+  columnOnly?: boolean;
 }) {
   const [activeField, setActiveField] = useState<BattleSkillColumnMappingKey>('id');
 
@@ -228,13 +252,20 @@ function SkillDraftEditor({
     () =>
       BATTLE_SKILL_MAPPING_FIELDS.filter((f) => {
         const ref = draft.fields[f.key];
+        if (columnOnly) return Boolean(ref?.tableId && ref?.columnKey);
         return Boolean(ref?.value?.trim());
-      }).map((f) => ({
-        key: f.key,
-        label: f.label,
-        display: draft.fields[f.key]?.value?.trim() ?? '',
-      })),
-    [draft.fields],
+      }).map((f) => {
+        const ref = draft.fields[f.key]!;
+        const tableName = tables.find((t) => t.id === ref.tableId)?.name ?? ref.tableId;
+        return {
+          key: f.key,
+          label: f.label,
+          display: columnOnly
+            ? `${tableName} / ${ref.columnKey}`
+            : (ref.value?.trim() ?? ''),
+        };
+      }),
+    [columnOnly, draft.fields, tables],
   );
 
   return (
@@ -280,6 +311,7 @@ function SkillDraftEditor({
         tablesLoading={tablesLoading}
         supabaseReady={supabaseReady}
         onChange={(ref) => onFieldChange(activeField, ref)}
+        columnOnly={columnOnly}
       />
 
       {configuredEntries.length > 0 && (
@@ -331,6 +363,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
     const [modalView, setModalView] = useState<ModalView>('home');
     /** Draft being edited in create-by-attributes; committed only on confirm */
     const [pendingDraft, setPendingDraft] = useState<BattleSkillDraft | null>(null);
+    const [pendingImporting, setPendingImporting] = useState(false);
     const [expandedDraftKey, setExpandedDraftKey] = useState<string | undefined>();
     const [tables, setTables] = useState<SelectableTableInfo[]>([]);
     const [tablesLoading, setTablesLoading] = useState(true);
@@ -412,18 +445,92 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
 
     const cancelPendingCreate = useCallback(() => {
       setPendingDraft(null);
+      setPendingImporting(false);
       setModalView('home');
     }, []);
 
-    const confirmPendingCreate = useCallback(() => {
+    const reportImportRejections = useCallback((rejected: { displayId: string; reason: string }[]) => {
+      if (rejected.length === 0) return;
+      if (rejected.length === 1) {
+        const r = rejected[0]!;
+        message.error(`Skipped "${r.displayId}": ${r.reason}`);
+        return;
+      }
+      const preview = rejected
+        .slice(0, 5)
+        .map((r) => `"${r.displayId}" (${r.reason})`)
+        .join('; ');
+      const more = rejected.length > 5 ? ` (+${rejected.length - 5} more)` : '';
+      message.error(`Skipped ${rejected.length} skill(s): ${preview}${more}`);
+    }, []);
+
+    const confirmPendingCreate = useCallback(async () => {
       if (!pendingDraft) return;
-      setDrafts((prev) => [...prev, pendingDraft]);
-      setExpandedDraftKey(pendingDraft.draftId);
-      setPendingDraft(null);
-      setLastResult(null);
-      setModalView('home');
-      message.success('Skill added to list.');
-    }, [pendingDraft]);
+      const bindings = attributeBindingsFromDraftFields(pendingDraft.fields);
+      if (!hasAnchorIdBinding(bindings)) {
+        message.warning('Map Skill id to a table and column first.');
+        return;
+      }
+
+      setPendingImporting(true);
+      try {
+        const tableIds = new Set<string>();
+        for (const binding of Object.values(bindings)) {
+          if (binding?.tableId) tableIds.add(binding.tableId);
+        }
+
+        const rowsByTable = new Map<string, SimTableRow[]>();
+        const columnsByTable = new Map<string, TableColumnInfo[]>();
+
+        for (const tableId of tableIds) {
+          const loaded = await loadTableRows(supabaseReady ? supabase : null, tableId);
+          if (!loaded) {
+            message.error('Failed to load one or more tables.');
+            return;
+          }
+          rowsByTable.set(tableId, loaded.rows);
+          columnsByTable.set(tableId, loaded.columns);
+        }
+
+        const built = buildDraftsFromAttributeBindings({
+          bindings,
+          rowsByTable,
+          columnsByTable,
+        });
+
+        if (built.length === 0) {
+          message.warning('No rows with a non-empty skill id in the anchor column.');
+          return;
+        }
+
+        const { accepted, rejected } = partitionDraftsBySkillId(built, drafts);
+        reportImportRejections(rejected);
+
+        if (accepted.length === 0) return;
+
+        setDrafts((prev) => [...prev, ...accepted]);
+        setExpandedDraftKey(accepted[accepted.length - 1]!.draftId);
+        setPendingDraft(null);
+        setLastResult(null);
+        setModalView('home');
+        const anchorTableName =
+          tables.find((t) => t.id === bindings.id!.tableId)?.name ?? bindings.id!.tableId;
+        message.success(
+          accepted.length === 1
+            ? `Imported 1 skill from "${anchorTableName}".`
+            : `Imported ${accepted.length} skills from "${anchorTableName}".`,
+        );
+      } finally {
+        setPendingImporting(false);
+      }
+    }, [
+      pendingDraft,
+      supabase,
+      supabaseReady,
+      drafts,
+      tables,
+      reportImportRejections,
+    ]);
 
     const updatePendingDraftField = useCallback(
       (fieldKey: BattleSkillColumnMappingKey, ref: LocalTableCellRef | undefined) => {
@@ -588,20 +695,21 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           </Button>
           <h3 className={styles.sectionTitle}>Create by attributes</h3>
           <p className={styles.hint}>
-            Pick a field, then table (local scratch, Studio-linked bookmark, or a Studio library), column,
-            and value. Switch fields from the dropdown to bind more properties. Nothing is added until you
-            confirm.
+            Pick a field, then table and column for each skill property. Skill id column defines one skill
+            per row. Fields may come from different tables. Switch fields from the dropdown to bind more
+            properties, then import all rows at once.
           </p>
           {pendingDraft ? (
             <SkillDraftEditor
               draft={pendingDraft}
-              disabled={disabled}
+              disabled={disabled || pendingImporting}
               tables={tables}
               tablesLoading={tablesLoading}
               supabaseReady={supabaseReady}
               onFieldChange={updatePendingDraftField}
               onRemove={cancelPendingCreate}
               hideRemoveButton
+              columnOnly
             />
           ) : (
             <p className={styles.metaLine}>No draft in progress.</p>
@@ -609,11 +717,21 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           {studioSignInHint}
           {tablesWarning}
           <div className={styles.createConfirmRow}>
-            <Button disabled={disabled} onClick={cancelPendingCreate}>
+            <Button disabled={disabled || pendingImporting} onClick={cancelPendingCreate}>
               Cancel
             </Button>
-            <Button type="primary" disabled={disabled || !pendingDraft} onClick={confirmPendingCreate}>
-              Add skill
+            <Button
+              type="primary"
+              loading={pendingImporting}
+              disabled={
+                disabled ||
+                pendingImporting ||
+                !pendingDraft ||
+                !hasAnchorIdBinding(attributeBindingsFromDraftFields(pendingDraft.fields))
+              }
+              onClick={() => void confirmPendingCreate()}
+            >
+              Import all rows
             </Button>
           </div>
         </div>

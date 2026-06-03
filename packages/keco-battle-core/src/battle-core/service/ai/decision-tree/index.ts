@@ -35,3 +35,4 @@ export {
   MAX_SEQUENCE_LENGTH,
 } from './action-sequence'
 export type { SequenceStep, ActionSequence } from './action-sequence'
+export { preferElementReactionAction } from './decision-helpers'

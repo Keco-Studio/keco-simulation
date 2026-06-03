@@ -23,6 +23,7 @@ import {
   inferRoleProfile,
   defaultTemplateForRole,
   executeStrategyTemplate,
+  preferElementReactionAction,
   type DecisionContext,
   type DecisionAction,
   type TacticalMode,
@@ -432,6 +433,13 @@ export class MapBattleController {
       } as DecisionAction
     }
 
+    const reactionFirst = preferElementReactionAction(ctx)
+    if (reactionFirst) {
+      const role = ctx.actorRole ?? inferRoleProfile(ctx.actor)
+      this.intentStore.set(actorId, mode, reactionFirst, ctx.tick, defaultTemplateForRole(role.role))
+      return reactionFirst
+    }
+
     const refreshReason = this.intentStore.needsRefresh(actorId, ctx)
     if (!refreshReason) {
       const cached = this.intentStore.get(actorId, ctx.tick, mode)
@@ -548,23 +556,6 @@ export class MapBattleController {
     const mode = selectTacticalMode(ctx)
 
     this.intentStore.updateSnapshot(actor.id, executeAtTick, ctx.actorHpRatio)
-
-    if (mode === 'retreat') {
-      if (chosen !== BASIC_ATTACK.id) {
-        input.onClearQueuedSkill?.()
-      }
-      if (executeAtTick < this.nextPlayerDue) return
-      if (actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost) {
-        this.nextPlayerDue = executeAtTick + this.playerInterval
-        const dodgeAction: DecisionAction = { type: 'dodge', path: 'root>player>retreat>dodge' }
-        const cmd = this.decisionActionToCommand(actor, target, executeAtTick, dodgeAction)
-        if (cmd) {
-          this.intentStore.recordAction(actor.id, executeAtTick, dodgeAction)
-          this.enqueueIntentCommand(cmd, mode, 'player_dodge_retreat', dodgeAction.path)
-        }
-        return
-      }
-    }
 
     if (executeAtTick < this.nextPlayerDue) return
     this.nextPlayerDue = executeAtTick + this.playerInterval

@@ -5,6 +5,9 @@ import type { BattleSkillDefinition } from '../battle-core/domain/types/skill-ty
 /** Keco 技能表无单独射程字段：地图战 BT 用统一“可施法距离”，只影响走位后能否选中技能。 */
 const KECO_BT_CAST_RANGE = 12;
 
+/** Map-battle CD: maxCooldown × this (built-in POC skills still use catalog ×10). */
+export const KECO_SKILL_COOLDOWN_TICK_MULTIPLIER = 3;
+
 function skillCategory(skill: Skill, freezeTicks?: number): BattleSkillDefinition['category'] {
   if (freezeTicks) return 'control';
   if (skill.type === 'heal') return 'sustain';
@@ -24,17 +27,20 @@ export function kecoSkillToBattleCoreDefinition(skill: Skill): BattleSkillDefini
   const freezeTicks =
     skill.crowdControl?.type === 'freeze' ? skill.crowdControl.duration : undefined;
 
-  return upsertBattleSkillDefinition({
-    id: skill.id,
-    name: skill.name,
-    description: skill.description,
-    category: skillCategory(skill, freezeTicks),
-    ratio: skillBtRatio(skill),
-    mpCost: skill.mpCost,
-    range: KECO_BT_CAST_RANGE,
-    cooldownTicks: Math.max(0, skill.maxCooldown),
-    applyFreezeTicks: freezeTicks,
-  });
+  return upsertBattleSkillDefinition(
+    {
+      id: skill.id,
+      name: skill.name,
+      description: skill.description,
+      category: skillCategory(skill, freezeTicks),
+      ratio: skillBtRatio(skill),
+      mpCost: skill.mpCost,
+      range: KECO_BT_CAST_RANGE,
+      cooldownTicks: Math.max(0, skill.maxCooldown),
+      applyFreezeTicks: freezeTicks,
+    },
+    { cooldownTickMultiplier: KECO_SKILL_COOLDOWN_TICK_MULTIPLIER },
+  );
 }
 
 export function registerKecoSkills(skills: Skill[]): Record<string, Skill> {

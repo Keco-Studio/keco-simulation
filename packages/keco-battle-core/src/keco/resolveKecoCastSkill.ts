@@ -3,9 +3,10 @@ import { executeSkill, checkBattleResult } from '@keco/battle-engine';
 import type { BattleSession } from '../battle-core/domain/entities/battle-session';
 import type { BattleEntity } from '../battle-core/domain/entities/battle-entity';
 import { getBattleSkillDefinition } from '../battle-core/content/skills/basic-skill-catalog';
+import { KECO_SKILL_COOLDOWN_TICK_MULTIPLIER } from './kecoSkillBridge';
 import { appendEvent, updateEntity } from '../battle-core/engine/session-helpers';
 import type { KecoCombatExtension } from './types';
-import { applyKecoUnitToEntity, entityToKecoUnit } from './entitySync';
+import { applyKecoUnitToEntity, mergeEntityIntoKecoUnit } from './entitySync';
 
 function pseudoBattleState(keco: KecoCombatExtension, turn: number): BattleState {
   const units = Object.values(keco.units);
@@ -58,8 +59,8 @@ export function resolveKecoCastSkill(input: {
     return { session, damage: 0, applied: false, keco };
   }
 
-  let attacker = keco.units[actor.id] ?? entityToKecoUnit(actor);
-  let defender = keco.units[target.id] ?? entityToKecoUnit(target);
+  let attacker = mergeEntityIntoKecoUnit(actor, keco.units[actor.id]);
+  let defender = mergeEntityIntoKecoUnit(target, keco.units[target.id]);
 
   const pseudo = pseudoBattleState(keco, keco.turn);
   const result = executeSkill(pseudo, attacker, defender, kecoSkill, [...keco.logs]);
@@ -82,22 +83,19 @@ export function resolveKecoCastSkill(input: {
     slot.skillId === input.skillId
       ? {
           ...slot,
-          cooldownTick: session.tick + (pocDef?.cooldownTicks ?? kecoSkill.maxCooldown * 10),
+          cooldownTick:
+            session.tick
+            + (pocDef?.cooldownTicks ?? kecoSkill.maxCooldown * KECO_SKILL_COOLDOWN_TICK_MULTIPLIER),
         }
       : slot,
   );
 
   let nextActor: BattleEntity = {
-    ...actor,
+    ...applyKecoUnitToEntity(actor, attacker),
     skillSlots: updatedSlots,
-    resources: {
-      ...actor.resources,
-      mp: Math.max(0, actor.resources.mp - kecoSkill.mpCost),
-    },
   };
 
-  let nextTarget = applyKecoUnitToEntity(target, defender);
-  nextActor = applyKecoUnitToEntity(nextActor, attacker);
+  const nextTarget = applyKecoUnitToEntity(target, defender, { syncMp: false });
 
   let nextSession = updateEntity(session, nextActor);
   nextSession = updateEntity(nextSession, nextTarget);

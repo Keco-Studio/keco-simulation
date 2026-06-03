@@ -17,6 +17,51 @@ function pct(current: number, max: number) {
   return max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
 }
 
+function FighterBars({
+  name,
+  hp,
+  maxHp,
+  mp,
+  maxMp,
+  variant,
+}: {
+  name: string;
+  hp: number;
+  maxHp: number;
+  mp: number;
+  maxMp: number;
+  variant: 'player' | 'enemy';
+}) {
+  return (
+    <div className={`${styles.fighter} ${variant === 'player' ? styles.fighterPlayer : styles.fighterEnemy}`}>
+      <div className={styles.fighterHead}>
+        <span className={styles.fighterName}>{name}</span>
+      </div>
+      <div className={styles.barRow}>
+        <span className={styles.barLabel}>HP</span>
+        <div className={styles.barTrack}>
+          <div className={styles.barFillHp} style={{ width: `${pct(hp, maxHp)}%` }} />
+        </div>
+        <span className={styles.barValue}>
+          {Math.round(hp)}/{Math.round(maxHp)}
+        </span>
+      </div>
+      <div className={styles.barRow}>
+        <span className={styles.barLabel}>MP</span>
+        <div className={styles.barTrack}>
+          <div
+            className={styles.barFillMp}
+            style={{ width: `${pct(Math.max(0, mp), maxMp)}%` }}
+          />
+        </div>
+        <span className={styles.barValue}>
+          {Math.max(0, Math.round(mp))}/{Math.round(maxMp)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function StartBattleStep({ arenaConfig, onStop }: Props) {
   const logBodyRef = useRef<HTMLDivElement>(null);
   const [logLines, setLogLines] = useState<string[]>([]);
@@ -49,114 +94,64 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
 
   return (
     <div className={styles.root}>
-      <div className={styles.body}>
-        <aside className={styles.logPanel}>
-          <div className={styles.logTitle}>Battle logs</div>
-          <div ref={logBodyRef} className={styles.logBody}>
-            {logLines.length === 0 ? (
-              <div className={styles.logLine}>Waiting for battle events…</div>
-            ) : (
-              logLines.map((line, i) => (
-                <div key={i} className={styles.logLine}>
-                  {line}
-                </div>
-              ))
-            )}
-          </div>
-        </aside>
-
-        <div className={styles.arenaWrap}>
-          <BattleArena
-            config={arenaConfig}
-            presentation="design"
-            hideInternalLog
-            onLogLinesChange={handleLogLinesChange}
-            onBattleStateChange={handleBattleStateChange}
-            onStop={onStop}
-          />
+      <aside className={styles.logPanel}>
+        <div className={styles.logTitle}>Battle logs</div>
+        <div ref={logBodyRef} className={styles.logBody}>
+          {logLines.length === 0 ? (
+            <div className={styles.logLine}>Waiting for battle events…</div>
+          ) : (
+            logLines.map((line, i) => (
+              <div key={i} className={styles.logLine}>
+                {line}
+              </div>
+            ))
+          )}
         </div>
-      </div>
+      </aside>
 
-      <div className={styles.statusBar}>
-        <div className={styles.statusCol}>
-          <div className={styles.statusHead}>
-            <span className={styles.statusName}>{arenaConfig.playerName}</span>
-            <span className={styles.slotLabel}>1/8</span>
-          </div>
-          <div className={styles.barRow}>
-            <div className={styles.barHeader}>
-              <span className={styles.barLabel}>HP</span>
-              <span className={styles.barValue}>
-                {Math.round(battleUi.playerHp)}/{Math.round(battleUi.playerMaxHp)}
-              </span>
-            </div>
-            <div className={styles.barTrack}>
-              <div
-                className={styles.barFillHp}
-                style={{ width: `${pct(battleUi.playerHp, battleUi.playerMaxHp)}%` }}
-              />
-            </div>
-          </div>
-          <div className={styles.barRow}>
-            <div className={styles.barHeader}>
-              <span className={styles.barLabel}>MP</span>
-              <span className={styles.barValue}>
-                {Math.round(battleUi.playerMp)}/{Math.round(battleUi.playerMaxMp)}
-              </span>
-            </div>
-            <div className={styles.barTrack}>
-              <div
-                className={styles.barFillMp}
-                style={{ width: `${pct(battleUi.playerMp, battleUi.playerMaxMp)}%` }}
-              />
-            </div>
+      <section className={styles.rightCol}>
+        <div className={styles.arenaStage}>
+          <div className={styles.arenaFrame}>
+            <BattleArena
+              config={arenaConfig}
+              presentation="design"
+              hideInternalLog
+              onLogLinesChange={handleLogLinesChange}
+              onBattleStateChange={handleBattleStateChange}
+              onStop={onStop}
+            />
           </div>
         </div>
 
-        <div className={styles.statusCol}>
-          <div className={styles.statusHead}>
-            <span className={styles.statusName}>{arenaConfig.enemyName}</span>
-            <span className={styles.slotLabel}>1/8</span>
+        <div className={styles.statusBar}>
+          <div className={styles.statusMain}>
+            <FighterBars
+              variant="player"
+              name={arenaConfig.playerName}
+              hp={battleUi.playerHp}
+              maxHp={battleUi.playerMaxHp}
+              mp={battleUi.playerMp}
+              maxMp={battleUi.playerMaxMp}
+            />
+            <FighterBars
+              variant="enemy"
+              name={arenaConfig.enemyName}
+              hp={battleUi.enemyHp}
+              maxHp={battleUi.enemyMaxHp}
+              mp={battleUi.enemyMp}
+              maxMp={battleUi.enemyMaxMp}
+            />
           </div>
-          <div className={styles.barRow}>
-            <div className={styles.barHeader}>
-              <span className={styles.barLabel}>HP</span>
-              <span className={styles.barValue}>
-                {Math.round(battleUi.enemyHp)}/{Math.round(battleUi.enemyMaxHp)}
-              </span>
-            </div>
-            <div className={styles.barTrack}>
-              <div
-                className={styles.barFillHp}
-                style={{ width: `${pct(battleUi.enemyHp, battleUi.enemyMaxHp)}%` }}
-              />
-            </div>
-          </div>
-          <div className={styles.barRow}>
-            <div className={styles.barHeader}>
-              <span className={styles.barLabel}>MP</span>
-              <span className={styles.barValue}>
-                {Math.round(battleUi.enemyMp)}/{Math.round(battleUi.enemyMaxMp)}
-              </span>
-            </div>
-            <div className={styles.barTrack}>
-              <div
-                className={styles.barFillMp}
-                style={{ width: `${pct(battleUi.enemyMp, battleUi.enemyMaxMp)}%` }}
-              />
-            </div>
+          <div className={styles.statusActions}>
+            <span className={styles.tickLabel}>
+              T{battleUi.tick} · {battleUi.phase}
+            </span>
+            <button type="button" className={styles.stopBtn} onClick={onStop}>
+              Stop battle
+            </button>
           </div>
         </div>
-
-        <div className={styles.statusActions}>
-          <span className={styles.tickLabel}>
-            T{battleUi.tick} · {battleUi.phase}
-          </span>
-          <button type="button" className={styles.stopBtn} onClick={onStop}>
-            Stop battle
-          </button>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

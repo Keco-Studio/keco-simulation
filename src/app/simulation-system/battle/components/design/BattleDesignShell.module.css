@@ -1,9 +1,11 @@
 .shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  background: #0b0e11;
-  color: #e6edf3;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  background: #ffffff;
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .header {
@@ -12,8 +14,8 @@
   justify-content: space-between;
   gap: 16px;
   padding: 14px 24px;
-  border-bottom: 1px solid #21262d;
-  background: #0b0e11;
+  border-bottom: 1px solid #f0f0f0;
+  background: #ffffff;
 }
 
 .brand {
@@ -21,6 +23,7 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   white-space: nowrap;
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .stepper {
@@ -36,19 +39,19 @@
   border: none;
   border-radius: 999px;
   background: transparent;
-  color: #8b949e;
+  color: rgba(0, 0, 0, 0.45);
   font-size: 13px;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
 }
 
 .step:hover:not(:disabled) {
-  color: #c9d1d9;
+  color: rgba(0, 0, 0, 0.65);
 }
 
 .stepActive {
-  background: #21262d;
-  color: #f0f6fc;
+  background: #f5f5f5;
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .step:disabled {
@@ -69,7 +72,7 @@
   padding: 8px 14px;
   border: none;
   border-radius: 8px;
-  background: #0095ff;
+  background: #1677ff;
   color: #fff;
   font-size: 13px;
   font-weight: 500;
@@ -79,7 +82,7 @@
 }
 
 .skillSheetBtn:hover {
-  background: #0086e6;
+  background: #4096ff;
   color: #fff;
 }
 
@@ -89,18 +92,18 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  border: 1px solid #30363d;
+  border: 1px solid #d9d9d9;
   border-radius: 8px;
-  background: #161b22;
-  color: #8b949e;
+  background: #ffffff;
+  color: rgba(0, 0, 0, 0.65);
   text-decoration: none;
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s;
 }
 
 .iconBtn:hover {
-  border-color: #58a6ff;
-  color: #e6edf3;
+  border-color: #1677ff;
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .accountChip {
@@ -109,9 +112,9 @@
   gap: 8px;
   max-width: 260px;
   padding: 4px 8px 4px 4px;
-  border: 1px solid #30363d;
+  border: 1px solid #d9d9d9;
   border-radius: 999px;
-  background: #161b22;
+  background: #fafafa;
 }
 
 .accountAvatar {
@@ -121,14 +124,14 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #21262d;
-  color: #58a6ff;
+  background: #e6f4ff;
+  color: #1677ff;
   flex-shrink: 0;
 }
 
 .accountEmail {
   font-size: 12px;
-  color: #e6edf3;
+  color: rgba(0, 0, 0, 0.88);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -138,7 +141,7 @@
 .signOutBtn {
   border: none;
   background: none;
-  color: #8b949e;
+  color: rgba(0, 0, 0, 0.45);
   font-size: 11px;
   cursor: pointer;
   padding: 0 4px;
@@ -146,7 +149,7 @@
 }
 
 .signOutBtn:hover {
-  color: #f0f6fc;
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .main {
@@ -154,4 +157,5 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  background: #ffffff;
 }

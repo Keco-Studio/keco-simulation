@@ -4,7 +4,6 @@ import { KITE_EXTRA_RANGE, MELEE_RANGE, MOVE_STEP } from './decision-constants'
 import {
   computeApproach,
   computeKiteRetreat,
-  computeRetreatAlongX,
   pickBestInRange,
   pickByCategoryInRange,
   pickElementSetupSkillInRange,
@@ -16,29 +15,11 @@ const CONTROL_TARGET_HP_GATE = 0.15
 
 export function selectAction(ctx: DecisionContext, mode: TacticalMode): DecisionAction {
   switch (mode) {
-    case 'retreat': return retreatTree(ctx)
+    case 'retreat': return tradeTree(ctx)
     case 'finish': return finishTree(ctx)
     case 'kite': return kiteTree(ctx)
     case 'trade': return tradeTree(ctx)
   }
-}
-
-function retreatTree(ctx: DecisionContext): DecisionAction {
-  if (ctx.actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost) {
-    return { type: 'dodge', path: 'root>retreat>dodge' }
-  }
-  const retreatTarget = computeRetreatAlongX(ctx)
-  if (retreatTarget) {
-    return { type: 'dash', target: retreatTarget, moveStep: MOVE_STEP.retreatFast, path: 'root>retreat>dash_back' }
-  }
-  const best = pickBestInRange(ctx)
-  if (best) {
-    return { type: 'cast_skill', skillId: best.definition.id, path: 'root>retreat>cast_desperation' }
-  }
-  if (ctx.distance <= MELEE_RANGE) {
-    return { type: 'basic_attack', path: 'root>retreat>basic_melee' }
-  }
-  return { type: 'noop', path: 'root>retreat>noop' }
 }
 
 function finishTree(ctx: DecisionContext): DecisionAction {

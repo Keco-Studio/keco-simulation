@@ -1,24 +1,23 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { InputNumber } from 'antd';
-import { SettingOutlined, TableOutlined, UserOutlined } from '@ant-design/icons';
+import { useCallback, useMemo, useState } from 'react';
+import { InputNumber, message } from 'antd';
+import { ImportOutlined, SettingOutlined, TableOutlined, UserOutlined } from '@ant-design/icons';
+import {
+  BATCH_MAP_BATTLE_LIMITS,
+  type BatchMapBattleSummary,
+} from '../../lib/batchArenaSimulation';
 import type { Element, Skill } from '../../types';
 import { ELEMENT_CONFIG } from '../../types';
-import { filterSkillsByTab, inferSkillTabElement } from '../../data/skills';
+import { filterSkillsByTab } from '../../data/skills';
 import { BattleLocalTableSkillSourceModal } from '../BattleLocalTableSkillSourceModal';
+import { BattleUnitImportModal } from '../BattleUnitImportModal';
+import type { BattleUnitConfig } from '../../lib/localTableSkillSource/battleUnitSource';
 import { ElementGlyph } from '../ElementGlyph';
 import { SkillCard } from './SkillCard';
 import styles from './ConfigurePlayerStep.module.css';
 
-type PlayerConfig = {
-  name: string;
-  hp: number;
-  atk: number;
-  def: number;
-  spd: number;
-  mp: number;
-};
+type PlayerConfig = BattleUnitConfig;
 
 type Props = {
   skillList: Skill[];
@@ -36,7 +35,10 @@ type Props = {
   onToggleMonsterSkill: (skillId: string) => void;
   onRemovePlayerSkill: (skillId: string) => void;
   onRemoveMonsterSkill: (skillId: string) => void;
+  onApplyPlayerConfig: (config: PlayerConfig) => void;
+  onApplyMonsterConfig: (config: PlayerConfig) => void;
   onStartBattle: () => void;
+  onRunBatchSimulation: (runs: number) => BatchMapBattleSummary | null;
 };
 
 const ELEMENTS: Element[] = ['fire', 'water', 'thunder', 'grass', 'ice'];
@@ -57,11 +59,18 @@ export function ConfigurePlayerStep({
   onToggleMonsterSkill,
   onRemovePlayerSkill,
   onRemoveMonsterSkill,
+  onApplyPlayerConfig,
+  onApplyMonsterConfig,
   onStartBattle,
+  onRunBatchSimulation,
 }: Props) {
   const [selectedElement, setSelectedElement] = useState<string>('all');
+  const [batchRuns, setBatchRuns] = useState<number>(BATCH_MAP_BATTLE_LIMITS.defaultRuns);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchSummary, setBatchSummary] = useState<BatchMapBattleSummary | null>(null);
   const [loadoutTarget, setLoadoutTarget] = useState<'player' | 'monster'>('player');
   const [configureOpen, setConfigureOpen] = useState(false);
+  const [unitImportTarget, setUnitImportTarget] = useState<'player' | 'enemy' | null>(null);
 
   const displayedSkills = useMemo(() => {
     if (selectedElement === 'all') return skillList;
@@ -70,11 +79,24 @@ export function ConfigurePlayerStep({
 
   const activeLoadoutIds = loadoutTarget === 'player' ? playerSkillIds : monsterSkillIds;
   const loadoutFull = activeLoadoutIds.length >= 6;
+  const activeLoadoutLabel = loadoutTarget === 'player' ? 'Player' : 'Enemy';
 
-  const selectedChips = useMemo(() => {
-    const ids = new Set([...playerSkillIds, ...monsterSkillIds]);
-    return skillList.filter((s) => ids.has(s.id));
-  }, [playerSkillIds, monsterSkillIds, skillList]);
+  const activeLoadoutChips = useMemo(() => {
+    return skillList.filter((s) => activeLoadoutIds.includes(s.id));
+  }, [skillList, activeLoadoutIds]);
+
+  const handleRunBatch = useCallback(() => {
+    if (playerSkillIds.length === 0 || monsterSkillIds.length === 0) return;
+    setBatchLoading(true);
+    setBatchSummary(null);
+    window.setTimeout(() => {
+      const summary = onRunBatchSimulation(batchRuns);
+      setBatchLoading(false);
+      if (!summary) return;
+      setBatchSummary(summary);
+      message.success(`Batch complete: ${summary.runs} battle(s)`);
+    }, 0);
+  }, [batchRuns, monsterSkillIds.length, onRunBatchSimulation, playerSkillIds.length]);
 
   const handleSkillClick = (skillId: string) => {
     if (loadoutTarget === 'player') {
@@ -100,8 +122,17 @@ export function ConfigurePlayerStep({
         </div>
 
         <div className={styles.configCard}>
-          <div className={styles.cardTitle}>
-            <UserOutlined /> Player
+          <div className={styles.cardTitleRow}>
+            <div className={styles.cardTitle}>
+              <UserOutlined /> Player
+            </div>
+            <button
+              type="button"
+              className={styles.importBtn}
+              onClick={() => setUnitImportTarget('player')}
+            >
+              <ImportOutlined /> Import
+            </button>
           </div>
           <div className={styles.statsGrid}>
             <div className={styles.statFull}>
@@ -129,7 +160,16 @@ export function ConfigurePlayerStep({
         </div>
 
         <div className={styles.configCard}>
-          <div className={styles.cardTitle}>Enemy</div>
+          <div className={styles.cardTitleRow}>
+            <div className={styles.cardTitle}>Enemy</div>
+            <button
+              type="button"
+              className={styles.importBtn}
+              onClick={() => setUnitImportTarget('enemy')}
+            >
+              <ImportOutlined /> Import
+            </button>
+          </div>
           <div className={styles.statsGrid}>
             <div className={styles.statFull}>
               <span className={styles.label}>Name</span>
@@ -184,19 +224,21 @@ export function ConfigurePlayerStep({
       </aside>
 
       <section className={styles.main}>
-        <h2 className={styles.mainTitle}>select skills, then start battle.</h2>
+        <h2 className={styles.mainTitle}>
+          Select {activeLoadoutLabel.toLowerCase()} skills (up to 6), then start battle.
+        </h2>
 
         <div className={styles.loadoutRow}>
           <button
             type="button"
-            className={`${styles.loadoutTab} ${loadoutTarget === 'player' ? styles.loadoutTabActive : ''}`}
+            className={`${styles.loadoutTab} ${styles.loadoutTabPlayer} ${loadoutTarget === 'player' ? styles.loadoutTabPlayerActive : ''}`}
             onClick={() => setLoadoutTarget('player')}
           >
             Player {playerSkillIds.length}/6
           </button>
           <button
             type="button"
-            className={`${styles.loadoutTab} ${loadoutTarget === 'monster' ? styles.loadoutTabActive : ''}`}
+            className={`${styles.loadoutTab} ${styles.loadoutTabEnemy} ${loadoutTarget === 'monster' ? styles.loadoutTabEnemyActive : ''}`}
             onClick={() => setLoadoutTarget('monster')}
           >
             Enemy {monsterSkillIds.length}/6
@@ -225,9 +267,7 @@ export function ConfigurePlayerStep({
 
         <div className={styles.grid}>
           {displayedSkills.map((skill) => {
-            const inPlayer = playerSkillIds.includes(skill.id);
-            const inMonster = monsterSkillIds.includes(skill.id);
-            const selected = inPlayer || inMonster;
+            const selected = activeLoadoutIds.includes(skill.id);
             return (
               <SkillCard
                 key={skill.id}
@@ -243,23 +283,84 @@ export function ConfigurePlayerStep({
       </div>
 
       <div className={styles.bottomBar}>
-        <div className={styles.chips}>
-          {selectedChips.map((skill) => (
-            <span key={skill.id} className={styles.chip}>
-              {skill.name}
-              <button
-                type="button"
-                className={styles.chipRemove}
-                aria-label={`Remove ${skill.name}`}
-                onClick={() => {
-                  if (playerSkillIds.includes(skill.id)) onRemovePlayerSkill(skill.id);
-                  if (monsterSkillIds.includes(skill.id)) onRemoveMonsterSkill(skill.id);
-                }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
+        <div
+          className={`${styles.chipsSection} ${loadoutTarget === 'player' ? styles.chipsSectionPlayer : styles.chipsSectionEnemy}`}
+        >
+          <div className={styles.chipsLabel}>
+            {activeLoadoutLabel} loadout · {activeLoadoutIds.length}/6
+          </div>
+          <div className={styles.chips}>
+            {activeLoadoutChips.length === 0 ? (
+              <span className={styles.chipsEmpty}>No {activeLoadoutLabel.toLowerCase()} skills selected yet</span>
+            ) : (
+              activeLoadoutChips.map((skill) => (
+                <span key={skill.id} className={styles.chip}>
+                  {skill.name}
+                  <button
+                    type="button"
+                    className={styles.chipRemove}
+                    aria-label={`Remove ${skill.name} from ${activeLoadoutLabel}`}
+                    onClick={() => {
+                      if (loadoutTarget === 'player') onRemovePlayerSkill(skill.id);
+                      else onRemoveMonsterSkill(skill.id);
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+        <div className={styles.batchSection}>
+          <div className={styles.batchHeader}>
+            <span className={styles.batchTitle}>Batch simulation</span>
+            <label className={styles.batchRunsLabel}>
+              Battles
+              <InputNumber
+                min={1}
+                max={BATCH_MAP_BATTLE_LIMITS.maxRuns}
+                value={batchRuns}
+                disabled={batchLoading}
+                onChange={(v) => setBatchRuns(typeof v === 'number' ? v : BATCH_MAP_BATTLE_LIMITS.defaultRuns)}
+                className={styles.batchRunsInput}
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            className={styles.batchBtn}
+            disabled={
+              batchLoading || playerSkillIds.length === 0 || monsterSkillIds.length === 0
+            }
+            onClick={handleRunBatch}
+          >
+            {batchLoading ? 'Running…' : 'Run batch'}
+          </button>
+          {batchSummary ? (
+            <div className={styles.batchResults} role="status">
+              <div className={styles.batchResultsTitle}>
+                Results ({batchSummary.runs} runs)
+              </div>
+              <div className={styles.batchResultRow}>
+                <span className={styles.batchResultPlayer}>{playerConfig.name}</span>
+                <span className={styles.batchResultWins}>{batchSummary.leftWins} wins</span>
+              </div>
+              <div className={styles.batchResultRow}>
+                <span className={styles.batchResultEnemy}>{monsterConfig.name}</span>
+                <span className={styles.batchResultWins}>{batchSummary.rightWins} wins</span>
+              </div>
+              {(batchSummary.draws > 0 || batchSummary.fled > 0 || batchSummary.incomplete > 0) ? (
+                <div className={styles.batchResultMeta}>
+                  {batchSummary.draws > 0 ? <span>Draws: {batchSummary.draws}</span> : null}
+                  {batchSummary.fled > 0 ? <span>Fled: {batchSummary.fled}</span> : null}
+                  {batchSummary.incomplete > 0 ? (
+                    <span>Timeout: {batchSummary.incomplete}</span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <button
           type="button"
@@ -277,6 +378,17 @@ export function ConfigurePlayerStep({
         onSkillsApplied={(skills) => {
           onSkillsApplied(skills);
           setConfigureOpen(false);
+        }}
+      />
+
+      <BattleUnitImportModal
+        open={unitImportTarget !== null}
+        target={unitImportTarget === 'enemy' ? 'enemy' : 'player'}
+        fallbackConfig={unitImportTarget === 'enemy' ? monsterConfig : playerConfig}
+        onClose={() => setUnitImportTarget(null)}
+        onApply={(config) => {
+          if (unitImportTarget === 'enemy') onApplyMonsterConfig(config);
+          else onApplyPlayerConfig(config);
         }}
       />
     </div>

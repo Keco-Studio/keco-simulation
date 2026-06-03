@@ -120,17 +120,17 @@ function paintBattleCanvas(
   renderWidth: number,
   renderHeight: number,
   mapBgImage: HTMLImageElement | null,
+  letterboxFill = '#0b1220',
 ) {
   ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = letterboxFill;
+  ctx.fillRect(0, 0, width, height);
 
   if (mapBgImage) {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(mapBgImage, renderOffsetX, renderOffsetY, renderWidth, renderHeight);
     return;
   }
-
-  ctx.fillStyle = '#0b1220';
-  ctx.fillRect(0, 0, width, height);
 
   const cellW = renderWidth / mapWidth;
   const cellH = renderHeight / mapHeight;
@@ -223,6 +223,7 @@ export function BattleArena({
       viewportSize,
       mapWidth: config.mapWidth,
       mapHeight: config.mapHeight,
+      fit: 'contain',
     });
 
   const appendStepLogs = useCallback(
@@ -485,10 +486,12 @@ export function BattleArena({
       renderWidth,
       renderHeight,
       mapBgImage,
+      isDesignPresentation ? '#ffffff' : '#0b1220',
     );
   }, [
     config.mapHeight,
     config.mapWidth,
+    isDesignPresentation,
     mapBgImage,
     renderHeight,
     renderOffsetX,
@@ -568,7 +571,10 @@ export function BattleArena({
 
   return (
     <div ref={arenaRootRef} className={styles.arenaRoot}>
-      <div ref={mapViewportRef} className={styles.viewport}>
+      <div
+        ref={mapViewportRef}
+        className={`${styles.viewport} ${isDesignPresentation ? styles.viewportDesign : ''}`}
+      >
         <canvas ref={mapCanvasRef} className={styles.canvas} />
         <div className={styles.overlay}>
           <div
@@ -597,7 +603,11 @@ export function BattleArena({
               }}
               draggable={false}
             />
-            <div className={styles.actorName}>{left.name}</div>
+            <div
+              className={`${styles.actorName} ${isDesignPresentation ? styles.actorNameDesign : ''}`}
+            >
+              {left.name}
+            </div>
           </div>
 
           <div
@@ -626,7 +636,11 @@ export function BattleArena({
               }}
               draggable={false}
             />
-            <div className={styles.actorName}>{right.name}</div>
+            <div
+              className={`${styles.actorName} ${isDesignPresentation ? styles.actorNameDesign : ''}`}
+            >
+              {right.name}
+            </div>
           </div>
         </div>
 

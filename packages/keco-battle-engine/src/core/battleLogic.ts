@@ -23,6 +23,16 @@ export const generateId = (): string => {
 
 export const ceil = (num: number): number => Math.ceil(num);
 
+/** Final hit damage rolls between min and max of the computed value (inclusive via ceil). */
+export const FINAL_DAMAGE_VARIANCE = { min: 0.9, max: 1.1 } as const;
+
+export function applyFinalDamageVariance(damage: number): number {
+  if (!(damage > 0)) return 0;
+  const { min, max } = FINAL_DAMAGE_VARIANCE;
+  const factor = min + Math.random() * (max - min);
+  return ceil(damage * factor);
+}
+
 export const calculateDamage = (
   atk: number,
   def: number,
@@ -33,7 +43,7 @@ export const calculateDamage = (
   const baseDamage = atk * power;
   const defenseReduction = atk / (atk + def);
   const finalDamage = baseDamage * defenseReduction * reactionMultiplier * extraMultiplier;
-  return ceil(finalDamage);
+  return applyFinalDamageVariance(finalDamage);
 };
 
 export const getRandomElement = (): Element => {

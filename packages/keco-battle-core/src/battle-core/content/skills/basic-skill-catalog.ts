@@ -576,7 +576,11 @@ export function getAllBattleSkillDefinitions(): BattleSkillDefinition[] {
   return Array.from(SKILL_MAP.values())
 }
 
-export function upsertBattleSkillDefinition(skill: BattleSkillDefinition): BattleSkillDefinition {
+export function upsertBattleSkillDefinition(
+  skill: BattleSkillDefinition,
+  options?: { cooldownTickMultiplier?: number },
+): BattleSkillDefinition {
+  const cdMult = options?.cooldownTickMultiplier ?? SKILL_COOLDOWN_MULTIPLIER
   const normalized: BattleSkillDefinition = {
     ...skill,
     id: String(skill.id || '').trim(),
@@ -585,7 +589,7 @@ export function upsertBattleSkillDefinition(skill: BattleSkillDefinition): Battl
     mpCost: Math.max(0, Number(skill.mpCost || 0)),
     range: Math.max(0.5, Number(skill.range || 1)),
     cooldownTicks:
-      Math.max(0, Math.floor(Number(skill.cooldownTicks || 0))) * SKILL_COOLDOWN_MULTIPLIER,
+      Math.max(0, Math.floor(Number(skill.cooldownTicks || 0))) * cdMult,
     applyFreezeTicks:
       typeof skill.applyFreezeTicks === 'number'
         ? Math.max(0, Math.floor(Number(skill.applyFreezeTicks)))

@@ -3,6 +3,8 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  background: #ffffff;
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .onboarding {
@@ -17,7 +19,7 @@
 
 .onboardingIcon {
   font-size: 56px;
-  color: #ffd43b;
+  color: #faad14;
   margin-bottom: 20px;
 }
 
@@ -25,14 +27,14 @@
   margin: 0 0 10px;
   font-size: 22px;
   font-weight: 600;
-  color: #f0f6fc;
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .onboardingDesc {
   margin: 0 0 28px;
   max-width: 420px;
   font-size: 14px;
-  color: #8b949e;
+  color: rgba(0, 0, 0, 0.65);
 }
 
 .onboardingActions {
@@ -50,7 +52,7 @@
   padding: 10px 18px;
   border: none;
   border-radius: 10px;
-  background: #0095ff;
+  background: #1677ff;
   color: #fff;
   font-size: 14px;
   font-weight: 500;
@@ -58,7 +60,7 @@
 }
 
 .primaryBtn:hover {
-  background: #0086e6;
+  background: #4096ff;
 }
 
 .secondaryBtn {
@@ -66,22 +68,65 @@
   align-items: center;
   gap: 8px;
   padding: 10px 18px;
-  border: none;
+  border: 1px solid #d9d9d9;
   border-radius: 10px;
-  background: #0095ff;
-  color: #fff;
+  background: #ffffff;
+  color: rgba(0, 0, 0, 0.88);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
 }
 
+.secondaryBtn:hover {
+  border-color: #1677ff;
+  color: #1677ff;
+}
+
 .linkBtn {
   border: none;
   background: none;
-  color: #0095ff;
+  color: #1677ff;
   font-size: 14px;
   cursor: pointer;
   text-decoration: underline;
+}
+
+.onboardingHint {
+  margin: 0 0 20px;
+  max-width: 420px;
+  font-size: 13px;
+  color: #d48806;
+}
+
+.layoutSingle {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.mainSubtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.45);
+  font-weight: 400;
+}
+
+.configureBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  background: #ffffff;
+  color: rgba(0, 0, 0, 0.88);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.configureBtn:hover {
+  border-color: #1677ff;
+  color: #1677ff;
 }
 
 .layout {
@@ -93,8 +138,8 @@
 .sidebar {
   width: 220px;
   flex-shrink: 0;
-  border-right: 1px solid #21262d;
-  background: #0d1117;
+  border-right: 1px solid #f0f0f0;
+  background: #fafafa;
   display: flex;
   flex-direction: column;
 }
@@ -106,13 +151,13 @@
   padding: 16px 14px 12px;
   font-size: 13px;
   font-weight: 600;
-  color: #8b949e;
+  color: rgba(0, 0, 0, 0.65);
 }
 
 .addLibBtn {
   border: none;
   background: none;
-  color: #8b949e;
+  color: rgba(0, 0, 0, 0.45);
   cursor: pointer;
   font-size: 16px;
 }
@@ -132,21 +177,21 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #8b949e;
+  color: rgba(0, 0, 0, 0.65);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
 }
 
 .libraryItem:hover {
-  background: #161b22;
-  color: #c9d1d9;
+  background: #f5f5f5;
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .libraryItemActive {
-  background: #161b22;
-  color: #f0f6fc;
-  box-shadow: inset 3px 0 0 #0095ff;
+  background: #f5f5f5;
+  color: rgba(0, 0, 0, 0.88);
+  box-shadow: inset 3px 0 0 #1677ff;
 }
 
 .main {
@@ -168,12 +213,13 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .addSkillBtn {
   border: none;
   background: none;
-  color: #8b949e;
+  color: rgba(0, 0, 0, 0.45);
   font-size: 18px;
   cursor: pointer;
 }
@@ -182,7 +228,7 @@
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid #f0f0f0;
   padding-bottom: 0;
 }
 
@@ -191,15 +237,15 @@
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
-  color: #8b949e;
+  color: rgba(0, 0, 0, 0.45);
   font-size: 13px;
   cursor: pointer;
   margin-bottom: -1px;
 }
 
 .tabActive {
-  color: #f0f6fc;
-  border-bottom-color: #0095ff;
+  color: rgba(0, 0, 0, 0.88);
+  border-bottom-color: #1677ff;
 }
 
 .grid {
@@ -215,8 +261,8 @@
 
 .footer {
   padding: 16px 24px 20px;
-  border-top: 1px solid #21262d;
-  background: #0b0e11;
+  border-top: 1px solid #f0f0f0;
+  background: #ffffff;
 }
 
 .validateBtn {
@@ -224,7 +270,7 @@
   padding: 14px;
   border: none;
   border-radius: 10px;
-  background: #0095ff;
+  background: #1677ff;
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -232,7 +278,7 @@
 }
 
 .validateBtn:hover:not(:disabled) {
-  background: #0086e6;
+  background: #4096ff;
 }
 
 .validateBtn:disabled {
@@ -244,6 +290,6 @@
   grid-column: 1 / -1;
   padding: 32px;
   text-align: center;
-  color: #8b949e;
+  color: rgba(0, 0, 0, 0.45);
   font-size: 14px;
 }
