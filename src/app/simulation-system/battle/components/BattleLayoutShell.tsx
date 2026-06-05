@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { StudioRuntimeProviders } from '@/components/simulation/StudioRuntimeProviders';
 import { BattleBreadcrumb } from './BattleBreadcrumb';
+import { SimulationSkillDraftsRemoteSync } from './SimulationSkillDraftsRemoteSync';
 
 /**
  * Battle area shell: skills routes use their own breadcrumb, so we skip the battle-only crumb here.
@@ -17,6 +18,7 @@ export function BattleLayoutShell({ children }: { children: React.ReactNode }) {
 
   return (
     <StudioRuntimeProviders>
+      <SimulationSkillDraftsRemoteSync />
       {!hideBattleCrumb && <BattleBreadcrumb />}
       {children}
     </StudioRuntimeProviders>

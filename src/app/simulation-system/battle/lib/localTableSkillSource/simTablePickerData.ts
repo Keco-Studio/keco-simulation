@@ -12,6 +12,7 @@ import {
   getLibrarySchema,
 } from '@studio/lib/services/libraryAssetsService';
 import { listProjects } from '@studio/lib/services/projectService';
+import { AuthorizationError } from '@studio/lib/services/authorizationService';
 import { cellToPickerOptions, dedupePickerOptions, type PickerValueOption } from './cellDisplayValue';
 
 export type { PickerValueOption } from './cellDisplayValue';
@@ -109,8 +110,12 @@ export async function loadTableRows(
         rows: [],
       };
     }
-    const data = await loadStudioColumnsAndRows(supabase, studioLibraryId);
-    return { meta: syntheticStudioLinkedMeta(tableId, studioLibraryId), ...data };
+    const data = await tryLoadStudioColumnsAndRows(supabase, studioLibraryId);
+    return {
+      meta: syntheticStudioLinkedMeta(tableId, studioLibraryId),
+      columns: data?.columns ?? [],
+      rows: data?.rows ?? [],
+    };
   }
 
   const meta = await getTableMeta(tableId);
@@ -118,7 +123,8 @@ export async function loadTableRows(
 
   if (meta.studioLibraryId) {
     if (!supabase) return { meta, columns: [], rows: [] };
-    return { meta, ...(await loadStudioColumnsAndRows(supabase, meta.studioLibraryId)) };
+    const data = await tryLoadStudioColumnsAndRows(supabase, meta.studioLibraryId);
+    return { meta, columns: data?.columns ?? [], rows: data?.rows ?? [] };
   }
 
   return { meta, ...(await loadScratchColumnsAndRows(meta)) };
@@ -208,6 +214,10 @@ function syntheticStudioLinkedMeta(tableId: string, studioLibraryId: string): Si
   };
 }
 
+function isStudioAccessError(err: unknown): boolean {
+  return err instanceof AuthorizationError || (err as Error)?.name === 'AuthorizationError';
+}
+
 async function loadStudioColumnsAndRows(
   supabase: SupabaseClient,
   libraryId: string,
@@ -235,6 +245,24 @@ async function loadStudioColumnsAndRows(
   return { columns, rows };
 }
 
+async function tryLoadStudioColumnsAndRows(
+  supabase: SupabaseClient,
+  libraryId: string,
+): Promise<{ columns: TableColumnInfo[]; rows: SimTableRow[] } | null> {
+  try {
+    return await loadStudioColumnsAndRows(supabase, libraryId);
+  } catch (err) {
+    if (isStudioAccessError(err)) {
+      console.warn(
+        `[simulation] Studio library unavailable (${libraryId}):`,
+        err instanceof Error ? err.message : err,
+      );
+      return null;
+    }
+    throw err;
+  }
+}
+
 export async function loadTableColumns(
   supabase: SupabaseClient | null,
   tableId: string,
@@ -244,7 +272,9 @@ export async function loadTableColumns(
     if (!supabase) {
       return { meta: syntheticStudioLinkedMeta(tableId, studioLibraryId), columns: [] };
     }
-    const { columns } = await loadStudioColumnsAndRows(supabase, studioLibraryId);
+    const { columns } = (await tryLoadStudioColumnsAndRows(supabase, studioLibraryId)) ?? {
+      columns: [],
+    };
     return { meta: syntheticStudioLinkedMeta(tableId, studioLibraryId), columns };
   }
 
@@ -253,8 +283,8 @@ export async function loadTableColumns(
 
   if (meta.studioLibraryId) {
     if (!supabase) return { meta, columns: [] };
-    const { columns } = await loadStudioColumnsAndRows(supabase, meta.studioLibraryId);
-    return { meta, columns };
+    const data = await tryLoadStudioColumnsAndRows(supabase, meta.studioLibraryId);
+    return { meta, columns: data?.columns ?? [] };
   }
 
   const { columns } = await loadScratchColumnsAndRows(meta);
@@ -277,18 +307,29 @@ export async function loadColumnValueOptions(
 
   if (meta.studioLibraryId) {
     if (!supabase) return [];
-    const { properties } = await getLibrarySchema(supabase, meta.studioLibraryId);
-    const assets = await getLibraryAssetsWithProperties(supabase, meta.studioLibraryId);
-    const assetNameById = new Map(assets.map((a) => [a.id, a.name?.trim() || a.id]));
-    const options: PickerValueOption[] = [];
-    for (const a of assets) {
-      const raw =
-        columnKey === ASSET_NAME_COLUMN_KEY
-          ? a.name
-          : a.propertyValues[columnKey];
-      options.push(...cellToPickerOptions(raw, assetNameById));
+    try {
+      const { properties } = await getLibrarySchema(supabase, meta.studioLibraryId);
+      const assets = await getLibraryAssetsWithProperties(supabase, meta.studioLibraryId);
+      const assetNameById = new Map(assets.map((a) => [a.id, a.name?.trim() || a.id]));
+      const options: PickerValueOption[] = [];
+      for (const a of assets) {
+        const raw =
+          columnKey === ASSET_NAME_COLUMN_KEY
+            ? a.name
+            : a.propertyValues[columnKey];
+        options.push(...cellToPickerOptions(raw, assetNameById));
+      }
+      return dedupePickerOptions(options);
+    } catch (err) {
+      if (isStudioAccessError(err)) {
+        console.warn(
+          `[simulation] Studio library unavailable (${meta.studioLibraryId}):`,
+          err instanceof Error ? err.message : err,
+        );
+        return [];
+      }
+      throw err;
     }
-    return dedupePickerOptions(options);
   }
 
   const { rows } = await loadScratchColumnsAndRows(meta);

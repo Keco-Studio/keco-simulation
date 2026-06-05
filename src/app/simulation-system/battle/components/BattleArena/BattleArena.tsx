@@ -173,9 +173,6 @@ export function BattleArena({
   onLogLinesChangeRef.current = onLogLinesChange;
   onBattleStateChangeRef.current = onBattleStateChange;
 
-  const publishBattleState = useCallback((s: BattleSession) => {
-    onBattleStateChangeRef.current?.(extractUiState(s));
-  }, []);
   const mapBgUrl = config.mapBackgroundUrl ?? POC_ARENA_MAP_BG;
   const controllerRef = useRef<MapBattleController | null>(null);
   const arenaRootRef = useRef<HTMLDivElement>(null);
@@ -266,11 +263,7 @@ export function BattleArena({
         lastKecoLogCount.current = kecoLogLen;
       }
       if (newLines.length) {
-        setLogLines((prev) => {
-          const next = [...prev.slice(-100), ...newLines];
-          onLogLinesChangeRef.current?.(next);
-          return next;
-        });
+        setLogLines((prev) => [...prev.slice(-100), ...newLines]);
       }
     },
     [pushFloatText, pushImpactFx, pushProjectileFx, triggerCombatFx],
@@ -334,12 +327,11 @@ export function BattleArena({
     syncActorMotion(step.session);
     const next = { ...step.session };
     setSession(next);
-    publishBattleState(next);
     if (next.result !== 'ongoing') {
       finalizeBattle(next);
     }
     return next;
-  }, [appendStepLogs, finalizeBattle, publishBattleState, syncActorMotion]);
+  }, [appendStepLogs, finalizeBattle, syncActorMotion]);
 
   const initSession = useCallback(() => {
     const spawn = defaultSpawn(config.mapWidth, config.mapHeight);
@@ -398,11 +390,8 @@ export function BattleArena({
     clearTransientFx();
     resetCombatFx();
     setResultOverlay(null);
-    const initialLogs = ['BT auto · keco element damage'];
-    setLogLines(initialLogs);
-    onLogLinesChangeRef.current?.(initialLogs);
-    publishBattleState(s);
-  }, [clearTransientFx, config, publishBattleState, resetCombatFx]);
+    setLogLines(['BT auto · keco element damage']);
+  }, [clearTransientFx, config, resetCombatFx]);
 
   const handleBattleAgain = useCallback(() => {
     setResultOverlay(null);
@@ -421,6 +410,15 @@ export function BattleArena({
       controllerRef.current = null;
     };
   }, [initSession]);
+
+  useEffect(() => {
+    onLogLinesChangeRef.current?.(logLines);
+  }, [logLines]);
+
+  useEffect(() => {
+    if (!session) return;
+    onBattleStateChangeRef.current?.(extractUiState(session));
+  }, [session]);
 
   useEffect(() => {
     if (!mapBgUrl) {

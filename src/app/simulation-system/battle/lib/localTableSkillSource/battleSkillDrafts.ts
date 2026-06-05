@@ -9,6 +9,7 @@ import {
   BATTLE_SKILL_MAPPING_FIELDS,
   type BattleSkillColumnMappingKey,
 } from './battleLocalTableSkillSource';
+import { triggerSimulationSkillDraftsRemoteSync } from './simulationSkillDraftsRemote';
 
 export const BATTLE_SKILL_DRAFTS_STORAGE_KEY = 'keco-battle-skill-drafts-v1';
 
@@ -87,6 +88,7 @@ export function saveBattleSkillDrafts(drafts: BattleSkillDraft[]): void {
   if (typeof window === 'undefined') return;
   const payload: BattleSkillDraftsPersisted = { version: 1, drafts };
   localStorage.setItem(BATTLE_SKILL_DRAFTS_STORAGE_KEY, JSON.stringify(payload));
+  triggerSimulationSkillDraftsRemoteSync(drafts);
 }
 
 /** Resolved battle skill id (same rules as Validate & apply). */

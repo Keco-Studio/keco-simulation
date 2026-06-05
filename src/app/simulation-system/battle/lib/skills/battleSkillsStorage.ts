@@ -81,11 +81,15 @@ export async function hydrateBattlePageSkills(
 ): Promise<Skill[]> {
   const drafts = loadBattleSkillDrafts();
   if (drafts.length > 0) {
-    const result = await validateSkillDraftsFromLiveTables(supabase, drafts);
-    if (result.ok) {
-      // Silent save: page hydrate listens to BATTLE_SKILLS_UPDATED_EVENT and would loop otherwise.
-      saveBattleSkillsToStorage(DEFAULT_BATTLE_SKILL_MODULE_ID, result.skills, { notify: false });
-      return result.skills;
+    try {
+      const result = await validateSkillDraftsFromLiveTables(supabase, drafts);
+      if (result.ok) {
+        // Silent save: page hydrate listens to BATTLE_SKILLS_UPDATED_EVENT and would loop otherwise.
+        saveBattleSkillsToStorage(DEFAULT_BATTLE_SKILL_MODULE_ID, result.skills, { notify: false });
+        return result.skills;
+      }
+    } catch (err) {
+      console.warn('[simulation] Failed to refresh skill drafts from live tables:', err);
     }
   }
   return loadBattleSkillsFromPersistence();
