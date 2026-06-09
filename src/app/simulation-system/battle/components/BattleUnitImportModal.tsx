@@ -12,7 +12,9 @@ import {
   type BattleUnitColumnMappingKey,
   type BattleUnitConfig,
 } from '../lib/localTableSkillSource/battleUnitSource';
+import { DEFAULT_MONSTER_STATS, DEFAULT_PLAYER_STATS } from '../types';
 import type { LocalTableCellRef } from '../lib/localTableSkillSource/battleSkillDrafts';
+import type { UnitImportResult } from '../lib/battleUnitImportHistory';
 import { unitFieldsToConfig } from '../lib/localTableSkillSource/importUnitRowFromTable';
 import {
   listSelectableTablesForSkillPicker,
@@ -33,7 +35,7 @@ type Props = {
   target: 'player' | 'enemy';
   fallbackConfig: BattleUnitConfig;
   onClose: () => void;
-  onApply: (config: BattleUnitConfig) => void;
+  onApply: (result: UnitImportResult) => void;
 };
 
 const FIELD_OPTIONS = BATTLE_UNIT_MAPPING_FIELDS.map((f) => ({
@@ -254,20 +256,22 @@ export function BattleUnitImportModal({
       message.error(result.error);
       return;
     }
-    onApply(result.config);
+    onApply({ config: result.config });
     message.success(`Applied stats for "${result.config.name}"`);
     onClose();
   }, [fields, fallbackConfig, onApply, onClose]);
 
   const handleImportById = useCallback(
-    (config: BattleUnitConfig) => {
-      onApply(config);
+    (result: UnitImportResult) => {
+      onApply(result);
       onClose();
     },
     [onApply, onClose],
   );
 
   const title = target === 'player' ? 'Import player stats' : 'Import enemy stats';
+  const rowImportFallback: BattleUnitConfig =
+    target === 'player' ? { ...DEFAULT_PLAYER_STATS } : { ...DEFAULT_MONSTER_STATS };
 
   if (!open || typeof document === 'undefined') return null;
 
@@ -311,7 +315,7 @@ export function BattleUnitImportModal({
                 tables={tables}
                 tablesLoading={tablesLoading}
                 supabaseReady={supabaseReady}
-                fallbackConfig={fallbackConfig}
+                fallbackConfig={rowImportFallback}
                 onImport={handleImportById}
               />
               <div className={styles.divider} />

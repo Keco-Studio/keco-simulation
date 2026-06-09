@@ -1,16 +1,28 @@
 import type { Element } from '../types';
 import { DEFAULT_MONSTER_STATS, DEFAULT_PLAYER_STATS } from '../types';
 import type { BattleUnitConfig } from './localTableSkillSource/battleUnitSource';
+import {
+  type BattleUnitConfigSource,
+  type BattleUnitImportBinding,
+  sanitizeConfigSource,
+  sanitizeImportHistory,
+} from './battleUnitImportHistory';
 
-export const BATTLE_WIZARD_PREFERENCES_STORAGE_KEY = 'keco-battle-wizard-preferences-v1';
+export const BATTLE_WIZARD_PREFERENCES_STORAGE_KEY = 'keco-battle-wizard-preferences-v2';
+/** Legacy v1 key — read once for migration. */
+const LEGACY_PREFERENCES_STORAGE_KEY = 'keco-battle-wizard-preferences-v1';
 
 export type BattleWizardPreferences = {
-  version: 1;
+  version: 2;
   playerConfig: BattleUnitConfig;
   monsterConfig: BattleUnitConfig;
   playerSkillIds: string[];
   monsterSkillIds: string[];
   monsterInitialElement: Element | null;
+  playerImportHistory: BattleUnitImportBinding[];
+  monsterImportHistory: BattleUnitImportBinding[];
+  playerConfigSource: BattleUnitConfigSource;
+  monsterConfigSource: BattleUnitConfigSource;
 };
 
 const VALID_ELEMENTS = new Set<Element>(['fire', 'water', 'thunder', 'grass', 'ice']);
@@ -64,36 +76,90 @@ function sanitizeElement(raw: unknown): Element | null {
   return VALID_ELEMENTS.has(raw as Element) ? (raw as Element) : null;
 }
 
-export function readBattleWizardPreferences(): BattleWizardPreferences | null {
+type LegacyPreferencesV1 = {
+  version: 1;
+  playerConfig?: unknown;
+  monsterConfig?: unknown;
+  playerSkillIds?: unknown;
+  monsterSkillIds?: unknown;
+  monsterInitialElement?: unknown;
+};
+
+function readLegacyV1Preferences(): LegacyPreferencesV1 | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(BATTLE_WIZARD_PREFERENCES_STORAGE_KEY);
+    const raw = localStorage.getItem(LEGACY_PREFERENCES_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<BattleWizardPreferences>;
+    const parsed = JSON.parse(raw) as Partial<LegacyPreferencesV1>;
     if (parsed.version !== 1) return null;
-    return {
-      version: 1,
-      playerConfig: sanitizeUnitConfig(parsed.playerConfig, defaultPlayerConfig()),
-      monsterConfig: sanitizeUnitConfig(parsed.monsterConfig, defaultMonsterConfig()),
-      playerSkillIds: sanitizeSkillIds(parsed.playerSkillIds),
-      monsterSkillIds: sanitizeSkillIds(parsed.monsterSkillIds),
-      monsterInitialElement: sanitizeElement(parsed.monsterInitialElement),
-    };
+    return parsed as LegacyPreferencesV1;
   } catch {
     return null;
   }
 }
 
+type RawPreferencesPartial = {
+  playerConfig?: unknown;
+  monsterConfig?: unknown;
+  playerSkillIds?: unknown;
+  monsterSkillIds?: unknown;
+  monsterInitialElement?: unknown;
+  playerImportHistory?: unknown;
+  monsterImportHistory?: unknown;
+  playerConfigSource?: unknown;
+  monsterConfigSource?: unknown;
+};
+
+function buildPreferencesFromPartial(partial: RawPreferencesPartial): BattleWizardPreferences {
+  const playerImportHistory = sanitizeImportHistory(partial.playerImportHistory);
+  const monsterImportHistory = sanitizeImportHistory(partial.monsterImportHistory);
+  return {
+    version: 2,
+    playerConfig: sanitizeUnitConfig(partial.playerConfig, defaultPlayerConfig()),
+    monsterConfig: sanitizeUnitConfig(partial.monsterConfig, defaultMonsterConfig()),
+    playerSkillIds: sanitizeSkillIds(partial.playerSkillIds),
+    monsterSkillIds: sanitizeSkillIds(partial.monsterSkillIds),
+    monsterInitialElement: sanitizeElement(partial.monsterInitialElement),
+    playerImportHistory,
+    monsterImportHistory,
+    playerConfigSource: sanitizeConfigSource(partial.playerConfigSource, playerImportHistory),
+    monsterConfigSource: sanitizeConfigSource(partial.monsterConfigSource, monsterImportHistory),
+  };
+}
+
+export function readBattleWizardPreferences(): BattleWizardPreferences | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(BATTLE_WIZARD_PREFERENCES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<BattleWizardPreferences>;
+      if (parsed.version === 2) {
+        return buildPreferencesFromPartial(parsed);
+      }
+    }
+  } catch {
+    // fall through to legacy migration
+  }
+
+  const legacy = readLegacyV1Preferences();
+  if (!legacy) return null;
+
+  return buildPreferencesFromPartial({
+    playerConfig: legacy.playerConfig as unknown,
+    monsterConfig: legacy.monsterConfig as unknown,
+    playerSkillIds: legacy.playerSkillIds,
+    monsterSkillIds: legacy.monsterSkillIds,
+    monsterInitialElement: legacy.monsterInitialElement,
+    playerImportHistory: [],
+    monsterImportHistory: [],
+    playerConfigSource: { kind: 'manual' },
+    monsterConfigSource: { kind: 'manual' },
+  });
+}
+
 export function writeBattleWizardPreferences(input: Omit<BattleWizardPreferences, 'version'>): void {
   if (typeof window === 'undefined') return;
-  const payload: BattleWizardPreferences = {
-    version: 1,
-    playerConfig: sanitizeUnitConfig(input.playerConfig, defaultPlayerConfig()),
-    monsterConfig: sanitizeUnitConfig(input.monsterConfig, defaultMonsterConfig()),
-    playerSkillIds: sanitizeSkillIds(input.playerSkillIds),
-    monsterSkillIds: sanitizeSkillIds(input.monsterSkillIds),
-    monsterInitialElement: sanitizeElement(input.monsterInitialElement),
-  };
+  const payload = buildPreferencesFromPartial(input);
   try {
     localStorage.setItem(BATTLE_WIZARD_PREFERENCES_STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -110,20 +176,19 @@ export function readInitialBattleWizardState(): Omit<BattleWizardPreferences, 'v
       playerSkillIds: [],
       monsterSkillIds: [],
       monsterInitialElement: null,
+      playerImportHistory: [],
+      monsterImportHistory: [],
+      playerConfigSource: { kind: 'manual' },
+      monsterConfigSource: { kind: 'manual' },
     };
   }
-  return {
-    playerConfig: saved.playerConfig,
-    monsterConfig: saved.monsterConfig,
-    playerSkillIds: saved.playerSkillIds,
-    monsterSkillIds: saved.monsterSkillIds,
-    monsterInitialElement: saved.monsterInitialElement,
-  };
+  const { version: _v, ...rest } = saved;
+  return rest;
 }
 
 let initialStateCache: Omit<BattleWizardPreferences, 'version'> | null = null;
 
-/** Single read per page load for React initial state (avoids 5× localStorage parse). */
+/** Single read per page load for React initial state (avoids repeated localStorage parse). */
 export function readInitialBattleWizardStateOnce(): Omit<BattleWizardPreferences, 'version'> {
   if (!initialStateCache) {
     initialStateCache = readInitialBattleWizardState();

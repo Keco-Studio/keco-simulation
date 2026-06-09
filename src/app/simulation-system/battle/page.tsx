@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { message } from 'antd';
 import type { Element, Skill } from './types';
 import { DEFAULT_MONSTER_STATS, DEFAULT_PLAYER_STATS } from './types';
@@ -32,6 +32,18 @@ import {
   readBattleWizardPreferences,
   writeBattleWizardPreferences,
 } from './lib/battleWizardPreferencesStorage';
+import {
+  type BattleUnitConfigSource,
+  type BattleUnitImportBinding,
+  createImportBindingId,
+  findImportBinding,
+  resolveUnitConfigFromBinding,
+  type UnitImportResult,
+  upsertImportHistoryEntry,
+  bindingIdentityKey,
+  removeImportHistoryEntry,
+  resolveConfigSourceAfterDelete,
+} from './lib/battleUnitImportHistory';
 
 function defaultPlayerConfig(): BattleUnitConfig {
   return { ...DEFAULT_PLAYER_STATS };
@@ -57,6 +69,14 @@ export default function BattleSimulatorPage() {
 
   const [playerConfig, setPlayerConfig] = useState<BattleUnitConfig>(defaultPlayerConfig);
   const [monsterConfig, setMonsterConfig] = useState<BattleUnitConfig>(defaultMonsterConfig);
+  const [playerImportHistory, setPlayerImportHistory] = useState<BattleUnitImportBinding[]>([]);
+  const [monsterImportHistory, setMonsterImportHistory] = useState<BattleUnitImportBinding[]>([]);
+  const [playerConfigSource, setPlayerConfigSource] = useState<BattleUnitConfigSource>({
+    kind: 'manual',
+  });
+  const [monsterConfigSource, setMonsterConfigSource] = useState<BattleUnitConfigSource>({
+    kind: 'manual',
+  });
   const [monsterInitialElement, setMonsterInitialElement] = useState<Element | null>(null);
   const [skillList, setSkillList] = useState<Skill[]>(() => readBattleSkillsForInitialRender());
   const [playerSkillIds, setPlayerSkillIds] = useState<string[]>([]);
@@ -78,6 +98,10 @@ export default function BattleSimulatorPage() {
       setMonsterInitialElement(saved.monsterInitialElement);
       setPlayerSkillIds(saved.playerSkillIds);
       setMonsterSkillIds(saved.monsterSkillIds);
+      setPlayerImportHistory(saved.playerImportHistory);
+      setMonsterImportHistory(saved.monsterImportHistory);
+      setPlayerConfigSource(saved.playerConfigSource);
+      setMonsterConfigSource(saved.monsterConfigSource);
     }
     setPrefsHydrated(true);
   }, []);
@@ -108,6 +132,10 @@ export default function BattleSimulatorPage() {
       playerSkillIds,
       monsterSkillIds,
       monsterInitialElement,
+      playerImportHistory,
+      monsterImportHistory,
+      playerConfigSource,
+      monsterConfigSource,
     });
     savedPrefsRef.current = readBattleWizardPreferences();
   }, [
@@ -117,6 +145,10 @@ export default function BattleSimulatorPage() {
     playerSkillIds,
     monsterSkillIds,
     monsterInitialElement,
+    playerImportHistory,
+    monsterImportHistory,
+    playerConfigSource,
+    monsterConfigSource,
   ]);
 
   const defaultLoadoutIds = useCallback(
@@ -246,13 +278,190 @@ export default function BattleSimulatorPage() {
     setWizardStep(2);
   }, []);
 
-  const updatePlayerStat = useCallback((field: string, value: number | string | null) => {
-    setPlayerConfig((prev) => ({ ...prev, [field]: value }));
+  const applyUnitImport = useCallback(
+    (
+      _target: 'player' | 'enemy',
+      result: UnitImportResult,
+      setConfig: (config: BattleUnitConfig) => void,
+      setHistory: Dispatch<SetStateAction<BattleUnitImportBinding[]>>,
+      setSource: Dispatch<SetStateAction<BattleUnitConfigSource>>,
+      currentHistory: BattleUnitImportBinding[],
+    ) => {
+      setConfig(result.config);
+      if (!result.binding?.tableId?.trim()) {
+        setSource({ kind: 'manual' });
+        return;
+      }
+      const wantKey = bindingIdentityKey(result.binding);
+      const existing = currentHistory.find((h) => bindingIdentityKey(h) === wantKey);
+      const entry: BattleUnitImportBinding = {
+        ...result.binding,
+        id: existing?.id ?? createImportBindingId(),
+        importedAt: Date.now(),
+      };
+      setHistory((prev) => upsertImportHistoryEntry(prev, entry));
+      setSource({ kind: 'binding', bindingId: entry.id });
+    },
+    [],
+  );
+
+  const refreshBoundUnitConfig = useCallback(
+    async (
+      source: BattleUnitConfigSource,
+      history: BattleUnitImportBinding[],
+      fallback: BattleUnitConfig,
+      setConfig: (config: BattleUnitConfig) => void,
+    ) => {
+      if (source.kind !== 'binding') return;
+      const binding = findImportBinding(history, source.bindingId);
+      if (!binding) return;
+      const resolved = await resolveUnitConfigFromBinding(
+        binding,
+        fallback,
+        supabaseReady ? supabase : null,
+      );
+      if (resolved.status === 'ok') {
+        setConfig(resolved.config);
+      }
+    },
+    [supabase, supabaseReady],
+  );
+
+  useEffect(() => {
+    if (!prefsHydrated) return;
+
+    const refreshAll = () => {
+      void refreshBoundUnitConfig(
+        playerConfigSource,
+        playerImportHistory,
+        defaultPlayerConfig(),
+        setPlayerConfig,
+      );
+      void refreshBoundUnitConfig(
+        monsterConfigSource,
+        monsterImportHistory,
+        defaultMonsterConfig(),
+        setMonsterConfig,
+      );
+    };
+
+    refreshAll();
+    const onTableRowsUpdated = () => refreshAll();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refreshAll();
+    };
+    window.addEventListener(SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT, onTableRowsUpdated);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener(SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT, onTableRowsUpdated);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [
+    prefsHydrated,
+    playerConfigSource,
+    monsterConfigSource,
+    playerImportHistory,
+    monsterImportHistory,
+    refreshBoundUnitConfig,
+  ]);
+
+  const handleSelectPlayerConfigSource = useCallback(
+    async (source: BattleUnitConfigSource) => {
+      setPlayerConfigSource(source);
+      if (source.kind === 'manual') return;
+      const binding = findImportBinding(playerImportHistory, source.bindingId);
+      if (!binding) {
+        message.warning('Import history entry not found');
+        setPlayerConfigSource({ kind: 'manual' });
+        return;
+      }
+      const resolved = await resolveUnitConfigFromBinding(
+        binding,
+        playerConfig,
+        supabaseReady ? supabase : null,
+      );
+      if (resolved.status === 'error') {
+        message.error(resolved.error);
+        return;
+      }
+      setPlayerConfig(resolved.config);
+    },
+    [playerImportHistory, playerConfig, supabase, supabaseReady],
+  );
+
+  const handleSelectMonsterConfigSource = useCallback(
+    async (source: BattleUnitConfigSource) => {
+      setMonsterConfigSource(source);
+      if (source.kind === 'manual') return;
+      const binding = findImportBinding(monsterImportHistory, source.bindingId);
+      if (!binding) {
+        message.warning('Import history entry not found');
+        setMonsterConfigSource({ kind: 'manual' });
+        return;
+      }
+      const resolved = await resolveUnitConfigFromBinding(
+        binding,
+        monsterConfig,
+        supabaseReady ? supabase : null,
+      );
+      if (resolved.status === 'error') {
+        message.error(resolved.error);
+        return;
+      }
+      setMonsterConfig(resolved.config);
+    },
+    [monsterImportHistory, monsterConfig, supabase, supabaseReady],
+  );
+
+  const handleImportPlayer = useCallback(
+    (result: UnitImportResult) => {
+      applyUnitImport(
+        'player',
+        result,
+        setPlayerConfig,
+        setPlayerImportHistory,
+        setPlayerConfigSource,
+        playerImportHistory,
+      );
+    },
+    [applyUnitImport, playerImportHistory],
+  );
+
+  const handleImportMonster = useCallback(
+    (result: UnitImportResult) => {
+      applyUnitImport(
+        'enemy',
+        result,
+        setMonsterConfig,
+        setMonsterImportHistory,
+        setMonsterConfigSource,
+        monsterImportHistory,
+      );
+    },
+    [applyUnitImport, monsterImportHistory],
+  );
+
+  const handleDeletePlayerBinding = useCallback((bindingId: string) => {
+    setPlayerImportHistory((prev) => removeImportHistoryEntry(prev, bindingId));
+    setPlayerConfigSource((prev) => resolveConfigSourceAfterDelete(prev, bindingId));
+    message.success('Removed import history entry');
   }, []);
 
-  const updateMonsterStat = useCallback((field: string, value: number | string | null) => {
-    setMonsterConfig((prev) => ({ ...prev, [field]: value }));
+  const handleDeleteMonsterBinding = useCallback((bindingId: string) => {
+    setMonsterImportHistory((prev) => removeImportHistoryEntry(prev, bindingId));
+    setMonsterConfigSource((prev) => resolveConfigSourceAfterDelete(prev, bindingId));
+    message.success('Removed import history entry');
   }, []);
+
+  const updatePlayerStat = useCallback((field: string, value: number | string | null) => {
+    if (playerConfigSource.kind !== 'manual') return;
+    setPlayerConfig((prev) => ({ ...prev, [field]: value }));
+  }, [playerConfigSource.kind]);
+
+  const updateMonsterStat = useCallback((field: string, value: number | string | null) => {
+    if (monsterConfigSource.kind !== 'manual') return;
+    setMonsterConfig((prev) => ({ ...prev, [field]: value }));
+  }, [monsterConfigSource.kind]);
 
   const handleOpenLogin = useCallback(() => {
     setLoginOpen(true);
@@ -290,6 +499,10 @@ export default function BattleSimulatorPage() {
           skillSheetLabel={skillSheetLabel}
           playerConfig={playerConfig}
           monsterConfig={monsterConfig}
+          playerConfigSource={playerConfigSource}
+          monsterConfigSource={monsterConfigSource}
+          playerImportHistory={playerImportHistory}
+          monsterImportHistory={monsterImportHistory}
           monsterInitialElement={monsterInitialElement}
           playerSkillIds={playerSkillIds}
           monsterSkillIds={monsterSkillIds}
@@ -309,8 +522,12 @@ export default function BattleSimulatorPage() {
           onRemoveMonsterSkill={(id) =>
             setMonsterSkillIds((prev) => prev.filter((x) => x !== id))
           }
-          onApplyPlayerConfig={setPlayerConfig}
-          onApplyMonsterConfig={setMonsterConfig}
+          onSelectPlayerConfigSource={handleSelectPlayerConfigSource}
+          onSelectMonsterConfigSource={handleSelectMonsterConfigSource}
+          onImportPlayer={handleImportPlayer}
+          onImportMonster={handleImportMonster}
+          onDeletePlayerBinding={handleDeletePlayerBinding}
+          onDeleteMonsterBinding={handleDeleteMonsterBinding}
           onStartBattle={handleStartBattle}
           onRunBatchSimulation={handleRunBatchSimulation}
         />
