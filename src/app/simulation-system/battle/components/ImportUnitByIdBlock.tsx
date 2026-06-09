@@ -6,12 +6,12 @@ import { ImportOutlined } from '@ant-design/icons';
 import { useSupabase } from '@studio/lib/SupabaseContext';
 import type { BattleUnitConfig } from '../lib/localTableSkillSource/battleUnitSource';
 import type { BattleUnitColumnMappingKey } from '../lib/localTableSkillSource/battleUnitSource';
+import { columnMapToResolutions, type UnitImportResult } from '../lib/battleUnitImportHistory';
 import {
-  buildUnitFieldsFromTableRow,
   detectUnitIdColumnKey,
   findRowByIdCell,
   planUnitImportColumnMapping,
-  unitFieldsToConfig,
+  resolveUnitConfigFromTableRow,
   type UnitImportAmbiguity,
 } from '../lib/localTableSkillSource/importUnitRowFromTable';
 import {
@@ -29,7 +29,7 @@ type Props = {
   tablesLoading: boolean;
   supabaseReady: boolean;
   fallbackConfig: BattleUnitConfig;
-  onImport: (config: BattleUnitConfig) => void;
+  onImport: (result: UnitImportResult) => void;
 };
 
 export function ImportUnitByIdBlock({
@@ -121,20 +121,30 @@ export function ImportUnitByIdBlock({
         return;
       }
 
-      const fields = buildUnitFieldsFromTableRow({
+      const result = resolveUnitConfigFromTableRow({
         tableId,
         row,
         columnToField: plan.columnToField,
         idColumnKey,
         idValue: unitIdValue,
+        fallback: fallbackConfig,
       });
-      const result = unitFieldsToConfig(fields, fallbackConfig);
       if ('error' in result) {
         message.error(result.error);
         return;
       }
 
-      onImport(result.config);
+      const tableName = tables.find((t) => t.id === tableId)?.name ?? tableId;
+      onImport({
+        config: result.config,
+        binding: {
+          tableId,
+          tableName,
+          idColumnKey,
+          unitIdValue: unitIdValue.trim(),
+          columnResolutions: columnMapToResolutions(plan.columnToField),
+        },
+      });
       message.success(`Imported stats for "${result.config.name}"`);
       setUnitIdValue(undefined);
       setPendingAmbiguities(null);

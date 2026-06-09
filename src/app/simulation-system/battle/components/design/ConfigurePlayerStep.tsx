@@ -1,8 +1,15 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { InputNumber, message } from 'antd';
-import { ImportOutlined, SettingOutlined, TableOutlined, UserOutlined } from '@ant-design/icons';
+import { InputNumber, Select, message } from 'antd';
+import {
+  DeleteOutlined,
+  ImportOutlined,
+  LinkOutlined,
+  SettingOutlined,
+  TableOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import {
   BATCH_MAP_BATTLE_LIMITS,
   type BatchMapBattleSummary,
@@ -13,6 +20,12 @@ import { filterSkillsByTab } from '../../data/skills';
 import { BattleLocalTableSkillSourceModal } from '../BattleLocalTableSkillSourceModal';
 import { BattleUnitImportModal } from '../BattleUnitImportModal';
 import type { BattleUnitConfig } from '../../lib/localTableSkillSource/battleUnitSource';
+import {
+  type BattleUnitConfigSource,
+  type BattleUnitImportBinding,
+  formatImportHistoryLabel,
+  type UnitImportResult,
+} from '../../lib/battleUnitImportHistory';
 import { ElementGlyph } from '../ElementGlyph';
 import { SkillCard } from './SkillCard';
 import styles from './ConfigurePlayerStep.module.css';
@@ -24,43 +37,213 @@ type Props = {
   skillSheetLabel: string;
   playerConfig: PlayerConfig;
   monsterConfig: PlayerConfig;
+  playerConfigSource: BattleUnitConfigSource;
+  monsterConfigSource: BattleUnitConfigSource;
+  playerImportHistory: BattleUnitImportBinding[];
+  monsterImportHistory: BattleUnitImportBinding[];
   monsterInitialElement: Element | null;
   playerSkillIds: string[];
   monsterSkillIds: string[];
   onSkillsApplied: (skills: Skill[]) => void;
   onUpdatePlayer: (field: string, value: number | string | null) => void;
   onUpdateMonster: (field: string, value: number | string | null) => void;
+  onSelectPlayerConfigSource: (source: BattleUnitConfigSource) => void;
+  onSelectMonsterConfigSource: (source: BattleUnitConfigSource) => void;
   onSetMonsterElement: (element: Element | null) => void;
   onTogglePlayerSkill: (skillId: string) => void;
   onToggleMonsterSkill: (skillId: string) => void;
   onRemovePlayerSkill: (skillId: string) => void;
   onRemoveMonsterSkill: (skillId: string) => void;
-  onApplyPlayerConfig: (config: PlayerConfig) => void;
-  onApplyMonsterConfig: (config: PlayerConfig) => void;
+  onImportPlayer: (result: UnitImportResult) => void;
+  onImportMonster: (result: UnitImportResult) => void;
+  onDeletePlayerBinding: (bindingId: string) => void;
+  onDeleteMonsterBinding: (bindingId: string) => void;
   onStartBattle: () => void;
   onRunBatchSimulation: (runs: number) => BatchMapBattleSummary | null;
 };
 
 const ELEMENTS: Element[] = ['fire', 'water', 'thunder', 'grass', 'ice'];
 
+function UnitConfigSourceSelect({
+  configSource,
+  importHistory,
+  resolvedConfig,
+  onSelect,
+  onDeleteBinding,
+}: {
+  configSource: BattleUnitConfigSource;
+  importHistory: BattleUnitImportBinding[];
+  resolvedConfig: BattleUnitConfig;
+  onSelect: (source: BattleUnitConfigSource) => void;
+  onDeleteBinding: (bindingId: string) => void;
+}) {
+  const selectValue =
+    configSource.kind === 'manual' ? 'manual' : configSource.bindingId;
+
+  const options = useMemo(() => {
+    const historyOptions = importHistory.map((binding) => ({
+      value: binding.id,
+      label: formatImportHistoryLabel(
+        binding,
+        configSource.kind === 'binding' && configSource.bindingId === binding.id
+          ? resolvedConfig.name
+          : undefined,
+      ),
+    }));
+    return [{ value: 'manual', label: 'Manual (editable)' }, ...historyOptions];
+  }, [importHistory, configSource, resolvedConfig.name]);
+
+  return (
+    <Select
+      className={styles.sourceSelect}
+      value={selectValue}
+      options={options}
+      optionRender={(option) => {
+        if (option.value === 'manual') {
+          return <span>{option.label}</span>;
+        }
+        return (
+          <div className={styles.sourceOptionRow}>
+            <span className={styles.sourceOptionLabel}>{option.label}</span>
+            <button
+              type="button"
+              className={styles.sourceOptionDelete}
+              aria-label={`Remove ${option.label}`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDeleteBinding(String(option.value));
+              }}
+            >
+              <DeleteOutlined />
+            </button>
+          </div>
+        );
+      }}
+      onChange={(value) => {
+        if (value === 'manual') {
+          onSelect({ kind: 'manual' });
+          return;
+        }
+        onSelect({ kind: 'binding', bindingId: value });
+      }}
+      placeholder="Data source"
+    />
+  );
+}
+
+function UnitStatsPanel({
+  title,
+  titleIcon,
+  config,
+  configSource,
+  importHistory,
+  onUpdate,
+  onSelectSource,
+  onDeleteBinding,
+  onImportClick,
+  extra,
+}: {
+  title: string;
+  titleIcon?: React.ReactNode;
+  config: PlayerConfig;
+  configSource: BattleUnitConfigSource;
+  importHistory: BattleUnitImportBinding[];
+  onUpdate: (field: string, value: number | string | null) => void;
+  onSelectSource: (source: BattleUnitConfigSource) => void;
+  onDeleteBinding: (bindingId: string) => void;
+  onImportClick: () => void;
+  extra?: React.ReactNode;
+}) {
+  const readOnly = configSource.kind === 'binding';
+
+  return (
+    <div className={styles.configCard}>
+      <div className={styles.cardTitleRow}>
+        <div className={styles.cardTitle}>
+          {titleIcon}
+          {title}
+        </div>
+        <button type="button" className={styles.importBtn} onClick={onImportClick}>
+          <ImportOutlined /> Import
+        </button>
+      </div>
+
+      <UnitConfigSourceSelect
+        configSource={configSource}
+        importHistory={importHistory}
+        resolvedConfig={config}
+        onSelect={onSelectSource}
+        onDeleteBinding={onDeleteBinding}
+      />
+
+      {readOnly ? (
+        <p className={styles.linkedHint}>
+          <LinkOutlined /> Linked to table row — stats update when source data changes.
+        </p>
+      ) : null}
+
+      <div className={`${styles.statsGrid} ${readOnly ? styles.statsGridReadOnly : ''}`}>
+        <div className={styles.statFull}>
+          <span className={styles.label}>Name</span>
+          <input
+            className={styles.nameInput}
+            value={config.name}
+            readOnly={readOnly}
+            disabled={readOnly}
+            onChange={(e) => onUpdate('name', e.target.value)}
+            maxLength={20}
+          />
+        </div>
+        {(['hp', 'atk', 'def', 'spd', 'mp'] as const).map((field) => (
+          <div key={field}>
+            <span className={styles.label}>{field.toUpperCase()}</span>
+            <InputNumber
+              className={styles.statInput}
+              min={field === 'def' ? 0 : 1}
+              max={field === 'hp' ? 99999 : field === 'mp' ? 999 : 9999}
+              value={config[field]}
+              disabled={readOnly}
+              onChange={(v) => onUpdate(field, v)}
+            />
+          </div>
+        ))}
+      </div>
+      {extra}
+    </div>
+  );
+}
+
 export function ConfigurePlayerStep({
   skillList,
   skillSheetLabel,
   playerConfig,
   monsterConfig,
+  playerConfigSource,
+  monsterConfigSource,
+  playerImportHistory,
+  monsterImportHistory,
   monsterInitialElement,
   playerSkillIds,
   monsterSkillIds,
   onSkillsApplied,
   onUpdatePlayer,
   onUpdateMonster,
+  onSelectPlayerConfigSource,
+  onSelectMonsterConfigSource,
   onSetMonsterElement,
   onTogglePlayerSkill,
   onToggleMonsterSkill,
   onRemovePlayerSkill,
   onRemoveMonsterSkill,
-  onApplyPlayerConfig,
-  onApplyMonsterConfig,
+  onImportPlayer,
+  onImportMonster,
+  onDeletePlayerBinding,
+  onDeleteMonsterBinding,
   onStartBattle,
   onRunBatchSimulation,
 }: Props) {
@@ -121,106 +304,57 @@ export function ConfigurePlayerStep({
           </button>
         </div>
 
-        <div className={styles.configCard}>
-          <div className={styles.cardTitleRow}>
-            <div className={styles.cardTitle}>
-              <UserOutlined /> Player
-            </div>
-            <button
-              type="button"
-              className={styles.importBtn}
-              onClick={() => setUnitImportTarget('player')}
-            >
-              <ImportOutlined /> Import
-            </button>
-          </div>
-          <div className={styles.statsGrid}>
-            <div className={styles.statFull}>
-              <span className={styles.label}>Name</span>
-              <input
-                className={styles.nameInput}
-                value={playerConfig.name}
-                onChange={(e) => onUpdatePlayer('name', e.target.value)}
-                maxLength={20}
-              />
-            </div>
-            {(['hp', 'atk', 'def', 'spd', 'mp'] as const).map((field) => (
-              <div key={field}>
-                <span className={styles.label}>{field.toUpperCase()}</span>
-                <InputNumber
-                  className={styles.statInput}
-                  min={field === 'def' ? 0 : 1}
-                  max={field === 'hp' ? 99999 : field === 'mp' ? 999 : 9999}
-                  value={playerConfig[field]}
-                  onChange={(v) => onUpdatePlayer(field, v)}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+        <UnitStatsPanel
+          title="Player"
+          titleIcon={<UserOutlined />}
+          config={playerConfig}
+          configSource={playerConfigSource}
+          importHistory={playerImportHistory}
+          onUpdate={onUpdatePlayer}
+          onSelectSource={onSelectPlayerConfigSource}
+          onDeleteBinding={onDeletePlayerBinding}
+          onImportClick={() => setUnitImportTarget('player')}
+        />
 
-        <div className={styles.configCard}>
-          <div className={styles.cardTitleRow}>
-            <div className={styles.cardTitle}>Enemy</div>
-            <button
-              type="button"
-              className={styles.importBtn}
-              onClick={() => setUnitImportTarget('enemy')}
-            >
-              <ImportOutlined /> Import
-            </button>
-          </div>
-          <div className={styles.statsGrid}>
-            <div className={styles.statFull}>
-              <span className={styles.label}>Name</span>
-              <input
-                className={styles.nameInput}
-                value={monsterConfig.name}
-                onChange={(e) => onUpdateMonster('name', e.target.value)}
-                maxLength={20}
-              />
-            </div>
-            {(['hp', 'atk', 'def', 'spd', 'mp'] as const).map((field) => (
-              <div key={field}>
-                <span className={styles.label}>{field.toUpperCase()}</span>
-                <InputNumber
-                  className={styles.statInput}
-                  min={field === 'def' ? 0 : 1}
-                  max={field === 'hp' ? 99999 : field === 'mp' ? 999 : 9999}
-                  value={monsterConfig[field]}
-                  onChange={(v) => onUpdateMonster(field, v)}
-                />
-              </div>
-            ))}
-          </div>
-          <div className={styles.elementSection}>
-            <div className={styles.elementTitle}>Enemy starting category</div>
-            <div className={styles.elementGrid}>
-              <button
-                type="button"
-                className={`${styles.elementBtn} ${monsterInitialElement === null ? styles.elementBtnActive : ''}`}
-                onClick={() => onSetMonsterElement(null)}
-              >
-                None
-              </button>
-              {ELEMENTS.map((elem) => (
+        <UnitStatsPanel
+          title="Enemy"
+          config={monsterConfig}
+          configSource={monsterConfigSource}
+          importHistory={monsterImportHistory}
+          onUpdate={onUpdateMonster}
+          onSelectSource={onSelectMonsterConfigSource}
+          onDeleteBinding={onDeleteMonsterBinding}
+          onImportClick={() => setUnitImportTarget('enemy')}
+          extra={
+            <div className={styles.elementSection}>
+              <div className={styles.elementTitle}>Enemy starting category</div>
+              <div className={styles.elementGrid}>
                 <button
-                  key={elem}
                   type="button"
-                  className={`${styles.elementBtn} ${monsterInitialElement === elem ? styles.elementBtnActive : ''}`}
-                  onClick={() => onSetMonsterElement(elem)}
-                  style={
-                    monsterInitialElement === elem
-                      ? { color: ELEMENT_CONFIG[elem].color }
-                      : undefined
-                  }
+                  className={`${styles.elementBtn} ${monsterInitialElement === null ? styles.elementBtnActive : ''}`}
+                  onClick={() => onSetMonsterElement(null)}
                 >
-                  {ELEMENT_CONFIG[elem].emoji} {ELEMENT_CONFIG[elem].name}
+                  None
                 </button>
-              ))}
+                {ELEMENTS.map((elem) => (
+                  <button
+                    key={elem}
+                    type="button"
+                    className={`${styles.elementBtn} ${monsterInitialElement === elem ? styles.elementBtnActive : ''}`}
+                    onClick={() => onSetMonsterElement(elem)}
+                    style={
+                      monsterInitialElement === elem
+                        ? { color: ELEMENT_CONFIG[elem].color }
+                        : undefined
+                    }
+                  >
+                    {ELEMENT_CONFIG[elem].emoji} {ELEMENT_CONFIG[elem].name}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        </div>
+          }
+        />
       </aside>
 
       <section className={styles.main}>
@@ -386,9 +520,9 @@ export function ConfigurePlayerStep({
         target={unitImportTarget === 'enemy' ? 'enemy' : 'player'}
         fallbackConfig={unitImportTarget === 'enemy' ? monsterConfig : playerConfig}
         onClose={() => setUnitImportTarget(null)}
-        onApply={(config) => {
-          if (unitImportTarget === 'enemy') onApplyMonsterConfig(config);
-          else onApplyPlayerConfig(config);
+        onApply={(result) => {
+          if (unitImportTarget === 'enemy') onImportMonster(result);
+          else onImportPlayer(result);
         }}
       />
     </div>

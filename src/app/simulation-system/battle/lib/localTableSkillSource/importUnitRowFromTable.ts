@@ -69,7 +69,8 @@ function unitKeysForHeaderToken(token: string): BattleUnitColumnMappingKey[] {
 }
 
 function candidatesForColumn(col: TableColumnInfo): BattleUnitColumnMappingKey[] {
-  if (col.key === ASSET_NAME_COLUMN_KEY) return ['name'];
+  // Studio asset name: fixed UI label "Name" is not a user-defined header; never auto-map.
+  if (col.key === ASSET_NAME_COLUMN_KEY) return [];
   const fromLabel = unitKeysForHeaderToken(col.label);
   const fromKey = unitKeysForHeaderToken(col.key);
   return [...new Set([...fromLabel, ...fromKey])];
@@ -196,6 +197,36 @@ export function buildUnitFieldsFromTableRow(args: {
   return fields;
 }
 
+const STAT_FIELD_MIN: Record<Exclude<BattleUnitColumnMappingKey, 'name'>, number> = {
+  hp: 1,
+  atk: 1,
+  def: 0,
+  spd: 1,
+  mp: 1,
+};
+
+function mappedColumnKeysForField(
+  columnToField: Map<string, BattleUnitColumnMappingKey>,
+  fieldKey: BattleUnitColumnMappingKey,
+): string[] {
+  return [...columnToField.entries()]
+    .filter(([, key]) => key === fieldKey)
+    .map(([columnKey]) => columnKey);
+}
+
+/** Read a stat/name cell from the row when the table column is mapped to that field. */
+function readMappedRowCellValue(
+  row: SimTableRow,
+  columnToField: Map<string, BattleUnitColumnMappingKey>,
+  fieldKey: BattleUnitColumnMappingKey,
+): string | undefined {
+  for (const columnKey of mappedColumnKeysForField(columnToField, fieldKey)) {
+    const value = cellValueToString(row.values[columnKey]).trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
 function parseStat(value: string | undefined, fallback: number, min: number): number {
   if (!value?.trim()) return fallback;
   const n = Number(value.trim());
@@ -206,8 +237,39 @@ function parseStat(value: string | undefined, fallback: number, min: number): nu
 export function unitFieldsToConfig(
   fields: Partial<Record<BattleUnitColumnMappingKey, LocalTableCellRef>>,
   fallback: BattleUnitConfig,
+  options?: {
+    row?: SimTableRow;
+    columnToField?: Map<string, BattleUnitColumnMappingKey>;
+  },
 ): { config: BattleUnitConfig } | { error: string } {
-  const name = fields.name?.value?.trim();
+  const row = options?.row;
+  const columnToField = options?.columnToField;
+
+  const resolveName = (): string | undefined => {
+    const fromFields = fields.name?.value?.trim();
+    if (fromFields) return fromFields;
+    if (row && columnToField) {
+      const fromRow = readMappedRowCellValue(row, columnToField, 'name');
+      if (fromRow) return fromRow;
+    }
+    return undefined;
+  };
+
+  const resolveStat = (key: Exclude<BattleUnitColumnMappingKey, 'name'>): number => {
+    const fromFields = fields[key]?.value?.trim();
+    if (fromFields) {
+      return parseStat(fromFields, fallback[key], STAT_FIELD_MIN[key]);
+    }
+    if (row && columnToField) {
+      const fromRow = readMappedRowCellValue(row, columnToField, key);
+      if (fromRow) {
+        return parseStat(fromRow, fallback[key], STAT_FIELD_MIN[key]);
+      }
+    }
+    return parseStat(undefined, fallback[key], STAT_FIELD_MIN[key]);
+  };
+
+  const name = resolveName();
   if (!name) {
     return { error: 'Name is required. Map a name column or pick a row with a display name.' };
   }
@@ -215,13 +277,34 @@ export function unitFieldsToConfig(
   return {
     config: {
       name,
-      hp: parseStat(fields.hp?.value, fallback.hp, 1),
-      atk: parseStat(fields.atk?.value, fallback.atk, 1),
-      def: parseStat(fields.def?.value, fallback.def, 0),
-      spd: parseStat(fields.spd?.value, fallback.spd, 1),
-      mp: parseStat(fields.mp?.value, fallback.mp, 1),
+      hp: resolveStat('hp'),
+      atk: resolveStat('atk'),
+      def: resolveStat('def'),
+      spd: resolveStat('spd'),
+      mp: resolveStat('mp'),
     },
   };
+}
+
+export function resolveUnitConfigFromTableRow(args: {
+  tableId: string;
+  row: SimTableRow;
+  columnToField: Map<string, BattleUnitColumnMappingKey>;
+  idColumnKey: string;
+  idValue: string;
+  fallback: BattleUnitConfig;
+}): { config: BattleUnitConfig } | { error: string } {
+  const fields = buildUnitFieldsFromTableRow({
+    tableId: args.tableId,
+    row: args.row,
+    columnToField: args.columnToField,
+    idColumnKey: args.idColumnKey,
+    idValue: args.idValue,
+  });
+  return unitFieldsToConfig(fields, args.fallback, {
+    row: args.row,
+    columnToField: args.columnToField,
+  });
 }
 
 export function unitFieldLabel(key: BattleUnitColumnMappingKey): string {
