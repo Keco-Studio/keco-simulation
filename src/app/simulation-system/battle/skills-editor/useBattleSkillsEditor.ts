@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { Modal, message } from 'antd';
+import { saveBattleSkillDrafts } from '../lib/localTableSkillSource/battleSkillDrafts';
 import { loadBattleSkillModulesState } from '../lib/skills/battleSkillModulesStorage';
 import { resetActiveBattleSkillModuleToBuiltin, saveBattleSkillsToStorage } from '../lib/skills/battleSkillsStorage';
 import {
@@ -142,6 +143,7 @@ export function useBattleSkillsEditor(moduleId: string) {
   const handleResetBuiltin = useCallback(() => {
     clearDebounceTimer();
     resetActiveBattleSkillModuleToBuiltin(moduleId);
+    saveBattleSkillDrafts([]);
     const builtin = getBuiltinSkills();
     const flat = skillsToFlatRows(builtin);
     setRows(flat);
@@ -161,6 +163,7 @@ export function useBattleSkillsEditor(moduleId: string) {
       cancelText: 'Cancel',
       onOk: () => {
         clearDebounceTimer();
+        saveBattleSkillDrafts([]);
         setRows([]);
         flushSaveFlatRows([]);
         setCurrentPage(1);

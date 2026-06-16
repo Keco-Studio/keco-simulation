@@ -11,6 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   DEFAULT_BATTLE_SKILL_MODULE_ID,
   loadBattleSkillModulesState,
+  readActiveModuleSkillsSync,
   saveSkillsForModuleWithMirror,
   resetModuleSkillsToBuiltin,
 } from './battleSkillModulesStorage';
@@ -67,32 +68,52 @@ export async function loadBattleSkillsFromPersistence(): Promise<Skill[]> {
   return mod.skills;
 }
 
-/** Sync read for battle page first paint (may be stale until hydrate runs). */
+/** Skills for the battle page: module storage is the source of truth (may be empty). */
+export async function loadBattleSkillsForBattlePage(): Promise<Skill[]> {
+  return loadBattleSkillsFromPersistence();
+}
+
+/** Sync read for battle page first paint (may be stale until async load runs). */
 export function readBattleSkillsForInitialRender(): Skill[] {
   if (typeof window === 'undefined') return getBuiltinSkills();
-  return getBuiltinSkills();
+  const persisted = readActiveModuleSkillsSync();
+  if (persisted === null) return [];
+  return persisted;
 }
 
 /**
- * Restore skills: re-read drafts from live tables, validate, persist; else module storage.
+ * Refresh skills from live local-table drafts when source table rows change.
+ * Returns null when drafts are absent/invalid or the module sheet was cleared.
  */
+export async function refreshBattleSkillsFromLiveTableDrafts(
+  supabase: SupabaseClient | null = null,
+): Promise<Skill[] | null> {
+  const persisted = await loadBattleSkillsFromPersistence();
+  if (persisted.length === 0) return null;
+
+  const drafts = loadBattleSkillDrafts();
+  if (drafts.length === 0) return null;
+
+  try {
+    const result = await validateSkillDraftsFromLiveTables(supabase, drafts);
+    if (result.ok) {
+      // Silent save: callers listen to BATTLE_SKILLS_UPDATED_EVENT and would loop otherwise.
+      saveBattleSkillsToStorage(DEFAULT_BATTLE_SKILL_MODULE_ID, result.skills, { notify: false });
+      return result.skills;
+    }
+  } catch (err) {
+    console.warn('[simulation] Failed to refresh skill drafts from live tables:', err);
+  }
+  return null;
+}
+
+/** @deprecated Use loadBattleSkillsForBattlePage or refreshBattleSkillsFromLiveTableDrafts. */
 export async function hydrateBattlePageSkills(
   supabase: SupabaseClient | null = null,
 ): Promise<Skill[]> {
-  const drafts = loadBattleSkillDrafts();
-  if (drafts.length > 0) {
-    try {
-      const result = await validateSkillDraftsFromLiveTables(supabase, drafts);
-      if (result.ok) {
-        // Silent save: page hydrate listens to BATTLE_SKILLS_UPDATED_EVENT and would loop otherwise.
-        saveBattleSkillsToStorage(DEFAULT_BATTLE_SKILL_MODULE_ID, result.skills, { notify: false });
-        return result.skills;
-      }
-    } catch (err) {
-      console.warn('[simulation] Failed to refresh skill drafts from live tables:', err);
-    }
-  }
-  return loadBattleSkillsFromPersistence();
+  const fromDrafts = await refreshBattleSkillsFromLiveTableDrafts(supabase);
+  if (fromDrafts) return fromDrafts;
+  return loadBattleSkillsForBattlePage();
 }
 
 export function saveBattleSkillsToStorage(

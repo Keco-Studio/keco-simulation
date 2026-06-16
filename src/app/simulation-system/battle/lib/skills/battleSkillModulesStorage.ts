@@ -147,6 +147,14 @@ async function migrateFromLegacyIfNeeded(): Promise<BattleSkillModulesState | nu
   return state;
 }
 
+/** Sync read of active module skills from the localStorage mirror (first paint). */
+export function readActiveModuleSkillsSync(): Skill[] | null {
+  const state = parseModulesJson(readLocalStorageModulesRaw());
+  if (!state) return null;
+  const mod = state.modules.find((m) => m.id === state.activeModuleId);
+  return mod?.skills ?? null;
+}
+
 export async function loadBattleSkillModulesState(): Promise<BattleSkillModulesState> {
   const fromLs = parseModulesJson(readLocalStorageModulesRaw());
   if (fromLs) return fromLs;
