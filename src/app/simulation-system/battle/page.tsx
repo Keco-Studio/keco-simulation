@@ -6,8 +6,9 @@ import type { Element, Skill } from './types';
 import { DEFAULT_MONSTER_STATS, DEFAULT_PLAYER_STATS } from './types';
 import {
   BATTLE_SKILLS_UPDATED_EVENT,
-  hydrateBattlePageSkills,
+  loadBattleSkillsForBattlePage,
   readBattleSkillsForInitialRender,
+  refreshBattleSkillsFromLiveTableDrafts,
 } from './lib/skills/battleSkillsStorage';
 import { SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT } from '@/lib/simLocalTables/simLocalTablesEvents';
 import { useAuth } from '@studio/lib/contexts/AuthContext';
@@ -27,6 +28,7 @@ import {
   DEFAULT_BATTLE_SKILL_MODULE_ID,
   resetModuleSkillsToBuiltin,
 } from './lib/skills/battleSkillModulesStorage';
+import { saveBattleSkillDrafts } from './lib/localTableSkillSource/battleSkillDrafts';
 import type { BattleUnitConfig } from './lib/localTableSkillSource/battleUnitSource';
 import {
   readBattleWizardPreferences,
@@ -108,19 +110,27 @@ export default function BattleSimulatorPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const syncSkills = () => {
-      void hydrateBattlePageSkills(supabaseReady ? supabase : null).then((skills) => {
-        if (!cancelled) setSkillList(skills);
+    const applySkills = (skills: Skill[]) => {
+      if (!cancelled) setSkillList(skills);
+    };
+    const syncFromModule = () => {
+      void loadBattleSkillsForBattlePage().then(applySkills);
+    };
+    const refreshFromLiveTables = () => {
+      void refreshBattleSkillsFromLiveTableDrafts(supabaseReady ? supabase : null).then((skills) => {
+        if (skills) applySkills(skills);
+        else syncFromModule();
       });
     };
-    syncSkills();
-    const onSkillsUpdated = () => syncSkills();
+    syncFromModule();
+    const onSkillsUpdated = () => syncFromModule();
+    const onLocalTableRowsUpdated = () => refreshFromLiveTables();
     window.addEventListener(BATTLE_SKILLS_UPDATED_EVENT, onSkillsUpdated);
-    window.addEventListener(SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT, onSkillsUpdated);
+    window.addEventListener(SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT, onLocalTableRowsUpdated);
     return () => {
       cancelled = true;
       window.removeEventListener(BATTLE_SKILLS_UPDATED_EVENT, onSkillsUpdated);
-      window.removeEventListener(SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT, onSkillsUpdated);
+      window.removeEventListener(SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT, onLocalTableRowsUpdated);
     };
   }, [supabase, supabaseReady]);
 
@@ -177,12 +187,13 @@ export default function BattleSimulatorPage() {
 
   const handleUseDefaultSheet = useCallback(() => {
     resetModuleSkillsToBuiltin(DEFAULT_BATTLE_SKILL_MODULE_ID);
-    void hydrateBattlePageSkills(supabaseReady ? supabase : null).then((skills) => {
+    saveBattleSkillDrafts([]);
+    void loadBattleSkillsForBattlePage().then((skills) => {
       setSkillList(skills);
       setSkillSheetLabel('Default sheet');
       message.success('Default skill sheet loaded');
     });
-  }, [supabase, supabaseReady]);
+  }, []);
 
   const buildArenaConfig = useCallback(
     (playerLoadout: string[], enemyLoadout: string[]): BattleArenaConfig => ({
