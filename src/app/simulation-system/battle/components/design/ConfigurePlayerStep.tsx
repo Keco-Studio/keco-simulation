@@ -248,7 +248,7 @@ export function ConfigurePlayerStep({
   onRunBatchSimulation,
 }: Props) {
   const [selectedElement, setSelectedElement] = useState<string>('all');
-  const [batchRuns, setBatchRuns] = useState<number>(BATCH_MAP_BATTLE_LIMITS.defaultRuns);
+  const [batchRuns, setBatchRuns] = useState<number | null>(BATCH_MAP_BATTLE_LIMITS.defaultRuns);
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchSummary, setBatchSummary] = useState<BatchMapBattleSummary | null>(null);
   const [loadoutTarget, setLoadoutTarget] = useState<'player' | 'monster'>('player');
@@ -269,7 +269,7 @@ export function ConfigurePlayerStep({
   }, [skillList, activeLoadoutIds]);
 
   const handleRunBatch = useCallback(() => {
-    if (playerSkillIds.length === 0 || monsterSkillIds.length === 0) return;
+    if (playerSkillIds.length === 0 || monsterSkillIds.length === 0 || batchRuns == null) return;
     setBatchLoading(true);
     setBatchSummary(null);
     window.setTimeout(() => {
@@ -456,7 +456,18 @@ export function ConfigurePlayerStep({
                 max={BATCH_MAP_BATTLE_LIMITS.maxRuns}
                 value={batchRuns}
                 disabled={batchLoading}
-                onChange={(v) => setBatchRuns(typeof v === 'number' ? v : BATCH_MAP_BATTLE_LIMITS.defaultRuns)}
+                onChange={(v) => setBatchRuns(typeof v === 'number' ? v : null)}
+                onBlur={() => {
+                  setBatchRuns((current) => {
+                    if (current == null || !Number.isFinite(current)) {
+                      return BATCH_MAP_BATTLE_LIMITS.defaultRuns;
+                    }
+                    return Math.min(
+                      BATCH_MAP_BATTLE_LIMITS.maxRuns,
+                      Math.max(1, Math.floor(current)),
+                    );
+                  });
+                }}
                 className={styles.batchRunsInput}
               />
             </label>
@@ -465,7 +476,10 @@ export function ConfigurePlayerStep({
             type="button"
             className={styles.batchBtn}
             disabled={
-              batchLoading || playerSkillIds.length === 0 || monsterSkillIds.length === 0
+              batchLoading ||
+              batchRuns == null ||
+              playerSkillIds.length === 0 ||
+              monsterSkillIds.length === 0
             }
             onClick={handleRunBatch}
           >
