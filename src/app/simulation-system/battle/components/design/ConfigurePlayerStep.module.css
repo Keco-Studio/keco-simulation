@@ -14,7 +14,7 @@
 }
 
 .sidebar {
-  width: 300px;
+  width: 340px;
   flex-shrink: 0;
   padding: 20px 16px;
   border-right: 1px solid #f0f0f0;
@@ -147,6 +147,38 @@
   align-items: center;
   gap: 8px;
   color: rgba(0, 0, 0, 0.88);
+  margin-bottom: 12px;
+}
+
+.unitSection {
+  display: flex;
+  flex-direction: column;
+}
+
+.unitSectionSpaced {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.unitSectionTitle {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.unitSectionHint {
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.tablesHint {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.45);
+  line-height: 1.45;
 }
 
 .importBtn {
