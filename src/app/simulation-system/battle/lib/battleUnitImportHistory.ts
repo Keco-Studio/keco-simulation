@@ -27,7 +27,7 @@ export type BattleUnitConfigSource =
 
 export type UnitImportResult = {
   config: BattleUnitConfig;
-  /** Present when imported by table row id; omitted for manual attribute binding. */
+  /** Present when imported by table row id; omitted for manual-only edits. */
   binding?: Omit<BattleUnitImportBinding, 'id' | 'importedAt'>;
 };
 

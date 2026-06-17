@@ -30,6 +30,8 @@ type Props = {
   supabaseReady: boolean;
   fallbackConfig: BattleUnitConfig;
   onImport: (result: UnitImportResult) => void;
+  /** When false, omit the intro hint (e.g. parent section already has a title). */
+  showHint?: boolean;
 };
 
 export function ImportUnitByIdBlock({
@@ -39,6 +41,7 @@ export function ImportUnitByIdBlock({
   supabaseReady,
   fallbackConfig,
   onImport,
+  showHint = true,
 }: Props) {
   const supabase = useSupabase();
   const [tableId, setTableId] = useState<string | undefined>();
@@ -183,10 +186,12 @@ export function ImportUnitByIdBlock({
   return (
     <>
       <div className={styles.importByIdBlockEmbedded}>
-        <p className={styles.mappingHint}>
-          Pick a row by its <strong>id</strong> column. Other headers map to stat fields
-          (case-insensitive). Missing columns keep current values.
-        </p>
+        {showHint ? (
+          <p className={styles.mappingHint}>
+            Pick a row by its <strong>id</strong> column. Other headers map to stat fields
+            (case-insensitive). Missing columns keep current values.
+          </p>
+        ) : null}
         <div className={styles.bindingRow}>
           <Select
             className={styles.bindingSelect}
