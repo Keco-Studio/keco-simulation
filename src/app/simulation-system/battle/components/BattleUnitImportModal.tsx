@@ -1,12 +1,5 @@
 'use client';
 
-/**
- * Legacy modal for unit stat import. Attribute binding (table → column → value per field)
- * is disabled — use ConfigurePlayerStep inline blocks instead:
- *   1. Manual stats
- *   2. Import by id (ImportUnitByIdBlock)
- */
-
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
@@ -120,7 +113,6 @@ export function BattleUnitImportModal({
             </p>
           ) : null}
 
-          <h3 className={panelStyles.sectionTitle}>Import by id</h3>
           <ImportUnitByIdBlock
             tables={tables}
             tablesLoading={tablesLoading}
@@ -131,8 +123,8 @@ export function BattleUnitImportModal({
 
           {/*
             Disabled: per-field attribute binding (table → column → value for each stat).
-            Replaced by inline "Manual stats" + "Import by id" blocks on ConfigurePlayerStep.
 
+          <div className={styles.divider} />
           <Button type="default" block onClick={() => setView('attributes')}>
             Bind by attributes
           </Button>
@@ -141,7 +133,7 @@ export function BattleUnitImportModal({
 
         <div className={styles.footer}>
           <button type="button" className={styles.cancelBtn} onClick={onClose}>
-            Close
+            Cancel
           </button>
         </div>
       </div>
@@ -151,7 +143,7 @@ export function BattleUnitImportModal({
 }
 
 /*
-  --- Commented out: attribute binding implementation (kept for reference) ---
+  --- Commented out: bind-by-attributes flow (kept for reference) ---
 
 import { useMemo, useState } from 'react';
 import { Button, Select, Tag, message } from 'antd';
@@ -173,8 +165,5 @@ type ModalView = 'home' | 'attributes';
 
 function UnitFieldBindingRow({ ... }) { ... }
 
-const handleApplyAttributes = () => {
-  const result = unitFieldsToConfig(fields, fallbackConfig);
-  ...
-};
+// attributes view: field picker, binding rows, configured tags, Apply stats button
 */

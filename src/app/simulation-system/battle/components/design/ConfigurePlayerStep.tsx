@@ -1,17 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useMemo, useState } from 'react';
 import { InputNumber, Select, message } from 'antd';
 import {
   DeleteOutlined,
+  ImportOutlined,
   LinkOutlined,
   SettingOutlined,
   TableOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { useAuth } from '@studio/lib/contexts/AuthContext';
-import { useSupabase } from '@studio/lib/SupabaseContext';
 import {
   BATCH_MAP_BATTLE_LIMITS,
   type BatchMapBattleSummary,
@@ -20,12 +18,8 @@ import type { Element, Skill } from '../../types';
 import { ELEMENT_CONFIG } from '../../types';
 import { filterSkillsByTab } from '../../data/skills';
 import { BattleLocalTableSkillSourceModal } from '../BattleLocalTableSkillSourceModal';
-import { ImportUnitByIdBlock } from '../ImportUnitByIdBlock';
+import { BattleUnitImportModal } from '../BattleUnitImportModal';
 import type { BattleUnitConfig } from '../../lib/localTableSkillSource/battleUnitSource';
-import {
-  listSelectableTablesForSkillPicker,
-  type SelectableTableInfo,
-} from '../../lib/localTableSkillSource/simTablePickerData';
 import {
   type BattleUnitConfigSource,
   type BattleUnitImportBinding,
@@ -151,11 +145,7 @@ function UnitStatsPanel({
   onUpdate,
   onSelectSource,
   onDeleteBinding,
-  onImport,
-  fallbackConfig,
-  tables,
-  tablesLoading,
-  supabaseReady,
+  onImportClick,
   extra,
 }: {
   title: string;
@@ -166,83 +156,63 @@ function UnitStatsPanel({
   onUpdate: (field: string, value: number | string | null) => void;
   onSelectSource: (source: BattleUnitConfigSource) => void;
   onDeleteBinding: (bindingId: string) => void;
-  onImport: (result: UnitImportResult) => void;
-  fallbackConfig: BattleUnitConfig;
-  tables: SelectableTableInfo[];
-  tablesLoading: boolean;
-  supabaseReady: boolean;
+  onImportClick: () => void;
   extra?: React.ReactNode;
 }) {
   const readOnly = configSource.kind === 'binding';
 
   return (
     <div className={styles.configCard}>
-      <div className={styles.cardTitle}>
-        {titleIcon}
-        {title}
+      <div className={styles.cardTitleRow}>
+        <div className={styles.cardTitle}>
+          {titleIcon}
+          {title}
+        </div>
+        <button type="button" className={styles.importBtn} onClick={onImportClick}>
+          <ImportOutlined /> Import
+        </button>
       </div>
 
-      <section className={styles.unitSection}>
-        <h4 className={styles.unitSectionTitle}>Manual stats</h4>
-        <p className={styles.unitSectionHint}>Type values directly or switch back from a linked import.</p>
+      <UnitConfigSourceSelect
+        configSource={configSource}
+        importHistory={importHistory}
+        resolvedConfig={config}
+        onSelect={onSelectSource}
+        onDeleteBinding={onDeleteBinding}
+      />
 
-        <UnitConfigSourceSelect
-          configSource={configSource}
-          importHistory={importHistory}
-          resolvedConfig={config}
-          onSelect={onSelectSource}
-          onDeleteBinding={onDeleteBinding}
-        />
+      {readOnly ? (
+        <p className={styles.linkedHint}>
+          <LinkOutlined /> Linked to table row — stats update when source data changes.
+        </p>
+      ) : null}
 
-        {readOnly ? (
-          <p className={styles.linkedHint}>
-            <LinkOutlined /> Linked to table row — stats update when source data changes.
-          </p>
-        ) : null}
-
-        <div className={`${styles.statsGrid} ${readOnly ? styles.statsGridReadOnly : ''}`}>
-          <div className={styles.statFull}>
-            <span className={styles.label}>Name</span>
-            <input
-              className={styles.nameInput}
-              value={config.name}
-              readOnly={readOnly}
+      <div className={`${styles.statsGrid} ${readOnly ? styles.statsGridReadOnly : ''}`}>
+        <div className={styles.statFull}>
+          <span className={styles.label}>Name</span>
+          <input
+            className={styles.nameInput}
+            value={config.name}
+            readOnly={readOnly}
+            disabled={readOnly}
+            onChange={(e) => onUpdate('name', e.target.value)}
+            maxLength={20}
+          />
+        </div>
+        {(['hp', 'atk', 'def', 'spd', 'mp'] as const).map((field) => (
+          <div key={field}>
+            <span className={styles.label}>{field.toUpperCase()}</span>
+            <InputNumber
+              className={styles.statInput}
+              min={field === 'def' ? 0 : 1}
+              max={field === 'hp' ? 99999 : field === 'mp' ? 999 : 9999}
+              value={config[field]}
               disabled={readOnly}
-              onChange={(e) => onUpdate('name', e.target.value)}
-              maxLength={20}
+              onChange={(v) => onUpdate(field, v)}
             />
           </div>
-          {(['hp', 'atk', 'def', 'spd', 'mp'] as const).map((field) => (
-            <div key={field}>
-              <span className={styles.label}>{field.toUpperCase()}</span>
-              <InputNumber
-                className={styles.statInput}
-                min={field === 'def' ? 0 : 1}
-                max={field === 'hp' ? 99999 : field === 'mp' ? 999 : 9999}
-                value={config[field]}
-                disabled={readOnly}
-                onChange={(v) => onUpdate(field, v)}
-              />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className={`${styles.unitSection} ${styles.unitSectionSpaced}`}>
-        <h4 className={styles.unitSectionTitle}>Import by id</h4>
-        <p className={styles.unitSectionHint}>
-          Pick table, id column, and row id. Headers map to stats automatically.
-        </p>
-        <ImportUnitByIdBlock
-          tables={tables}
-          tablesLoading={tablesLoading}
-          supabaseReady={supabaseReady}
-          fallbackConfig={fallbackConfig}
-          onImport={onImport}
-          showHint={false}
-        />
-      </section>
-
+        ))}
+      </div>
       {extra}
     </div>
   );
@@ -283,29 +253,7 @@ export function ConfigurePlayerStep({
   const [batchSummary, setBatchSummary] = useState<BatchMapBattleSummary | null>(null);
   const [loadoutTarget, setLoadoutTarget] = useState<'player' | 'monster'>('player');
   const [configureOpen, setConfigureOpen] = useState(false);
-  const supabase = useSupabase();
-  const { userProfile, isAuthenticated } = useAuth();
-  const supabaseReady = Boolean(supabase && isAuthenticated && userProfile?.id);
-  const [tables, setTables] = useState<SelectableTableInfo[]>([]);
-  const [tablesLoading, setTablesLoading] = useState(true);
-
-  const refreshTables = useCallback(async () => {
-    setTablesLoading(true);
-    try {
-      setTables(
-        await listSelectableTablesForSkillPicker(
-          supabaseReady ? supabase : null,
-          userProfile?.id,
-        ),
-      );
-    } finally {
-      setTablesLoading(false);
-    }
-  }, [supabase, supabaseReady, userProfile?.id]);
-
-  useEffect(() => {
-    void refreshTables();
-  }, [refreshTables]);
+  const [unitImportTarget, setUnitImportTarget] = useState<'player' | 'enemy' | null>(null);
 
   const displayedSkills = useMemo(() => {
     if (selectedElement === 'all') return skillList;
@@ -356,20 +304,6 @@ export function ConfigurePlayerStep({
           </button>
         </div>
 
-        {!supabaseReady ? (
-          <p className={styles.tablesHint}>
-            Sign in with the same Supabase account as Keco Studio to include project libraries.{' '}
-            <Link href="/simulation-system/battle/studio-libraries">Open Studio libraries</Link>
-          </p>
-        ) : null}
-
-        {tables.length === 0 && !tablesLoading ? (
-          <p className={styles.tablesHint}>
-            No tables found.{' '}
-            <Link href="/simulation-system/battle/local-tables">Create a local table</Link>
-          </p>
-        ) : null}
-
         <UnitStatsPanel
           title="Player"
           titleIcon={<UserOutlined />}
@@ -379,11 +313,7 @@ export function ConfigurePlayerStep({
           onUpdate={onUpdatePlayer}
           onSelectSource={onSelectPlayerConfigSource}
           onDeleteBinding={onDeletePlayerBinding}
-          onImport={onImportPlayer}
-          fallbackConfig={playerConfig}
-          tables={tables}
-          tablesLoading={tablesLoading}
-          supabaseReady={supabaseReady}
+          onImportClick={() => setUnitImportTarget('player')}
         />
 
         <UnitStatsPanel
@@ -394,11 +324,7 @@ export function ConfigurePlayerStep({
           onUpdate={onUpdateMonster}
           onSelectSource={onSelectMonsterConfigSource}
           onDeleteBinding={onDeleteMonsterBinding}
-          onImport={onImportMonster}
-          fallbackConfig={monsterConfig}
-          tables={tables}
-          tablesLoading={tablesLoading}
-          supabaseReady={supabaseReady}
+          onImportClick={() => setUnitImportTarget('enemy')}
           extra={
             <div className={styles.elementSection}>
               <div className={styles.elementTitle}>Enemy starting category</div>
@@ -603,6 +529,16 @@ export function ConfigurePlayerStep({
         }}
       />
 
+      <BattleUnitImportModal
+        open={unitImportTarget !== null}
+        target={unitImportTarget === 'enemy' ? 'enemy' : 'player'}
+        fallbackConfig={unitImportTarget === 'enemy' ? monsterConfig : playerConfig}
+        onClose={() => setUnitImportTarget(null)}
+        onApply={(result) => {
+          if (unitImportTarget === 'enemy') onImportMonster(result);
+          else onImportPlayer(result);
+        }}
+      />
     </div>
   );
 }
