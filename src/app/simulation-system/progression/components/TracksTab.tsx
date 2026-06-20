@@ -1,6 +1,6 @@
 'use client';
 
-import { Table, Input, Select, Button, Space, Tag } from 'antd';
+import { Table, Input, Select, Button, Space, Tag, Alert } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { TrackDef, TrackKind, TrackParams } from '@/lib/progression/types';
@@ -11,10 +11,11 @@ interface Props {
 }
 
 const KIND_OPTIONS: { value: TrackKind; label: string }[] = [
-  { value: 'exp_level', label: '经验→等级' },
-  { value: 'proficiency', label: '熟练度→段位' },
-  { value: 'milestone', label: '里程碑' },
-  { value: 'rate_accrual', label: '速率/挂机' },
+  { value: 'exp_level', label: '经验→等级（预设）' },
+  { value: 'proficiency', label: '熟练度→段位（预设）' },
+  { value: 'milestone', label: '里程碑（预设）' },
+  { value: 'rate_accrual', label: '速率/挂机（预设）' },
+  { value: 'custom', label: '自定义（公式/表格驱动）' },
 ];
 
 function defaultParams(kind: TrackKind): TrackParams {
@@ -32,6 +33,14 @@ function defaultParams(kind: TrackKind): TrackParams {
       return { milestones: [{ at: 1000, reward: '里程碑1' }] };
     case 'rate_accrual':
       return { ratePerUnit: 1, cap: 10000 };
+    case 'custom':
+      return {
+        accumulator: 'add',
+        cap: null,
+        levelMode: 'formula',
+        levelFormula: 'floor(sqrt(total/100))',
+        unlocks: [],
+      };
   }
 }
 
@@ -117,6 +126,28 @@ export default function TracksTab({ tracks, onChange }: Props) {
 
   return (
     <div>
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 12 }}
+        message="自定义轨道（custom）：用配置组合任意反馈模式，无需写代码"
+        description={
+          <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+            <div>
+              <code>accumulator</code>：<code>add</code> 累加 / <code>add_capped</code> 封顶累加（配
+              <code>cap</code>）/ <code>max</code> 取最大值（破纪录类）
+            </div>
+            <div>
+              <code>levelMode</code>：<code>none</code> 不分级 / <code>formula</code> 用公式算等级（作用域含变量{' '}
+              <code>total</code>，如 <code>floor(sqrt(total/100))</code>）/ <code>tiers</code> 阈值表分段
+            </div>
+            <div>
+              <code>unlocks</code>：<code>[{'{'}&quot;at&quot;:100000,&quot;reward&quot;:&quot;称号&quot;{'}'}]</code>{' '}
+              在任意累计点位发一次性奖励，可与任何 levelMode 叠加
+            </div>
+          </div>
+        }
+      />
       <Space style={{ marginBottom: 12 }}>
         <Button type="primary" icon={<PlusOutlined />} onClick={addTrack}>
           新增轨道

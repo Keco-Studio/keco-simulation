@@ -39,6 +39,23 @@ export const DEFAULT_CONFIG: ProgressionConfig = {
         ],
       },
     },
+    {
+      // Showcases the custom track: curve-based leveling AND one-time unlocks
+      // combined — something none of the four presets can do on their own.
+      id: 'battle_mastery',
+      kind: 'custom',
+      label: '战斗精通（自定义）',
+      params: {
+        accumulator: 'add',
+        cap: null,
+        levelMode: 'formula',
+        levelFormula: 'floor(sqrt(total/10000))',
+        unlocks: [
+          { at: 100000, reward: '精通徽章·铜' },
+          { at: 1000000, reward: '精通徽章·金' },
+        ],
+      },
+    },
   ],
   rules: [
     {
@@ -81,6 +98,13 @@ export const DEFAULT_CONFIG: ProgressionConfig = {
       enabled: true,
       whenType: 'time_elapsed',
       targetTrackId: 'playtime_milestone',
+      rewardFormula: 'amount',
+    },
+    {
+      id: 'mastery_from_damage',
+      enabled: true,
+      whenType: 'deal_damage',
+      targetTrackId: 'battle_mastery',
       rewardFormula: 'amount',
     },
   ],

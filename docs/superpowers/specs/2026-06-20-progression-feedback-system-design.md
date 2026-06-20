@@ -143,6 +143,9 @@ interface TrackStrategy {
 | **`proficiency`** | `tiers: { threshold:number, label:string }[]`（如 0/100/500/2000 → 生疏/熟练/精通/大师） | 累积后落到对应段位；常配合模板路由 `prof_{skillId}` |
 | **`milestone`** | `milestones: { at:number, reward:string }[]` | `total` 越过 `at` 时把 `reward` 推入 `unlockedRewards`（去重，只发一次） |
 | **`rate_accrual`** | `{ ratePerUnit:number, cap?:number, decay?:string }` | `total = min(cap, total + amount*ratePerUnit*decayFactor)`；`level` 恒为 0 |
+| **`custom`** | `{ accumulator:'add'\|'add_capped'\|'max', cap?, levelMode:'none'\|'formula'\|'tiers', levelFormula?, tiers?, unlocks? }` | **数据/公式驱动的通用轨道**：三个正交轴自由组合 —— 累积方式 + 等级映射（公式 `floor(sqrt(total/100))` 或阈值表）+ 任意点位一次性解锁。让策划纯靠配置造出无穷多种反馈模式（含预设做不到的组合，如"曲线升级 + 里程碑解锁"），无需写代码 |
+
+**扩展性说明**：前四种是固定枚举（程序员扩展点），`custom` 是面向策划的开放扩展点 —— 把"累积 + 等级映射 + 解锁"全部做成配置，所以反馈侧不再是封闭的四选一，而是可由策划无限组合。预设保留为常用快捷项。
 
 **三个示例如何落在结构上**：
 

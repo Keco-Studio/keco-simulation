@@ -1,4 +1,9 @@
-export type TrackKind = 'exp_level' | 'proficiency' | 'milestone' | 'rate_accrual';
+export type TrackKind =
+  | 'exp_level'
+  | 'proficiency'
+  | 'milestone'
+  | 'rate_accrual'
+  | 'custom';
 
 export interface Contribution {
   type: string;
@@ -41,11 +46,31 @@ export interface RateAccrualParams {
   cap: number | null;
 }
 
+/**
+ * Fully data/formula-driven track. Composes three independent axes so designers
+ * can express arbitrary feedback modes without writing code:
+ *  - accumulator: how the running total changes per grant
+ *  - levelMode: how the total maps to a perceivable level/stage
+ *  - unlocks: optional one-time rewards at arbitrary totals (combinable with any levelMode)
+ */
+export interface CustomParams {
+  accumulator: 'add' | 'add_capped' | 'max';
+  cap?: number | null;
+  levelMode: 'none' | 'formula' | 'tiers';
+  /** Used when levelMode === 'formula'. Scope variable: total. e.g. "floor(sqrt(total/100))". */
+  levelFormula?: string;
+  /** Used when levelMode === 'tiers'. */
+  tiers?: ProficiencyTier[];
+  /** One-time rewards granted when total first crosses `at`. Works with any levelMode. */
+  unlocks?: MilestoneDef[];
+}
+
 export type TrackParams =
   | ExpLevelParams
   | ProficiencyParams
   | MilestoneParams
-  | RateAccrualParams;
+  | RateAccrualParams
+  | CustomParams;
 
 export interface TrackDef {
   id: string;
