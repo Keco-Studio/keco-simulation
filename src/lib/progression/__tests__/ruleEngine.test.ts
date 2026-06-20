@@ -54,4 +54,18 @@ describe('applyRules', () => {
     ];
     expect(applyRules(dmg, rules)).toEqual([{ trackId: 'prof_fireball', amount: 50, ruleId: 'r1' }]);
   });
+
+  it('skips template rule when ctx lacks the placeholder var (no bogus prof_ track)', () => {
+    const noSkill: Contribution = { type: 'deal_damage', amount: 1000, ctx: { enemyLevel: 30 }, step: 0 };
+    const rules: Rule[] = [
+      {
+        id: 'r1',
+        enabled: true,
+        whenType: 'deal_damage',
+        targetTrackId: 'prof_{skillId}',
+        rewardFormula: 'amount*0.05',
+      },
+    ];
+    expect(applyRules(noSkill, rules)).toEqual([]);
+  });
 });

@@ -77,7 +77,7 @@ export const DEFAULT_CONFIG: ProgressionConfig = {
       enabled: true,
       whenType: 'cast_skill',
       targetTrackId: 'prof_{skillId}',
-      rewardFormula: '10',
+      rewardFormula: 'amount * 10',
     },
     {
       id: 'prof_from_damage',
@@ -112,10 +112,12 @@ export const DEFAULT_CONFIG: ProgressionConfig = {
 
 export const DEFAULT_PROFILE: BehaviorProfile = {
   steps: 30,
+  // Skill-agnostic backbone. Per-skill proficiency comes from `skills` below,
+  // which the UI populates from the real battle skill table.
   perStep: [
-    { type: 'deal_damage', amount: 5000, ctx: { enemyLevel: 30, skillId: 'fireball' } },
+    { type: 'deal_damage', amount: 5000, ctx: { enemyLevel: 30 } },
     { type: 'kill_enemy', amount: 8, ctx: { enemyLevel: 30 } },
-    { type: 'cast_skill', amount: 12, ctx: { skillId: 'fireball' } },
     { type: 'time_elapsed', amount: 1800, ctx: {} },
   ],
+  skills: [],
 };

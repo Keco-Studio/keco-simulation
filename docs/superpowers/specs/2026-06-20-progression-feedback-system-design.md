@@ -176,7 +176,9 @@ interface ContributionSource {
 }
 ```
 
-- **`SyntheticSource`（推演用，v1 主路径）**：位于 `src/lib/progression/sources/syntheticSource.ts`。策划填"模拟步数（天/场）+ 每步行为剖面"（如"每天打 20 场，平均每场造成 5000 伤害、击杀 8 个 Lv30 怪、释放火球 12 次、在线 30 分钟"），展开成逐步 `Contribution[]`。确定性可复现。
+- **`SyntheticSource`（推演用，v1 主路径）**：位于 `src/lib/progression/sources/syntheticSource.ts`。策划填"模拟步数（天/场）+ 每步行为剖面"（如"每天打 20 场，平均每场造成 5000 伤害、击杀 8 个 Lv30 怪、在线 30 分钟"），展开成逐步 `Contribution[]`。确定性可复现。
+  - **接真实技能表**：行为剖面新增 `skills: { id, name, castsPerStep }[]`，技能选项从真实战斗技能表读取（`progression/lib/loadBattleSkills.ts` 包装 `battleSkillsStorage.loadBattleSkillsFromPersistence()`，即 `/battle/skills` 编辑器那套数据）。每个选中技能每步产出一条 `cast_skill` 贡献（`ctx.skillId` = 真实技能 id），从而 `prof_{skillId}` 为每个真实技能生成独立熟练度轨道，图表/结果按真实技能名展示。
+  - **模板路由空值保护**：`resolveTrackId` 在 `ctx` 缺少占位符变量时返回 `null`，规则被跳过，避免"无 skillId 的通用伤害"生成伪 `prof_` 轨道。
 - **`BattleEventSource`（接真实战斗，预留增强）**：位于 `src/app/simulation-system/battle/lib/progression/battleEventSource.ts`。订阅 `BattleSession.events`，映射：`damage_applied`→`deal_damage`、`battle_ended`(击杀)→`kill_enemy`、`action_executed`(技能)→`cast_skill`。**依赖方向单向：battle → progression**，核心引擎对 battle 零依赖。
 
 ### 6.3 主引擎 `src/lib/progression/simulate.ts`
