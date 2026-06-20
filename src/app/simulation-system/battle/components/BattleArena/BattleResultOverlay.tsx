@@ -10,6 +10,8 @@ export type BattleResultOverlayProps = {
   enemyName: string;
   onContinue: () => void;
   onBattleAgain: () => void;
+  /** Lines from progression rules applied to this battle (e.g. "+520 EXP → Lv12"). */
+  rewardSummaryLines?: string[];
   /** Optional: import this battle's events into the progression simulator. */
   onImportProgression?: () => void;
 };
@@ -20,6 +22,7 @@ export function BattleResultOverlay({
   enemyName,
   onContinue,
   onBattleAgain,
+  rewardSummaryLines,
   onImportProgression,
 }: BattleResultOverlayProps) {
   if (!open || !outcome) return null;
@@ -74,6 +77,21 @@ export function BattleResultOverlay({
 
         {!isWin && !isFled ? (
           <p className={styles.hint}>Adjust setup on the left and try again.</p>
+        ) : null}
+
+        {rewardSummaryLines && rewardSummaryLines.length > 0 ? (
+          <div className={styles.statsCard}>
+            <p className={styles.statsLine} style={{ marginBottom: 8, fontWeight: 600 }}>
+              本场成长（成长模拟器规则）
+            </p>
+            <div className={styles.rewards}>
+              {rewardSummaryLines.map((line) => (
+                <span key={line} className={styles.rewardItem}>
+                  {line}
+                </span>
+              ))}
+            </div>
+          </div>
         ) : null}
 
         <div className={styles.actions}>

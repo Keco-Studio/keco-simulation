@@ -10,6 +10,13 @@ export interface BattleContributionContext {
   step?: number;
 }
 
+/** Mutable state when mapping events incrementally (avoids duplicate kill_enemy). */
+export type BattleEventMapperState = {
+  killEmitted: boolean;
+};
+
+type BattleEventLike = { type: string; payload: Record<string, unknown> };
+
 function num(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -26,21 +33,22 @@ export function deriveEnemyLevelFromSession(session: BattleSession): number {
 }
 
 /**
- * Map a finished battle's event log into progression Contribution[].
- * Only player-side actions count as "付出" (left team by default).
+ * Map a slice of battle events into Contribution[].
+ * Pass `mapperState` when processing incrementally so kill_enemy fires only once.
  */
-export function battleEventsToContributions(
+export function contributionsFromBattleEvents(
+  events: readonly BattleEventLike[],
   session: BattleSession,
-  ctx: BattleContributionContext = {}
+  ctx: BattleContributionContext = {},
+  mapperState?: BattleEventMapperState
 ): Contribution[] {
   const playerId = ctx.playerId ?? session.left.id;
   const enemyLevel = ctx.enemyLevel ?? deriveEnemyLevelFromSession(session);
   const step = ctx.step ?? 0;
+  const state = mapperState ?? { killEmitted: false };
   const out: Contribution[] = [];
 
-  let killEmitted = false;
-
-  for (const ev of session.events) {
+  for (const ev of events) {
     const p = ev.payload;
 
     if (ev.type === 'damage_applied') {
@@ -78,10 +86,10 @@ export function battleEventsToContributions(
       continue;
     }
 
-    if (ev.type === 'battle_ended' && !killEmitted) {
+    if (ev.type === 'battle_ended' && !state.killEmitted) {
       const result = str(p.result) ?? session.result;
       if (result === 'left_win') {
-        killEmitted = true;
+        state.killEmitted = true;
         out.push({
           type: 'kill_enemy',
           amount: 1,
@@ -93,4 +101,15 @@ export function battleEventsToContributions(
   }
 
   return out;
+}
+
+/**
+ * Map a finished battle's event log into progression Contribution[].
+ * Only player-side actions count as "付出" (left team by default).
+ */
+export function battleEventsToContributions(
+  session: BattleSession,
+  ctx: BattleContributionContext = {}
+): Contribution[] {
+  return contributionsFromBattleEvents(session.events, session, ctx);
 }

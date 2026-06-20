@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import type { BattleSession } from '@keco/battle-core';
 import {
   battleEventsToContributions,
+  contributionsFromBattleEvents,
   deriveEnemyLevelFromSession,
+  type BattleEventMapperState,
 } from '../sources/battleEventSource';
 
 function minimalSession(overrides: Partial<BattleSession> = {}): BattleSession {
@@ -119,19 +121,36 @@ describe('battleEventsToContributions', () => {
     ]);
   });
 
-  it('ignores enemy-side damage', () => {
-    const session = minimalSession({
-      events: [
+  it('incremental slices do not duplicate kill_enemy', () => {
+    const session = minimalSession();
+    const state: BattleEventMapperState = { killEmitted: false };
+    const slice1 = contributionsFromBattleEvents(
+      [
         {
-          eventId: 'e4',
-          sessionId: 's1',
-          tick: 2,
           type: 'damage_applied',
-          payload: { actorId: 'enemy', targetId: 'player', damage: 99 },
-          createdAt: 1,
+          payload: { actorId: 'player', damage: 100, skillId: 'firebolt' },
         },
       ],
-    });
-    expect(battleEventsToContributions(session)).toEqual([]);
+      session,
+      {},
+      state
+    );
+    expect(slice1).toHaveLength(1);
+    const slice2 = contributionsFromBattleEvents(
+      [
+        {
+          type: 'battle_ended',
+          payload: { result: 'left_win', reason: 'right_defeated' },
+        },
+        {
+          type: 'battle_ended',
+          payload: { result: 'left_win', reason: 'right_defeated' },
+        },
+      ],
+      session,
+      {},
+      state
+    );
+    expect(slice2.filter((c) => c.type === 'kill_enemy')).toHaveLength(1);
   });
 });
