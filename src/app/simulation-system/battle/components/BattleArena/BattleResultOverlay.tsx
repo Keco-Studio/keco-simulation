@@ -10,6 +10,8 @@ export type BattleResultOverlayProps = {
   enemyName: string;
   onContinue: () => void;
   onBattleAgain: () => void;
+  /** Optional: import this battle's events into the progression simulator. */
+  onImportProgression?: () => void;
 };
 
 export function BattleResultOverlay({
@@ -18,6 +20,7 @@ export function BattleResultOverlay({
   enemyName,
   onContinue,
   onBattleAgain,
+  onImportProgression,
 }: BattleResultOverlayProps) {
   if (!open || !outcome) return null;
 
@@ -74,6 +77,15 @@ export function BattleResultOverlay({
         ) : null}
 
         <div className={styles.actions}>
+          {onImportProgression ? (
+            <button
+              type="button"
+              className={`${styles.arcadeBtn} ${styles.btnSecondary}`}
+              onClick={onImportProgression}
+            >
+              导入成长贡献
+            </button>
+          ) : null}
           <button
             type="button"
             className={`${styles.arcadeBtn} ${isWin ? styles.btnPrimary : styles.btnDanger}`}

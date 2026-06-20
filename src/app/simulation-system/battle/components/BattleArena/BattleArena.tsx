@@ -59,6 +59,8 @@ type Props = {
   /** Hides debug toolbar and floating actor HP bars for the design battle screen. */
   presentation?: 'debug' | 'design';
   onBattleStateChange?: (state: BattleArenaUiState) => void;
+  /** Called when user clicks "导入成长贡献" on the result overlay. */
+  onImportProgression?: (session: BattleSession) => void;
 };
 
 export type BattleArenaUiState = {
@@ -166,6 +168,7 @@ export function BattleArena({
   onLogLinesChange,
   presentation = 'debug',
   onBattleStateChange,
+  onImportProgression,
 }: Props) {
   const isDesignPresentation = presentation === 'design';
   const onLogLinesChangeRef = useRef(onLogLinesChange);
@@ -214,6 +217,7 @@ export function BattleArena({
   const [resultOverlay, setResultOverlay] = useState<{
     outcome: BattleResultOutcome;
   } | null>(null);
+  const [finishedSession, setFinishedSession] = useState<BattleSession | null>(null);
 
   const { renderWidth, renderHeight, renderOffsetX, renderOffsetY, actorPx, gridToScreen } =
     useMapRenderMetrics({
@@ -308,6 +312,7 @@ export function BattleArena({
       if (ui === 'ongoing') return;
       setRunning(false);
       const outcome: BattleResultOutcome = ui === 'fled' ? 'fled' : ui;
+      setFinishedSession(s);
       setResultOverlay({ outcome });
       onFinished?.(s);
     },
@@ -395,13 +400,20 @@ export function BattleArena({
 
   const handleBattleAgain = useCallback(() => {
     setResultOverlay(null);
+    setFinishedSession(null);
     initSession();
   }, [initSession]);
 
   const handleResultContinue = useCallback(() => {
     setResultOverlay(null);
+    setFinishedSession(null);
     onStop?.();
   }, [onStop]);
+
+  const handleImportProgression = useCallback(() => {
+    if (!finishedSession || !onImportProgression) return;
+    onImportProgression(finishedSession);
+  }, [finishedSession, onImportProgression]);
 
   useEffect(() => {
     initSession();
@@ -712,6 +724,9 @@ export function BattleArena({
             enemyName={config.enemyName}
             onContinue={handleResultContinue}
             onBattleAgain={handleBattleAgain}
+            onImportProgression={
+              onImportProgression && finishedSession ? handleImportProgression : undefined
+            }
           />
         ) : null}
 

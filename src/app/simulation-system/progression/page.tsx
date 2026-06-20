@@ -10,6 +10,8 @@ import {
   readProgressionState,
   writeProgressionState,
   resetProgressionState,
+  PROGRESSION_BATTLE_IMPORTED_EVENT,
+  type BattleImportRecord,
 } from './lib/progressionStorage';
 import TracksTab from './components/TracksTab';
 import RulesTab from './components/RulesTab';
@@ -19,18 +21,27 @@ import styles from './Progression.module.css';
 export default function ProgressionPage() {
   const [config, setConfig] = useState<ProgressionConfig>({ tracks: [], rules: [] });
   const [profile, setProfile] = useState<BehaviorProfile>({ steps: 30, perStep: [] });
+  const [battleImports, setBattleImports] = useState<BattleImportRecord[]>([]);
   const [ready, setReady] = useState(false);
 
-  useEffect(() => {
+  const reloadState = () => {
     const s = readProgressionState();
     setConfig(s.config);
     setProfile(s.profile);
+    setBattleImports(s.battleImports);
+  };
+
+  useEffect(() => {
+    reloadState();
     setReady(true);
+    const onImported = () => reloadState();
+    window.addEventListener(PROGRESSION_BATTLE_IMPORTED_EVENT, onImported);
+    return () => window.removeEventListener(PROGRESSION_BATTLE_IMPORTED_EVENT, onImported);
   }, []);
 
   useEffect(() => {
-    if (ready) writeProgressionState(config, profile);
-  }, [ready, config, profile]);
+    if (ready) writeProgressionState(config, profile, battleImports);
+  }, [ready, config, profile, battleImports]);
 
   const setTracks = (tracks: TrackDef[]) => setConfig((c) => ({ ...c, tracks }));
   const setRules = (rules: Rule[]) => setConfig((c) => ({ ...c, rules }));
@@ -39,6 +50,7 @@ export default function ProgressionPage() {
     const s = resetProgressionState();
     setConfig(s.config);
     setProfile(s.profile);
+    setBattleImports(s.battleImports);
   };
 
   return (
@@ -78,7 +90,13 @@ export default function ProgressionPage() {
               key: 'simulate',
               label: '运行推演',
               children: (
-                <SimulateTab config={config} profile={profile} onProfileChange={setProfile} />
+                <SimulateTab
+                  config={config}
+                  profile={profile}
+                  battleImports={battleImports}
+                  onProfileChange={setProfile}
+                  onBattleImportsChange={setBattleImports}
+                />
               ),
             },
           ]}

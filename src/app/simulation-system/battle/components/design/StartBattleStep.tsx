@@ -1,11 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { message } from 'antd';
+import type { BattleSession } from '@keco/battle-core';
 import {
   BattleArena,
   type BattleArenaConfig,
   type BattleArenaUiState,
 } from '../BattleArena/BattleArena';
+import { importBattleSessionToProgression } from '../../lib/progression/importBattleToProgression';
 import styles from './StartBattleStep.module.css';
 
 type Props = {
@@ -86,6 +89,13 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
     setBattleUi(state);
   }, []);
 
+  const handleImportProgression = useCallback((session: BattleSession) => {
+    const rec = importBattleSessionToProgression(session);
+    message.success(
+      `已导入本场战斗的成长贡献（${rec.contributions.length} 条事件，对手：${rec.enemyName}）`
+    );
+  }, []);
+
   useEffect(() => {
     const el = logBodyRef.current;
     if (!el) return;
@@ -118,6 +128,7 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
               hideInternalLog
               onLogLinesChange={handleLogLinesChange}
               onBattleStateChange={handleBattleStateChange}
+              onImportProgression={handleImportProgression}
               onStop={onStop}
             />
           </div>
