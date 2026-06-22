@@ -51,6 +51,11 @@
   font-size: 12px;
   color: #1677ff;
   text-decoration: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
 }
 
 .editLink:hover {

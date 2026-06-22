@@ -213,7 +213,7 @@ export default function SimulationSystemPage() {
               </div>
             </Link>
 
-            <Link href="/simulation-system/progression" className={styles.systemCard}>
+            <Link href="/simulation-system/progression/simulate" className={styles.systemCard}>
               <div className={styles.systemCardIcon} style={{ backgroundColor: '#13c2c2' }}>
                 <RiseOutlined />
               </div>
