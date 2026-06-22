@@ -213,14 +213,15 @@ export default function SimulationSystemPage() {
               </div>
             </Link>
 
-            <Link href="/simulation-system/progression" className={styles.systemCard}>
+            <Link href="/simulation-system/progression/simulate" className={styles.systemCard}>
               <div className={styles.systemCardIcon} style={{ backgroundColor: '#13c2c2' }}>
                 <RiseOutlined />
               </div>
               <div className={styles.systemCardContent}>
-                <div className={styles.systemCardTitle}>成长 / 反馈模拟器</div>
+                <div className={styles.systemCardTitle}>Progression / feedback simulator</div>
                 <div className={styles.systemCardDesc}>
-                  通用「付出→反馈」引擎：经验、技能熟练度、挂机时长奖励等
+                  Generic effort→feedback engine: EXP, skill proficiency, idle playtime rewards, and
+                  more
                 </div>
               </div>
             </Link>

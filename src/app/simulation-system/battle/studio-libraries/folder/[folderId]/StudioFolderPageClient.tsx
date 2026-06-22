@@ -294,7 +294,9 @@ export default function StudioFolderPageClient() {
   if (!projectId || !folderId) {
     return (
       <div className={styles.container}>
-        <div className={styles.error}>缺少 projectId 或 folder：请使用带 ?projectId=… 的完整链接。</div>
+        <div className={styles.error}>
+          Missing projectId or folder: use a full link with ?projectId=…
+        </div>
       </div>
     );
   }

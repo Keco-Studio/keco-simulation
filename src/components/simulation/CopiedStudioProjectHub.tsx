@@ -506,7 +506,9 @@ export default function CopiedStudioProjectHub() {
   if (!projectId) {
     return (
       <div className={styles.container}>
-        <div className={styles.error}>缺少 projectId：请在 URL 上添加 ?projectId=你的项目 UUID。</div>
+        <div className={styles.error}>
+          Missing projectId: add ?projectId=your-project-uuid to the URL.
+        </div>
       </div>
     );
   }

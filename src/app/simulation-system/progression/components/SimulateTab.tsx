@@ -92,14 +92,14 @@ export default function SimulateTab({
   const trackLabels = useMemo(() => {
     const map: Record<string, string> = {};
     for (const s of selectedSkills) {
-      map[`prof_${s.id}`] = `${s.name} 熟练度`;
+      map[`prof_${s.id}`] = `${s.name} proficiency`;
     }
     for (const rec of battleImports) {
       for (const c of rec.contributions) {
         const sid = c.ctx.skillId;
         if (typeof sid === 'string' && sid) {
           const label = nameBySkillId.get(sid) ?? sid;
-          map[`prof_${sid}`] = `${label} 熟练度`;
+          map[`prof_${sid}`] = `${label} proficiency`;
         }
       }
     }
@@ -155,15 +155,15 @@ export default function SimulateTab({
   }, [snapshots, trackLabels]);
 
   const resultCols: ColumnsType<ResultRow> = [
-    { title: '轨道', dataIndex: 'name' },
-    { title: '累计', dataIndex: 'total' },
-    { title: '等级/段位', dataIndex: 'level' },
-    { title: '解锁奖励', dataIndex: 'rewards' },
+    { title: 'Track', dataIndex: 'name' },
+    { title: 'Total', dataIndex: 'total' },
+    { title: 'Level / tier', dataIndex: 'level' },
+    { title: 'Unlocked rewards', dataIndex: 'rewards' },
   ];
 
   const importCols: ColumnsType<BattleImportRecord> = [
     {
-      title: '对手',
+      title: 'Opponent',
       dataIndex: 'enemyName',
       render: (name, rec) => (
         <Space size={4}>
@@ -175,11 +175,11 @@ export default function SimulateTab({
       ),
     },
     {
-      title: '贡献事件数',
+      title: 'Contribution events',
       render: (_, rec) => rec.contributions.length,
     },
     {
-      title: '导入时间',
+      title: 'Imported at',
       dataIndex: 'importedAt',
       render: (t: number) => new Date(t).toLocaleString(),
     },
@@ -189,7 +189,7 @@ export default function SimulateTab({
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Card
         size="small"
-        title="真实战斗贡献（BattleEventSource）"
+        title="Real battle contributions (BattleEventSource)"
         extra={
           battleImports.length > 0 ? (
             <Button
@@ -199,7 +199,7 @@ export default function SimulateTab({
               icon={<DeleteOutlined />}
               onClick={handleClearBattleImports}
             >
-              清空
+              Clear
             </Button>
           ) : null
         }
@@ -207,7 +207,7 @@ export default function SimulateTab({
         {battleImports.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="暂无导入：在战斗模拟器结束界面点击「导入成长贡献」"
+            description='No imports yet. Click "Import battle contributions" on the battle result screen.'
           />
         ) : (
           <Table
@@ -220,7 +220,7 @@ export default function SimulateTab({
         )}
       </Card>
 
-      <Card size="small" title="技能来源（合成推演 · 来自真实战斗技能表）">
+      <Card size="small" title="Skill source (synthetic simulation · from battle skill table)">
         {loadingSkills ? (
           <Spin size="small" />
         ) : (
@@ -229,7 +229,7 @@ export default function SimulateTab({
               mode="multiple"
               allowClear
               style={{ width: '100%' }}
-              placeholder="选择参与熟练度成长的技能（来自 /battle/skills 编辑的技能表）"
+              placeholder="Select skills that gain proficiency (from /battle/skills skill table)"
               value={selectedSkills.map((s) => s.id)}
               onChange={onSelectSkills}
               optionFilterProp="label"
@@ -238,7 +238,7 @@ export default function SimulateTab({
             {selectedSkills.length > 0 && (
               <Form layout="inline">
                 {selectedSkills.map((s) => (
-                  <Form.Item key={s.id} label={`${s.name} 每步释放`}>
+                  <Form.Item key={s.id} label={`${s.name} casts per step`}>
                     <InputNumber
                       min={0}
                       value={s.castsPerStep}
@@ -251,16 +251,16 @@ export default function SimulateTab({
             {skillOptions.length === 0 && (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="未找到技能：请先到「战斗技能」页编辑技能表"
+                description="No skills found. Edit the skill table on the Battle Skills page first."
               />
             )}
           </Space>
         )}
       </Card>
 
-      <Card size="small" title="模拟输入（行为剖面：每步发生的付出量）">
+      <Card size="small" title="Simulation input (behavior profile: effort per step)">
         <Form layout="inline">
-          <Form.Item label="模拟步数 (天/场)">
+          <Form.Item label="Simulation steps (days / battles)">
             <InputNumber
               min={1}
               max={3650}
@@ -283,32 +283,32 @@ export default function SimulateTab({
         </Form>
         <Space style={{ marginTop: 12 }} wrap>
           <Checkbox checked={mergeSynthetic} onChange={(e) => setMergeSynthetic(e.target.checked)}>
-            合并合成推演
+            Include synthetic simulation
           </Checkbox>
           <Checkbox
             checked={mergeBattle}
             disabled={battleImports.length === 0}
             onChange={(e) => setMergeBattle(e.target.checked)}
           >
-            合并真实战斗贡献 ({battleImports.length} 场)
+            Include real battle contributions ({battleImports.length} battle(s))
           </Checkbox>
           <Button type="primary" icon={<PlayCircleOutlined />} onClick={run}>
-            运行推演
+            Run simulation
           </Button>
         </Space>
       </Card>
 
       {snapshots.length > 0 ? (
         <>
-          <Card size="small" title="成长曲线（各轨道累计）">
+          <Card size="small" title="Growth curves (track totals)">
             <ProgressionCharts snapshots={snapshots} labels={trackLabels} />
           </Card>
-          <Card size="small" title="最终结果">
+          <Card size="small" title="Final results">
             <Table size="small" pagination={false} columns={resultCols} dataSource={finalTracks} />
           </Card>
         </>
       ) : (
-        hasRun && <Empty description="没有产出，请检查规则与轨道配置" />
+        hasRun && <Empty description="No output. Check rules and track configuration." />
       )}
     </Space>
   );

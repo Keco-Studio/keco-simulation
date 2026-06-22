@@ -82,7 +82,7 @@ export function BattleResultOverlay({
         {rewardSummaryLines && rewardSummaryLines.length > 0 ? (
           <div className={styles.statsCard}>
             <p className={styles.statsLine} style={{ marginBottom: 8, fontWeight: 600 }}>
-              本场成长（成长模拟器规则）
+              Battle progression (simulator rules)
             </p>
             <div className={styles.rewards}>
               {rewardSummaryLines.map((line) => (
@@ -101,7 +101,7 @@ export function BattleResultOverlay({
               className={`${styles.arcadeBtn} ${styles.btnSecondary}`}
               onClick={onImportProgression}
             >
-              导入成长贡献
+              Import battle contributions
             </button>
           ) : null}
           <button

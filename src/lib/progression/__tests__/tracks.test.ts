@@ -14,9 +14,9 @@ const profDef: TrackDef = {
   label: 'Fireball',
   params: {
     tiers: [
-      { threshold: 0, label: '生疏' },
-      { threshold: 100, label: '熟练' },
-      { threshold: 500, label: '精通' },
+      { threshold: 0, label: 'Unskilled' },
+      { threshold: 100, label: 'Practiced' },
+      { threshold: 500, label: 'Adept' },
     ],
   },
 };
@@ -52,7 +52,7 @@ describe('proficiency', () => {
     let s = initTrackState(profDef);
     s = TRACK_STRATEGIES.proficiency.accrue(s, 120, profDef);
     expect(s.total).toBe(120);
-    expect(s.level).toBe(2); // 熟练 (index 1) → level 2
+    expect(s.level).toBe(2); // Practiced (index 1) → level 2
   });
 });
 

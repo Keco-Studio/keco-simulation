@@ -11,7 +11,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   DEFAULT_BATTLE_SKILL_MODULE_ID,
   loadBattleSkillModulesState,
-  readActiveModuleSkillsSync,
   saveSkillsForModuleWithMirror,
   resetModuleSkillsToBuiltin,
 } from './battleSkillModulesStorage';
@@ -73,12 +72,9 @@ export async function loadBattleSkillsForBattlePage(): Promise<Skill[]> {
   return loadBattleSkillsFromPersistence();
 }
 
-/** Sync read for battle page first paint (may be stale until async load runs). */
+/** SSR-safe initial state; client hydrates from persistence in useLayoutEffect. */
 export function readBattleSkillsForInitialRender(): Skill[] {
-  if (typeof window === 'undefined') return getBuiltinSkills();
-  const persisted = readActiveModuleSkillsSync();
-  if (persisted === null) return [];
-  return persisted;
+  return [];
 }
 
 /**

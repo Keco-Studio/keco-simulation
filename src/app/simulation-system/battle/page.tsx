@@ -1,6 +1,14 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { message } from 'antd';
 import type { Element, Skill } from './types';
 import { DEFAULT_MONSTER_STATS, DEFAULT_PLAYER_STATS } from './types';
@@ -10,6 +18,7 @@ import {
   readBattleSkillsForInitialRender,
   refreshBattleSkillsFromLiveTableDrafts,
 } from './lib/skills/battleSkillsStorage';
+import { readActiveModuleSkillsSync } from './lib/skills/battleSkillModulesStorage';
 import { SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT } from '@/lib/simLocalTables/simLocalTablesEvents';
 import { useAuth } from '@studio/lib/contexts/AuthContext';
 import { useSupabase } from '@studio/lib/SupabaseContext';
@@ -109,6 +118,11 @@ export default function BattleSimulatorPage() {
       setProgressionSource(saved.progressionSource);
     }
     setPrefsHydrated(true);
+  }, []);
+
+  useLayoutEffect(() => {
+    const synced = readActiveModuleSkillsSync();
+    if (synced !== null) setSkillList(synced);
   }, []);
 
   useEffect(() => {

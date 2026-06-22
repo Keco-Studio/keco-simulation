@@ -724,7 +724,9 @@ export default function StudioLibraryPageClient() {
   if (!projectId || !libraryId) {
     return (
       <div className={styles.errorContainer}>
-        <div className={styles.errorText}>缺少 projectId 或 libraryId：请在 URL 中附带 ?projectId=项目 UUID。</div>
+        <div className={styles.errorText}>
+          Missing projectId or libraryId: add ?projectId=your-project-uuid to the URL.
+        </div>
       </div>
     );
   }

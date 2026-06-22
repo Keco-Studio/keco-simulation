@@ -69,7 +69,7 @@ type Props = {
   onBattleReset?: () => void;
   /** Reward summary lines shown on the result overlay (from progression rules). */
   rewardSummaryLines?: string[];
-  /** Called when user clicks "导入成长贡献" on the result overlay. */
+  /** Called when user clicks "Import battle contributions" on the result overlay. */
   onImportProgression?: (session: BattleSession) => void;
   /** Ref populated by BattleArena to show progression reward float text on the map. */
   progressionRewardFxRef?: React.MutableRefObject<ProgressionRewardFxHandler | null>;
@@ -493,7 +493,7 @@ export function BattleArena({
     img.onerror = () => setMapBgImage(null);
   }, [mapBgUrl]);
 
-  /** 与 battleStage / Ready 盒同宽；高度由 flex 与左侧配置栏等高 */
+  /** Same width as battleStage / Ready box; height matches left config column via flex. */
   const measureViewport = useCallback(() => {
     const el = mapViewportRef.current;
     if (!el) return;

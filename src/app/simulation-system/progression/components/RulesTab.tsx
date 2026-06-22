@@ -125,9 +125,9 @@ export default function RulesTab({ rules, onChange }: Props) {
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
         const imported = rows.map((row, i) => parseImportedRule(row, i));
         onChange(imported);
-        message.success(`导入 ${imported.length} 条规则`);
+        message.success(`Imported ${imported.length} rule(s)`);
       } catch {
-        message.error('导入失败：文件格式不正确');
+        message.error('Import failed: invalid file format');
       }
     };
     reader.readAsArrayBuffer(file);
@@ -136,7 +136,7 @@ export default function RulesTab({ rules, onChange }: Props) {
 
   const columns: ColumnsType<Rule> = [
     {
-      title: '启用',
+      title: 'Enabled',
       dataIndex: 'enabled',
       width: 70,
       render: (_, r) => (
@@ -144,7 +144,7 @@ export default function RulesTab({ rules, onChange }: Props) {
       ),
     },
     {
-      title: '触发事件 (whenType)',
+      title: 'Trigger (whenType)',
       dataIndex: 'whenType',
       width: 140,
       render: (_, r) => (
@@ -152,19 +152,19 @@ export default function RulesTab({ rules, onChange }: Props) {
       ),
     },
     {
-      title: '过滤条件 (filter)',
+      title: 'Filter',
       dataIndex: 'filter',
       width: 160,
       render: (_, r) => (
         <Input
-          placeholder="可选, 如 enemyLevel >= 20"
+          placeholder="Optional, e.g. enemyLevel >= 20"
           value={r.filter}
           onChange={(e) => update(r.id, { filter: e.target.value })}
         />
       ),
     },
     {
-      title: '目标轨道 (targetTrackId)',
+      title: 'Target track (targetTrackId)',
       dataIndex: 'targetTrackId',
       width: 150,
       render: (_, r) => (
@@ -176,7 +176,7 @@ export default function RulesTab({ rules, onChange }: Props) {
       ),
     },
     {
-      title: '奖励公式 (rewardFormula)',
+      title: 'Reward formula (rewardFormula)',
       dataIndex: 'rewardFormula',
       width: 220,
       render: (_, r) => (
@@ -189,7 +189,7 @@ export default function RulesTab({ rules, onChange }: Props) {
       ),
     },
     {
-      title: '公式参数 (params JSON)',
+      title: 'Formula params (params JSON)',
       dataIndex: 'params',
       width: 220,
       render: (_, r) => (
@@ -212,20 +212,20 @@ export default function RulesTab({ rules, onChange }: Props) {
   return (
     <div>
       <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-        公式可引用 <Typography.Text code>amount</Typography.Text>（事件量）、
-        <Typography.Text code>params</Typography.Text> 中的定值（如 damageRatio、enemyLevel、expPerKill），
-        以及事件 ctx 中的动态字段（如 skillId、enemyName）。
-        同名时 <Typography.Text code>params</Typography.Text> 覆盖 ctx。
+        Formulas may reference <Typography.Text code>amount</Typography.Text> (event quantity), fixed
+        values in <Typography.Text code>params</Typography.Text> (e.g. damageRatio, enemyLevel,
+        expPerKill), and dynamic fields from event ctx (e.g. skillId, enemyName). When names
+        collide, <Typography.Text code>params</Typography.Text> overrides ctx.
       </Typography.Paragraph>
       <Space style={{ marginBottom: 12 }} wrap>
         <Button type="primary" icon={<PlusOutlined />} onClick={addRule}>
-          新增规则
+          Add rule
         </Button>
         <Button icon={<DownloadOutlined />} onClick={exportXlsx}>
-          导出 XLSX
+          Export XLSX
         </Button>
         <Upload beforeUpload={importXlsx} showUploadList={false} accept=".xlsx">
-          <Button icon={<UploadOutlined />}>导入 XLSX</Button>
+          <Button icon={<UploadOutlined />}>Import XLSX</Button>
         </Upload>
       </Space>
       <Table
