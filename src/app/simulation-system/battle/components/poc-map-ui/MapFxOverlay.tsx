@@ -93,14 +93,19 @@ export function MapFxOverlay({
         const colorClass =
           h.variant === 'heal'
             ? fxStyles.floatHeal
-            : h.target === 'player'
-              ? fxStyles.floatDamagePlayer
-              : fxStyles.floatDamageEnemy;
+            : h.variant === 'exp'
+              ? fxStyles.floatExp
+              : h.variant === 'proficiency'
+                ? fxStyles.floatProficiency
+                : h.target === 'player'
+                  ? fxStyles.floatDamagePlayer
+                  : fxStyles.floatDamageEnemy;
+        const floatYOffset = h.variant === 'exp' || h.variant === 'proficiency' ? -56 : -40;
         return (
           <div
             key={h.id}
             className={`${fxStyles.floatText} ${colorClass}`}
-            style={{ left: screen.x + h.offsetX, top: screen.y - 40 }}
+            style={{ left: screen.x + h.offsetX, top: screen.y + floatYOffset }}
           >
             {h.text}
           </div>

@@ -1,11 +1,28 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { message } from 'antd';
+import type { BattleSession } from '@keco/battle-core';
 import {
   BattleArena,
   type BattleArenaConfig,
   type BattleArenaUiState,
 } from '../BattleArena/BattleArena';
+import { BattleProgressionPanel } from '../BattleProgressionPanel';
+import { importBattleSessionToProgression } from '../../lib/progression/importBattleToProgression';
+import {
+  loadBattleProgressionConfig,
+  useBattleProgressionRuntime,
+} from '../../lib/progression/useBattleProgressionRuntime';
+import {
+  grantsToFloatRewards,
+  type ProgressionRewardFxHandler,
+} from '../../lib/progression/formatGrantFloatText';
+import {
+  buildProgressionGrantLogLines,
+  PROGRESSION_BATTLE_LOG_HEADER,
+} from '../../lib/progression/formatProgressionBattleLog';
+import { isBattleProgressionEnabled } from '../../lib/battleProgressionSource';
 import styles from './StartBattleStep.module.css';
 
 type Props = {
@@ -64,6 +81,9 @@ function FighterBars({
 
 export function StartBattleStep({ arenaConfig, onStop }: Props) {
   const logBodyRef = useRef<HTMLDivElement>(null);
+  const progressionRewardFxRef = useRef<ProgressionRewardFxHandler | null>(null);
+  const appendBattleLogRef = useRef<(line: string) => void>(() => {});
+  const progressionHeaderLoggedRef = useRef(false);
   const [logLines, setLogLines] = useState<string[]>([]);
   const [battleUi, setBattleUi] = useState<BattleArenaUiState>(() => ({
     tick: 0,
@@ -78,12 +98,80 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
     enemyMaxMp: arenaConfig.enemyMaxMp,
   }));
 
-  const handleLogLinesChange = useCallback((lines: string[]) => {
-    setLogLines(lines);
+  const progressionEnabled = isBattleProgressionEnabled(arenaConfig.progressionSource);
+  const progressionConfig = useMemo(
+    () => (progressionEnabled ? loadBattleProgressionConfig() : null),
+    [progressionEnabled]
+  );
+  const skillNames = useMemo(
+    () => Object.fromEntries(arenaConfig.skills.map((s) => [s.id, s.name])),
+    [arenaConfig.skills]
+  );
+
+  const { trackStates, rewardSummaryLines, reset, ingestSession } = useBattleProgressionRuntime(
+    progressionConfig,
+    skillNames,
+    { enabled: progressionEnabled }
+  );
+
+  useEffect(() => {
+    if (progressionEnabled) reset();
+  }, [progressionEnabled, reset]);
+
+  const handleLogLinesChange = useCallback(
+    (lines: string[]) => {
+      setLogLines(lines);
+      if (
+        progressionEnabled &&
+        !progressionHeaderLoggedRef.current &&
+        lines.length > 0 &&
+        lines[0]?.startsWith('BT auto')
+      ) {
+        progressionHeaderLoggedRef.current = true;
+        appendBattleLogRef.current(PROGRESSION_BATTLE_LOG_HEADER);
+      }
+    },
+    [progressionEnabled]
+  );
+
+  const handleRegisterLogAppender = useCallback((append: (line: string) => void) => {
+    appendBattleLogRef.current = append;
   }, []);
 
   const handleBattleStateChange = useCallback((state: BattleArenaUiState) => {
     setBattleUi(state);
+  }, []);
+
+  const handleSessionChange = useCallback(
+    (session: BattleSession) => {
+      if (!progressionEnabled || !progressionConfig) return;
+      const { grants, trackStates: states } = ingestSession(session);
+      if (grants.length === 0) return;
+      const floats = grantsToFloatRewards(grants, progressionConfig, skillNames);
+      progressionRewardFxRef.current?.(floats);
+      const growthLines = buildProgressionGrantLogLines(
+        grants,
+        progressionConfig,
+        states,
+        skillNames
+      );
+      for (const line of growthLines) {
+        appendBattleLogRef.current(line);
+      }
+    },
+    [ingestSession, progressionConfig, progressionEnabled, skillNames]
+  );
+
+  const handleBattleReset = useCallback(() => {
+    progressionHeaderLoggedRef.current = false;
+    if (progressionEnabled) reset();
+  }, [progressionEnabled, reset]);
+
+  const handleImportProgression = useCallback((session: BattleSession) => {
+    const rec = importBattleSessionToProgression(session);
+    message.success(
+      `已导入本场战斗的成长贡献（${rec.contributions.length} 条事件，对手：${rec.enemyName}）`
+    );
   }, []);
 
   useEffect(() => {
@@ -101,12 +189,28 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
             <div className={styles.logLine}>Waiting for battle events…</div>
           ) : (
             logLines.map((line, i) => (
-              <div key={i} className={styles.logLine}>
+              <div
+                key={i}
+                className={
+                  line.includes('[growth]') ? `${styles.logLine} ${styles.logLineGrowth}` : styles.logLine
+                }
+              >
                 {line}
               </div>
             ))
           )}
         </div>
+        {progressionEnabled && progressionConfig ? (
+          <BattleProgressionPanel
+            config={progressionConfig}
+            trackStates={trackStates}
+            skillNames={skillNames}
+          />
+        ) : (
+          <div className={styles.progressionDisabled}>
+            本场已禁用成长反馈。可在向导第 2 步重新开启。
+          </div>
+        )}
       </aside>
 
       <section className={styles.rightCol}>
@@ -118,6 +222,12 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
               hideInternalLog
               onLogLinesChange={handleLogLinesChange}
               onBattleStateChange={handleBattleStateChange}
+              onSessionChange={progressionEnabled ? handleSessionChange : undefined}
+              onBattleReset={handleBattleReset}
+              onRegisterLogAppender={progressionEnabled ? handleRegisterLogAppender : undefined}
+              rewardSummaryLines={progressionEnabled ? rewardSummaryLines : undefined}
+              onImportProgression={progressionEnabled ? handleImportProgression : undefined}
+              progressionRewardFxRef={progressionEnabled ? progressionRewardFxRef : undefined}
               onStop={onStop}
             />
           </div>

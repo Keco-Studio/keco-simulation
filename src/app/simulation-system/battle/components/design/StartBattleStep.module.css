@@ -9,8 +9,8 @@
 }
 
 .logPanel {
-  width: 260px;
-  min-width: 260px;
+  width: 280px;
+  min-width: 280px;
   flex-shrink: 0;
   border-right: 1px solid #f0f0f0;
   background: #fafafa;
@@ -42,6 +42,20 @@
 .logLine {
   margin-bottom: 4px;
   word-break: break-word;
+}
+
+.logLineGrowth {
+  color: #389e0d;
+}
+
+.progressionDisabled {
+  flex-shrink: 0;
+  border-top: 1px solid #e8e8e8;
+  padding: 10px 14px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.45);
+  background: #fafafa;
 }
 
 .rightCol {

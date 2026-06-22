@@ -5,7 +5,7 @@ export type MapFloatText = {
   id: string;
   target: 'player' | 'enemy';
   text: string;
-  variant: 'damage' | 'heal';
+  variant: 'damage' | 'heal' | 'exp' | 'proficiency';
   offsetX: number;
 };
 

@@ -27,6 +27,8 @@ import {
   type UnitImportResult,
 } from '../../lib/battleUnitImportHistory';
 import { ElementGlyph } from '../ElementGlyph';
+import type { BattleProgressionSource } from '../../lib/battleProgressionSource';
+import { BattleProgressionSettingsCard } from './BattleProgressionSettingsCard';
 import { SkillCard } from './SkillCard';
 import styles from './ConfigurePlayerStep.module.css';
 
@@ -60,6 +62,8 @@ type Props = {
   onDeleteMonsterBinding: (bindingId: string) => void;
   onStartBattle: () => void;
   onRunBatchSimulation: (runs: number) => BatchMapBattleSummary | null;
+  progressionSource: BattleProgressionSource;
+  onProgressionSourceChange: (source: BattleProgressionSource) => void;
 };
 
 const ELEMENTS: Element[] = ['fire', 'water', 'thunder', 'grass', 'ice'];
@@ -246,6 +250,8 @@ export function ConfigurePlayerStep({
   onDeleteMonsterBinding,
   onStartBattle,
   onRunBatchSimulation,
+  progressionSource,
+  onProgressionSourceChange,
 }: Props) {
   const [selectedElement, setSelectedElement] = useState<string>('all');
   const [batchRuns, setBatchRuns] = useState<number | null>(BATCH_MAP_BATTLE_LIMITS.defaultRuns);
@@ -293,6 +299,11 @@ export function ConfigurePlayerStep({
     <div className={styles.root}>
       <div className={styles.contentRow}>
         <aside className={styles.sidebar}>
+        <BattleProgressionSettingsCard
+          value={progressionSource}
+          onChange={onProgressionSourceChange}
+        />
+
         <div className={styles.skillsCard}>
           <div className={styles.skillsCardTitle}>
             <TableOutlined />

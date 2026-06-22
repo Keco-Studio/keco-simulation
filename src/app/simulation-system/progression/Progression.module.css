@@ -1,0 +1,45 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.icon {
+  font-size: 28px;
+  color: #13c2c2;
+}
+
+.title h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.title p {
+  margin: 4px 0 0;
+  color: #888;
+  font-size: 13px;
+}
+
+.actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.back {
+  color: #1890ff;
+}
+
+.main {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+}

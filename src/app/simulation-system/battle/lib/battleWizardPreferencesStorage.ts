@@ -7,6 +7,10 @@ import {
   sanitizeConfigSource,
   sanitizeImportHistory,
 } from './battleUnitImportHistory';
+import {
+  type BattleProgressionSource,
+  sanitizeBattleProgressionSource,
+} from './battleProgressionSource';
 
 export const BATTLE_WIZARD_PREFERENCES_STORAGE_KEY = 'keco-battle-wizard-preferences-v2';
 /** Legacy v1 key — read once for migration. */
@@ -23,6 +27,8 @@ export type BattleWizardPreferences = {
   monsterImportHistory: BattleUnitImportBinding[];
   playerConfigSource: BattleUnitConfigSource;
   monsterConfigSource: BattleUnitConfigSource;
+  /** Whether battles apply rules from the progression simulator. */
+  progressionSource: BattleProgressionSource;
 };
 
 const VALID_ELEMENTS = new Set<Element>(['fire', 'water', 'thunder', 'grass', 'ice']);
@@ -108,6 +114,7 @@ type RawPreferencesPartial = {
   monsterImportHistory?: unknown;
   playerConfigSource?: unknown;
   monsterConfigSource?: unknown;
+  progressionSource?: unknown;
 };
 
 function buildPreferencesFromPartial(partial: RawPreferencesPartial): BattleWizardPreferences {
@@ -124,6 +131,7 @@ function buildPreferencesFromPartial(partial: RawPreferencesPartial): BattleWiza
     monsterImportHistory,
     playerConfigSource: sanitizeConfigSource(partial.playerConfigSource, playerImportHistory),
     monsterConfigSource: sanitizeConfigSource(partial.monsterConfigSource, monsterImportHistory),
+    progressionSource: sanitizeBattleProgressionSource(partial.progressionSource),
   };
 }
 
@@ -154,6 +162,7 @@ export function readBattleWizardPreferences(): BattleWizardPreferences | null {
     monsterImportHistory: [],
     playerConfigSource: { kind: 'manual' },
     monsterConfigSource: { kind: 'manual' },
+    progressionSource: 'simulator',
   });
 }
 
@@ -180,6 +189,7 @@ export function readInitialBattleWizardState(): Omit<BattleWizardPreferences, 'v
       monsterImportHistory: [],
       playerConfigSource: { kind: 'manual' },
       monsterConfigSource: { kind: 'manual' },
+      progressionSource: 'simulator',
     };
   }
   const { version: _v, ...rest } = saved;

@@ -13,6 +13,8 @@ import {
   type BattleResultOutcome,
 } from './BattleResultOverlay';
 import { MapFxOverlay } from '../poc-map-ui/MapFxOverlay';
+import type { ProgressionRewardFxHandler } from '../../lib/progression/formatGrantFloatText';
+import type { BattleProgressionSource } from '../../lib/battleProgressionSource';
 import { processArenaBattleEvents } from '../poc-map-ui/processArenaBattleEvents';
 import { useMapRenderMetrics } from '../poc-map-ui/useMapRenderMetrics';
 import { useArenaCombatFx, spriteMotionStyle } from '../poc-map-ui/useArenaCombatFx';
@@ -48,6 +50,8 @@ export type BattleArenaConfig = {
   enemySkillIds: string[];
   skills: Skill[];
   monsterInitialElement?: Element | null;
+  /** Growth rules source for this battle session. */
+  progressionSource?: BattleProgressionSource;
 };
 
 type Props = {
@@ -59,6 +63,18 @@ type Props = {
   /** Hides debug toolbar and floating actor HP bars for the design battle screen. */
   presentation?: 'debug' | 'design';
   onBattleStateChange?: (state: BattleArenaUiState) => void;
+  /** Fired whenever the battle session updates (for progression runtime). */
+  onSessionChange?: (session: BattleSession) => void;
+  /** Fired when a new battle session starts (reset progression runtime). */
+  onBattleReset?: () => void;
+  /** Reward summary lines shown on the result overlay (from progression rules). */
+  rewardSummaryLines?: string[];
+  /** Called when user clicks "导入成长贡献" on the result overlay. */
+  onImportProgression?: (session: BattleSession) => void;
+  /** Ref populated by BattleArena to show progression reward float text on the map. */
+  progressionRewardFxRef?: React.MutableRefObject<ProgressionRewardFxHandler | null>;
+  /** Register a function to append lines to the battle log (for progression / external events). */
+  onRegisterLogAppender?: (append: (line: string) => void) => void;
 };
 
 export type BattleArenaUiState = {
@@ -166,12 +182,20 @@ export function BattleArena({
   onLogLinesChange,
   presentation = 'debug',
   onBattleStateChange,
+  onSessionChange,
+  onBattleReset,
+  rewardSummaryLines,
+  onImportProgression,
+  progressionRewardFxRef,
+  onRegisterLogAppender,
 }: Props) {
   const isDesignPresentation = presentation === 'design';
   const onLogLinesChangeRef = useRef(onLogLinesChange);
   const onBattleStateChangeRef = useRef(onBattleStateChange);
+  const onSessionChangeRef = useRef(onSessionChange);
   onLogLinesChangeRef.current = onLogLinesChange;
   onBattleStateChangeRef.current = onBattleStateChange;
+  onSessionChangeRef.current = onSessionChange;
 
   const mapBgUrl = config.mapBackgroundUrl ?? POC_ARENA_MAP_BG;
   const controllerRef = useRef<MapBattleController | null>(null);
@@ -197,6 +221,32 @@ export function BattleArena({
     pushImpactFx,
   } = useMapTransientFx();
   const { playerCombatFx, enemyCombatFx, resetCombatFx, triggerCombatFx } = useArenaCombatFx();
+
+  useEffect(() => {
+    const ref = progressionRewardFxRef;
+    if (!ref) return;
+    ref.current = (rewards) => {
+      rewards.forEach((reward, i) => {
+        pushFloatText({
+          target: 'player',
+          text: reward.text,
+          variant: reward.variant,
+          offsetX: (Math.random() - 0.5) * 20 + i * 16,
+        });
+      });
+    };
+    return () => {
+      ref.current = null;
+    };
+  }, [progressionRewardFxRef, pushFloatText]);
+
+  useEffect(() => {
+    if (!onRegisterLogAppender) return;
+    onRegisterLogAppender((line) => {
+      setLogLines((prev) => [...prev.slice(-100), line]);
+    });
+  }, [onRegisterLogAppender]);
+
   const [combatFxTick, setCombatFxTick] = useState(0);
 
   const [session, setSession] = useState<BattleSession | null>(null);
@@ -214,6 +264,7 @@ export function BattleArena({
   const [resultOverlay, setResultOverlay] = useState<{
     outcome: BattleResultOutcome;
   } | null>(null);
+  const [finishedSession, setFinishedSession] = useState<BattleSession | null>(null);
 
   const { renderWidth, renderHeight, renderOffsetX, renderOffsetY, actorPx, gridToScreen } =
     useMapRenderMetrics({
@@ -308,6 +359,7 @@ export function BattleArena({
       if (ui === 'ongoing') return;
       setRunning(false);
       const outcome: BattleResultOutcome = ui === 'fled' ? 'fled' : ui;
+      setFinishedSession(s);
       setResultOverlay({ outcome });
       onFinished?.(s);
     },
@@ -391,17 +443,26 @@ export function BattleArena({
     resetCombatFx();
     setResultOverlay(null);
     setLogLines(['BT auto · keco element damage']);
-  }, [clearTransientFx, config, resetCombatFx]);
+    onBattleReset?.();
+    onSessionChangeRef.current?.(s);
+  }, [clearTransientFx, config, onBattleReset, resetCombatFx]);
 
   const handleBattleAgain = useCallback(() => {
     setResultOverlay(null);
+    setFinishedSession(null);
     initSession();
   }, [initSession]);
 
   const handleResultContinue = useCallback(() => {
     setResultOverlay(null);
+    setFinishedSession(null);
     onStop?.();
   }, [onStop]);
+
+  const handleImportProgression = useCallback(() => {
+    if (!finishedSession || !onImportProgression) return;
+    onImportProgression(finishedSession);
+  }, [finishedSession, onImportProgression]);
 
   useEffect(() => {
     initSession();
@@ -418,6 +479,7 @@ export function BattleArena({
   useEffect(() => {
     if (!session) return;
     onBattleStateChangeRef.current?.(extractUiState(session));
+    onSessionChangeRef.current?.(session);
   }, [session]);
 
   useEffect(() => {
@@ -710,8 +772,12 @@ export function BattleArena({
             open
             outcome={resultOverlay.outcome}
             enemyName={config.enemyName}
+            rewardSummaryLines={rewardSummaryLines}
             onContinue={handleResultContinue}
             onBattleAgain={handleBattleAgain}
+            onImportProgression={
+              onImportProgression && finishedSession ? handleImportProgression : undefined
+            }
           />
         ) : null}
 
