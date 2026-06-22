@@ -18,7 +18,10 @@ export interface Rule {
   whenType: string;
   filter?: string;
   targetTrackId: string;
+  /** mathjs formula; may reference `amount`, contribution ctx vars, and `params` keys. */
   rewardFormula: string;
+  /** Designer-tuned constants injected into formula/filter scope (e.g. damageRatio, expPerKill). */
+  params?: Record<string, number>;
 }
 
 export interface ExpLevelParams {

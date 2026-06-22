@@ -79,7 +79,7 @@ describe('battleEventsToContributions', () => {
         type: 'deal_damage',
         amount: 420,
         step: 0,
-        ctx: { enemyLevel: expect.any(Number), skillId: 'firebolt', targetId: 'enemy' },
+        ctx: { skillId: 'firebolt', targetId: 'enemy' },
       },
     ]);
   });
@@ -115,9 +115,9 @@ describe('battleEventsToContributions', () => {
         },
       ],
     });
-    const out = battleEventsToContributions(session, { enemyLevel: 25 });
+    const out = battleEventsToContributions(session);
     expect(out).toEqual([
-      { type: 'kill_enemy', amount: 1, step: 0, ctx: { enemyLevel: 25, enemyName: 'Slime' } },
+      { type: 'kill_enemy', amount: 1, step: 0, ctx: { enemyName: 'Slime' } },
     ]);
   });
 

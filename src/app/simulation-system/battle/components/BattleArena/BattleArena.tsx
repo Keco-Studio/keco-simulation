@@ -13,6 +13,8 @@ import {
   type BattleResultOutcome,
 } from './BattleResultOverlay';
 import { MapFxOverlay } from '../poc-map-ui/MapFxOverlay';
+import type { ProgressionRewardFxHandler } from '../../lib/progression/formatGrantFloatText';
+import type { BattleProgressionSource } from '../../lib/battleProgressionSource';
 import { processArenaBattleEvents } from '../poc-map-ui/processArenaBattleEvents';
 import { useMapRenderMetrics } from '../poc-map-ui/useMapRenderMetrics';
 import { useArenaCombatFx, spriteMotionStyle } from '../poc-map-ui/useArenaCombatFx';
@@ -48,6 +50,8 @@ export type BattleArenaConfig = {
   enemySkillIds: string[];
   skills: Skill[];
   monsterInitialElement?: Element | null;
+  /** Growth rules source for this battle session. */
+  progressionSource?: BattleProgressionSource;
 };
 
 type Props = {
@@ -67,6 +71,10 @@ type Props = {
   rewardSummaryLines?: string[];
   /** Called when user clicks "导入成长贡献" on the result overlay. */
   onImportProgression?: (session: BattleSession) => void;
+  /** Ref populated by BattleArena to show progression reward float text on the map. */
+  progressionRewardFxRef?: React.MutableRefObject<ProgressionRewardFxHandler | null>;
+  /** Register a function to append lines to the battle log (for progression / external events). */
+  onRegisterLogAppender?: (append: (line: string) => void) => void;
 };
 
 export type BattleArenaUiState = {
@@ -178,6 +186,8 @@ export function BattleArena({
   onBattleReset,
   rewardSummaryLines,
   onImportProgression,
+  progressionRewardFxRef,
+  onRegisterLogAppender,
 }: Props) {
   const isDesignPresentation = presentation === 'design';
   const onLogLinesChangeRef = useRef(onLogLinesChange);
@@ -211,6 +221,32 @@ export function BattleArena({
     pushImpactFx,
   } = useMapTransientFx();
   const { playerCombatFx, enemyCombatFx, resetCombatFx, triggerCombatFx } = useArenaCombatFx();
+
+  useEffect(() => {
+    const ref = progressionRewardFxRef;
+    if (!ref) return;
+    ref.current = (rewards) => {
+      rewards.forEach((reward, i) => {
+        pushFloatText({
+          target: 'player',
+          text: reward.text,
+          variant: reward.variant,
+          offsetX: (Math.random() - 0.5) * 20 + i * 16,
+        });
+      });
+    };
+    return () => {
+      ref.current = null;
+    };
+  }, [progressionRewardFxRef, pushFloatText]);
+
+  useEffect(() => {
+    if (!onRegisterLogAppender) return;
+    onRegisterLogAppender((line) => {
+      setLogLines((prev) => [...prev.slice(-100), line]);
+    });
+  }, [onRegisterLogAppender]);
+
   const [combatFxTick, setCombatFxTick] = useState(0);
 
   const [session, setSession] = useState<BattleSession | null>(null);

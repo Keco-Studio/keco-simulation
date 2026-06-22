@@ -44,6 +44,20 @@
   word-break: break-word;
 }
 
+.logLineGrowth {
+  color: #389e0d;
+}
+
+.progressionDisabled {
+  flex-shrink: 0;
+  border-top: 1px solid #e8e8e8;
+  padding: 10px 14px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.45);
+  background: #fafafa;
+}
+
 .rightCol {
   flex: 1;
   min-width: 0;

@@ -68,4 +68,53 @@ describe('applyRules', () => {
     ];
     expect(applyRules(noSkill, rules)).toEqual([]);
   });
+
+  it('merges rule.params into formula scope (designer-tuned constants)', () => {
+    const rules: Rule[] = [
+      {
+        id: 'r1',
+        enabled: true,
+        whenType: 'deal_damage',
+        targetTrackId: 'char_exp',
+        rewardFormula: 'amount * damageRatio + enemyLevel * levelBonus',
+        params: { damageRatio: 0.1, levelBonus: 5 },
+      },
+    ];
+    expect(applyRules(dmg, rules)).toEqual([{ trackId: 'char_exp', amount: 250, ruleId: 'r1' }]);
+  });
+
+  it('lets rule.params override contribution ctx on key clash', () => {
+    const withCtx: Contribution = {
+      type: 'deal_damage',
+      amount: 1000,
+      ctx: { enemyLevel: 30, skillId: 'fireball' },
+      step: 0,
+    };
+    const rules: Rule[] = [
+      {
+        id: 'r1',
+        enabled: true,
+        whenType: 'deal_damage',
+        targetTrackId: 'char_exp',
+        rewardFormula: 'enemyLevel * killLevelBonus',
+        params: { killLevelBonus: 20, enemyLevel: 99 },
+      },
+    ];
+    expect(applyRules(withCtx, rules)).toEqual([{ trackId: 'char_exp', amount: 1980, ruleId: 'r1' }]);
+  });
+
+  it('uses params in filter expressions', () => {
+    const rules: Rule[] = [
+      {
+        id: 'r1',
+        enabled: true,
+        whenType: 'deal_damage',
+        filter: 'enemyLevel >= minEnemyLevel',
+        targetTrackId: 'char_exp',
+        rewardFormula: '1',
+        params: { minEnemyLevel: 50 },
+      },
+    ];
+    expect(applyRules(dmg, rules)).toEqual([]);
+  });
 });

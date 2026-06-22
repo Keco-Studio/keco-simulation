@@ -34,6 +34,7 @@ import {
   readBattleWizardPreferences,
   writeBattleWizardPreferences,
 } from './lib/battleWizardPreferencesStorage';
+import type { BattleProgressionSource } from './lib/battleProgressionSource';
 import {
   type BattleUnitConfigSource,
   type BattleUnitImportBinding,
@@ -79,6 +80,7 @@ export default function BattleSimulatorPage() {
   const [monsterConfigSource, setMonsterConfigSource] = useState<BattleUnitConfigSource>({
     kind: 'manual',
   });
+  const [progressionSource, setProgressionSource] = useState<BattleProgressionSource>('simulator');
   const [monsterInitialElement, setMonsterInitialElement] = useState<Element | null>(null);
   const [skillList, setSkillList] = useState<Skill[]>(() => readBattleSkillsForInitialRender());
   const [playerSkillIds, setPlayerSkillIds] = useState<string[]>([]);
@@ -104,6 +106,7 @@ export default function BattleSimulatorPage() {
       setMonsterImportHistory(saved.monsterImportHistory);
       setPlayerConfigSource(saved.playerConfigSource);
       setMonsterConfigSource(saved.monsterConfigSource);
+      setProgressionSource(saved.progressionSource);
     }
     setPrefsHydrated(true);
   }, []);
@@ -146,6 +149,7 @@ export default function BattleSimulatorPage() {
       monsterImportHistory,
       playerConfigSource,
       monsterConfigSource,
+      progressionSource,
     });
     savedPrefsRef.current = readBattleWizardPreferences();
   }, [
@@ -159,6 +163,7 @@ export default function BattleSimulatorPage() {
     monsterImportHistory,
     playerConfigSource,
     monsterConfigSource,
+    progressionSource,
   ]);
 
   const defaultLoadoutIds = useCallback(
@@ -223,8 +228,9 @@ export default function BattleSimulatorPage() {
       enemySkillIds: enemyLoadout,
       skills: skillList,
       monsterInitialElement,
+      progressionSource,
     }),
-    [playerConfig, monsterConfig, monsterInitialElement, skillList],
+    [playerConfig, monsterConfig, monsterInitialElement, skillList, progressionSource],
   );
 
   const resolveLoadouts = useCallback(() => {
@@ -541,6 +547,8 @@ export default function BattleSimulatorPage() {
           onDeleteMonsterBinding={handleDeleteMonsterBinding}
           onStartBattle={handleStartBattle}
           onRunBatchSimulation={handleRunBatchSimulation}
+          progressionSource={progressionSource}
+          onProgressionSourceChange={setProgressionSource}
         />
       ) : null}
 

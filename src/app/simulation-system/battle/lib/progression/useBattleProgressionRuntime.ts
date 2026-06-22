@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { BattleSession } from '@keco/battle-core';
-import type { ProgressionConfig, TrackState } from '@/lib/progression/types';
+import type { ProgressionConfig, TrackState, RewardGrant } from '@/lib/progression/types';
 import {
   createTrackRuntime,
   applyContributionBatch,
@@ -21,29 +21,41 @@ export function loadBattleProgressionConfig(): ProgressionConfig {
 }
 
 export function useBattleProgressionRuntime(
-  config: ProgressionConfig,
-  skillNames: Record<string, string>
+  config: ProgressionConfig | null,
+  skillNames: Record<string, string>,
+  options?: { enabled?: boolean }
 ) {
+  const enabled = options?.enabled !== false && config !== null;
   const runtimeRef = useRef<TrackRuntimeContext | null>(null);
   const mapperStateRef = useRef<BattleEventMapperState>({ killEmitted: false });
   const processedEventCountRef = useRef(0);
   const [trackStates, setTrackStates] = useState<Record<string, TrackState>>({});
 
   const reset = useCallback(() => {
+    if (!enabled || !config) {
+      runtimeRef.current = null;
+      mapperStateRef.current = { killEmitted: false };
+      processedEventCountRef.current = 0;
+      setTrackStates({});
+      return;
+    }
     runtimeRef.current = createTrackRuntime(config);
     mapperStateRef.current = { killEmitted: false };
     processedEventCountRef.current = 0;
     setTrackStates(trackStatesToRecord(runtimeRef.current));
-  }, [config]);
+  }, [config, enabled]);
 
   const ingestSession = useCallback(
-    (session: BattleSession) => {
+    (session: BattleSession): { grants: RewardGrant[]; trackStates: Record<string, TrackState> } => {
+      if (!enabled || !config) return { grants: [], trackStates: {} };
       if (!runtimeRef.current) {
         runtimeRef.current = createTrackRuntime(config);
       }
       const newEvents = session.events.slice(processedEventCountRef.current);
       processedEventCountRef.current = session.events.length;
-      if (newEvents.length === 0) return;
+      if (newEvents.length === 0) {
+        return { grants: [], trackStates: trackStatesToRecord(runtimeRef.current) };
+      }
 
       const contributions = contributionsFromBattleEvents(
         newEvents,
@@ -51,22 +63,28 @@ export function useBattleProgressionRuntime(
         { step: 0 },
         mapperStateRef.current
       );
-      if (contributions.length === 0) return;
+      if (contributions.length === 0) {
+        return { grants: [], trackStates: trackStatesToRecord(runtimeRef.current) };
+      }
 
-      applyContributionBatch(runtimeRef.current, config, contributions);
-      setTrackStates(trackStatesToRecord(runtimeRef.current));
+      const grants = applyContributionBatch(runtimeRef.current, config, contributions);
+      const nextStates = trackStatesToRecord(runtimeRef.current);
+      setTrackStates(nextStates);
+      return { grants, trackStates: nextStates };
     },
-    [config]
+    [config, enabled]
   );
 
   const rewardSummaryLines = useMemo(
-    () => buildRewardSummaryLines(config, trackStates, skillNames),
-    [config, trackStates, skillNames]
+    () => (enabled && config ? buildRewardSummaryLines(config, trackStates, skillNames) : []),
+    [config, enabled, trackStates, skillNames]
   );
 
   const hasActivity = useMemo(
-    () => Object.values(trackStates).some((s) => s.total > 0 || s.unlockedRewards.length > 0),
-    [trackStates]
+    () =>
+      enabled &&
+      Object.values(trackStates).some((s) => s.total > 0 || s.unlockedRewards.length > 0),
+    [enabled, trackStates]
   );
 
   return {

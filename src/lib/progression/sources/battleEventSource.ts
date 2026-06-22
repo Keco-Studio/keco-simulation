@@ -4,8 +4,6 @@ import type { Contribution } from '../types';
 export interface BattleContributionContext {
   /** Which entity id counts as the player (defaults to session.left.id). */
   playerId?: string;
-  /** Proxy enemy level for rules referencing enemyLevel (derived from enemy stats if omitted). */
-  enemyLevel?: number;
   /** Step index assigned to all contributions from this battle (default 0). */
   step?: number;
 }
@@ -26,7 +24,10 @@ function str(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined;
 }
 
-/** Rough proxy when battle entities have no explicit level field. */
+/**
+ * Rough proxy when battle entities have no explicit level field.
+ * Use in rule `params.enemyLevel` for synthetic tuning; not injected into event ctx.
+ */
 export function deriveEnemyLevelFromSession(session: BattleSession): number {
   const e = session.right;
   return Math.max(1, Math.round((e.atk + e.def + e.resources.maxHp / 10) / 15));
@@ -35,6 +36,7 @@ export function deriveEnemyLevelFromSession(session: BattleSession): number {
 /**
  * Map a slice of battle events into Contribution[].
  * Pass `mapperState` when processing incrementally so kill_enemy fires only once.
+ * Event ctx carries dynamic ids only (skillId, targetId, enemyName); tune enemyLevel via rule params.
  */
 export function contributionsFromBattleEvents(
   events: readonly BattleEventLike[],
@@ -43,7 +45,6 @@ export function contributionsFromBattleEvents(
   mapperState?: BattleEventMapperState
 ): Contribution[] {
   const playerId = ctx.playerId ?? session.left.id;
-  const enemyLevel = ctx.enemyLevel ?? deriveEnemyLevelFromSession(session);
   const step = ctx.step ?? 0;
   const state = mapperState ?? { killEmitted: false };
   const out: Contribution[] = [];
@@ -62,7 +63,6 @@ export function contributionsFromBattleEvents(
         amount: damage,
         step,
         ctx: {
-          enemyLevel,
           ...(skillId ? { skillId } : {}),
           ...(str(p.targetId) ? { targetId: str(p.targetId)! } : {}),
         },
@@ -94,7 +94,7 @@ export function contributionsFromBattleEvents(
           type: 'kill_enemy',
           amount: 1,
           step,
-          ctx: { enemyLevel, enemyName: session.right.name },
+          ctx: { enemyName: session.right.name },
         });
       }
     }

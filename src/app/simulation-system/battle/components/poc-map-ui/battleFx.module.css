@@ -41,6 +41,16 @@
   color: #6ee7b7;
 }
 
+.floatExp {
+  color: #fbbf24;
+  font-size: 13px;
+}
+
+.floatProficiency {
+  color: #a78bfa;
+  font-size: 12px;
+}
+
 @keyframes battleStepFx {
   0% {
     opacity: 0.95;
