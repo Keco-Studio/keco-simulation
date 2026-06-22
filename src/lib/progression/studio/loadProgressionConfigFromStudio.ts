@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadStudioLibraryTableData } from '@/app/simulation-system/battle/lib/localTableSkillSource/simTablePickerData';
 import {
   mapStudioRowsToProgressionConfigWithStats,
-  simTableRowsToProgressionRows,
+  simTableRowsToRuleProgressionRows,
+  simTableRowsToTrackProgressionRows,
   type MapStudioConfigResult,
 } from './mapStudioRowsToConfig';
 
@@ -16,7 +17,7 @@ export async function loadProgressionConfigFromStudio(
     loadStudioLibraryTableData(supabase, rulesLibraryId),
   ]);
   return mapStudioRowsToProgressionConfigWithStats(
-    simTableRowsToProgressionRows(tracksData.rows),
-    simTableRowsToProgressionRows(rulesData.rows),
+    simTableRowsToTrackProgressionRows(tracksData.columns, tracksData.rows),
+    simTableRowsToRuleProgressionRows(rulesData.columns, rulesData.rows),
   );
 }

@@ -102,11 +102,81 @@ export function mapStudioRowsToProgressionConfig(
   return { tracks, rules };
 }
 
+type SimTableColumn = { key: string; label: string };
+
+/** camelCase / PascalCase column labels → snake_case (whenType → when_type). */
+export function normalizeStudioColumnLabel(label: string): string {
+  return label
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[-\s]+/g, '_')
+    .toLowerCase();
+}
+
+const RULES_COLUMN_ALIASES: Record<string, string> = {
+  id: RC.ruleId,
+  track_id: RC.ruleId,
+};
+
+function semanticKeyForColumn(
+  col: SimTableColumn,
+  aliases: Record<string, string>,
+): string | null {
+  const fromLabel = normalizeStudioColumnLabel(col.label);
+  const fromKey = normalizeStudioColumnLabel(col.key);
+  const raw =
+    fromLabel && fromLabel !== fromKey && /^[0-9a-f-]{36}$/i.test(col.key)
+      ? fromLabel
+      : fromLabel || fromKey;
+  if (!raw || raw === 'name') return null;
+  return aliases[raw] ?? raw;
+}
+
+/**
+ * Studio stores cell values keyed by field-definition UUID.
+ * Remap to progression schema keys using column labels (and optional aliases).
+ */
+export function remapSimTableRowsByColumns(
+  columns: SimTableColumn[],
+  rows: Array<{ id: string; values: Record<string, string> }>,
+  aliases: Record<string, string> = {},
+): StudioProgressionRow[] {
+  const fieldKeyToSemantic = new Map<string, string>();
+  for (const col of columns) {
+    const semantic = semanticKeyForColumn(col, aliases);
+    if (semantic) fieldKeyToSemantic.set(col.key, semantic);
+  }
+
+  return rows.map((row) => {
+    const values: Record<string, string> = {};
+    for (const [fieldKey, raw] of Object.entries(row.values)) {
+      const semantic = fieldKeyToSemantic.get(fieldKey) ?? fieldKey;
+      if (semantic === 'name') continue;
+      values[semantic] = raw ?? '';
+    }
+    return { id: row.id, values };
+  });
+}
+
 /** Convert loadStudioLibraryTableData rows to StudioProgressionRow[]. */
 export function simTableRowsToProgressionRows(
   rows: Array<{ id: string; values: Record<string, string> }>,
 ): StudioProgressionRow[] {
   return rows.map((r) => ({ id: r.id, values: r.values }));
+}
+
+export function simTableRowsToTrackProgressionRows(
+  columns: SimTableColumn[],
+  rows: Array<{ id: string; values: Record<string, string> }>,
+): StudioProgressionRow[] {
+  return remapSimTableRowsByColumns(columns, rows);
+}
+
+export function simTableRowsToRuleProgressionRows(
+  columns: SimTableColumn[],
+  rows: Array<{ id: string; values: Record<string, string> }>,
+): StudioProgressionRow[] {
+  return remapSimTableRowsByColumns(columns, rows, RULES_COLUMN_ALIASES);
 }
 
 export type MapStudioConfigResult = {
