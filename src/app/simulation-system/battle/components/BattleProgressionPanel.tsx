@@ -39,19 +39,26 @@ export function BattleProgressionPanel({ config, trackStates, skillNames }: Prop
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <span className={styles.title}>本场成长</span>
-        <Link href="/simulation-system/progression" className={styles.editLink} target="_blank">
-          编辑规则
+        <span className={styles.title}>Battle progression</span>
+        <Link
+          href="/simulation-system/progression/simulate"
+          className={styles.editLink}
+          target="_blank"
+        >
+          Edit rules
         </Link>
       </div>
 
       {!hasAny ? (
-        <p className={styles.empty}>战斗中造成伤害/释放技能后，将按成长模拟器规则实时累积。</p>
+        <p className={styles.empty}>
+          Deal damage or cast skills during battle to accumulate rewards using progression simulator
+          rules.
+        </p>
       ) : (
         <ul className={styles.list}>
           {exp && exp.total > 0 ? (
             <li className={styles.item}>
-              <span className={styles.itemLabel}>角色经验</span>
+              <span className={styles.itemLabel}>Character EXP</span>
               <span className={styles.itemValue}>
                 {Math.round(exp.total)} <span className={styles.muted}>→ Lv{exp.level}</span>
               </span>
@@ -85,7 +92,7 @@ export function BattleProgressionPanel({ config, trackStates, skillNames }: Prop
             const def = config.tracks.find((t) => t.id === id);
             return st.unlockedRewards.map((reward) => (
               <li key={`${id}-${reward}`} className={styles.itemUnlock}>
-                解锁 {def?.label ?? id}：{reward}
+                Unlocked {def?.label ?? id}: {reward}
               </li>
             ));
           })}

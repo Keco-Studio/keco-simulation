@@ -170,7 +170,7 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
   const handleImportProgression = useCallback((session: BattleSession) => {
     const rec = importBattleSessionToProgression(session);
     message.success(
-      `已导入本场战斗的成长贡献（${rec.contributions.length} 条事件，对手：${rec.enemyName}）`
+      `Imported battle progression contributions (${rec.contributions.length} events, opponent: ${rec.enemyName})`
     );
   }, []);
 
@@ -208,7 +208,7 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
           />
         ) : (
           <div className={styles.progressionDisabled}>
-            本场已禁用成长反馈。可在向导第 2 步重新开启。
+            Progression feedback is disabled for this battle. Re-enable it in wizard step 2.
           </div>
         )}
       </aside>

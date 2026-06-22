@@ -25,17 +25,17 @@ export function buildRewardSummaryLines(
     const st = trackStates[id];
     const skillId = id.slice('prof_'.length);
     const name = skillNames[skillId] ?? skillId;
-    let tierLabel = `段位 ${st.level}`;
+    let tierLabel = `Tier ${st.level}`;
     const tier = tiers[st.level - 1];
     if (tier?.label) tierLabel = tier.label;
-    lines.push(`${name} 熟练度 +${Math.round(st.total)} → ${tierLabel}`);
+    lines.push(`${name} proficiency +${Math.round(st.total)} → ${tierLabel}`);
   }
 
   for (const def of config.tracks) {
     const st = trackStates[def.id];
     if (!st || st.unlockedRewards.length === 0) continue;
     for (const reward of st.unlockedRewards) {
-      lines.push(`${def.label}: 解锁「${reward}」`);
+      lines.push(`${def.label}: unlocked "${reward}"`);
     }
   }
 

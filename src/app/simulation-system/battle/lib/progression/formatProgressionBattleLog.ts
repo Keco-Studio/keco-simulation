@@ -31,10 +31,10 @@ export function buildProgressionGrantLogLines(
     if (trackId === 'char_exp' || config.tracks.find((t) => t.id === trackId)?.kind === 'exp_level') {
       const label =
         trackId === 'char_exp'
-          ? '角色经验'
+          ? 'Character EXP'
           : (config.tracks.find((t) => t.id === trackId)?.label ?? trackId);
       lines.push(
-        `  [growth] +${gained} ${label} → Lv${st.level} (累计 ${Math.round(st.total)})`
+        `  [growth] +${gained} ${label} → Lv${st.level} (total ${Math.round(st.total)})`
       );
       continue;
     }
@@ -43,14 +43,14 @@ export function buildProgressionGrantLogLines(
       const skillId = trackId.slice('prof_'.length);
       const name = skillNames[skillId] ?? skillId;
       lines.push(
-        `  [growth] +${gained} ${name} 熟练度 → ${tierLabel(st, tiers)} (累计 ${Math.round(st.total)})`
+        `  [growth] +${gained} ${name} proficiency → ${tierLabel(st, tiers)} (total ${Math.round(st.total)})`
       );
       continue;
     }
 
     const def = config.tracks.find((t) => t.id === trackId);
     if (def) {
-      lines.push(`  [growth] +${gained} ${def.label} (累计 ${Math.round(st.total)})`);
+      lines.push(`  [growth] +${gained} ${def.label} (total ${Math.round(st.total)})`);
     }
   }
 
@@ -58,4 +58,4 @@ export function buildProgressionGrantLogLines(
 }
 
 export const PROGRESSION_BATTLE_LOG_HEADER =
-  '  [growth] 本场累积：角色经验（任务等级）· 技能熟练度';
+  '  [growth] Session totals: character EXP (quest level) · skill proficiency';

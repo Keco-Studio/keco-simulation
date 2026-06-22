@@ -16,8 +16,8 @@ const config: ProgressionConfig = {
       label: 'Skill prof',
       params: {
         tiers: [
-          { threshold: 0, label: '生疏' },
-          { threshold: 100, label: '熟练' },
+          { threshold: 0, label: 'Unskilled' },
+          { threshold: 100, label: 'Practiced' },
         ],
       },
     },

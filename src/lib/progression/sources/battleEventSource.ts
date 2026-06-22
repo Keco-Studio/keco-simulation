@@ -105,7 +105,7 @@ export function contributionsFromBattleEvents(
 
 /**
  * Map a finished battle's event log into progression Contribution[].
- * Only player-side actions count as "付出" (left team by default).
+ * Only player-side actions count as effort (left team by default).
  */
 export function battleEventsToContributions(
   session: BattleSession,

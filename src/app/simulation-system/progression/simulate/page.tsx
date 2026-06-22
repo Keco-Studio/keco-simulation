@@ -104,7 +104,7 @@ export default function ProgressionSimulatePage() {
           <RiseOutlined />
         </span>
         <div className={styles.title}>
-          <h1>成长 / 反馈模拟器 · 运行推演</h1>
+          <h1>Progression / feedback simulator · Run simulation</h1>
           <p>
             Import tracks and rules from Keco Studio libraries, then run progression simulation.
             {binding

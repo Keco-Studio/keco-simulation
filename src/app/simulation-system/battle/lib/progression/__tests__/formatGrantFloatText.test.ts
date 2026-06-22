@@ -23,10 +23,10 @@ describe('formatGrantFloatText', () => {
       { trackId: 'char_exp', amount: 52, ruleId: 'exp_from_damage' },
       { trackId: 'prof_firebolt', amount: 10, ruleId: 'prof_from_cast' },
     ];
-    const floats = grantsToFloatRewards(grants, DEFAULT_CONFIG, { firebolt: '火球术' });
+    const floats = grantsToFloatRewards(grants, DEFAULT_CONFIG, { firebolt: 'Bolt' });
     expect(floats).toEqual([
       { text: '+52 EXP', variant: 'exp' },
-      { text: '火球术 +10', variant: 'proficiency' },
+      { text: 'Bolt +10', variant: 'proficiency' },
     ]);
   });
 
@@ -35,9 +35,9 @@ describe('formatGrantFloatText', () => {
       { trackId: 'prof_arcane_missile', amount: 5, ruleId: 'prof_from_cast' },
     ];
     const floats = grantsToFloatRewards(grants, DEFAULT_CONFIG, {
-      arcane_missile: '奥术飞弹强化版',
+      arcane_missile: 'Arcane Missile Enhanced',
     });
-    expect(floats[0]?.text).toBe('奥术飞弹强… +5');
+    expect(floats[0]?.text).toBe('Arcan… +5');
     expect(floats[0]?.variant).toBe('proficiency');
   });
 });

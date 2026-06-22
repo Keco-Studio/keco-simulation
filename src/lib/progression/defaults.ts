@@ -6,36 +6,36 @@ export const DEFAULT_CONFIG: ProgressionConfig = {
     {
       id: 'char_exp',
       kind: 'exp_level',
-      label: '角色经验',
+      label: 'Character EXP',
       params: { baseExp: 100, growthFactor: 1.08, model: 'logarithmic', maxLevel: 100 },
     },
     {
       id: 'prof_{skillId}',
       kind: 'proficiency',
-      label: '技能熟练度',
+      label: 'Skill proficiency',
       params: {
         tiers: [
-          { threshold: 0, label: '生疏' },
-          { threshold: 100, label: '熟练' },
-          { threshold: 500, label: '精通' },
-          { threshold: 2000, label: '大师' },
+          { threshold: 0, label: 'Unskilled' },
+          { threshold: 100, label: 'Practiced' },
+          { threshold: 500, label: 'Adept' },
+          { threshold: 2000, label: 'Master' },
         ],
       },
     },
     {
       id: 'idle_reward',
       kind: 'rate_accrual',
-      label: '挂机产出',
+      label: 'Idle rewards',
       params: { ratePerUnit: 0.5, cap: 50000 },
     },
     {
       id: 'playtime_milestone',
       kind: 'milestone',
-      label: '时长里程碑',
+      label: 'Playtime milestones',
       params: {
         milestones: [
-          { at: 3600, reward: '1小时奖励' },
-          { at: 86400, reward: '24小时奖励' },
+          { at: 3600, reward: '1 hour reward' },
+          { at: 86400, reward: '24 hour reward' },
         ],
       },
     },
@@ -44,15 +44,15 @@ export const DEFAULT_CONFIG: ProgressionConfig = {
       // combined — something none of the four presets can do on their own.
       id: 'battle_mastery',
       kind: 'custom',
-      label: '战斗精通（自定义）',
+      label: 'Battle mastery (custom)',
       params: {
         accumulator: 'add',
         cap: null,
         levelMode: 'formula',
         levelFormula: 'floor(sqrt(total/10000))',
         unlocks: [
-          { at: 100000, reward: '精通徽章·铜' },
-          { at: 1000000, reward: '精通徽章·金' },
+          { at: 100000, reward: 'Mastery badge (Bronze)' },
+          { at: 1000000, reward: 'Mastery badge (Gold)' },
         ],
       },
     },

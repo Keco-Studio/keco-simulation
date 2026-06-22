@@ -31,8 +31,8 @@ describe('buildProgressionGrantLogLines', () => {
       { firebolt: 'Firebolt' }
     );
     expect(lines).toEqual([
-      '  [growth] +52 角色经验 → Lv3 (累计 520)',
-      '  [growth] +10 Firebolt 熟练度 → 熟练 (累计 120)',
+      '  [growth] +52 Character EXP → Lv3 (total 520)',
+      '  [growth] +10 Firebolt proficiency → Practiced (total 120)',
     ]);
   });
 });

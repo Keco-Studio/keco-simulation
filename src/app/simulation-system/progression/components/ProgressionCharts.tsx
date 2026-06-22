@@ -33,7 +33,7 @@ export default function ProgressionCharts({ snapshots, labels }: Props) {
       legend: { data: seriesNames, type: 'scroll' },
       grid: { left: 56, right: 24, top: 48, bottom: 40 },
       xAxis: { type: 'category', data: steps, name: 'step' },
-      yAxis: { type: 'value', name: '累计' },
+      yAxis: { type: 'value', name: 'Total' },
       series,
     });
     const onResize = () => chart.resize();
