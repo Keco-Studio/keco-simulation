@@ -13,6 +13,7 @@ import {
   SettingOutlined,
   DollarOutlined,
   TableOutlined,
+  RiseOutlined,
 } from '@ant-design/icons';
 import styles from './SimulationSystem.module.css';
 
@@ -208,6 +209,18 @@ export default function SimulationSystemPage() {
                 <div className={styles.systemCardTitle}>Economy simulator</div>
                 <div className={styles.systemCardDesc}>
                   Characters, equipment, arena, stages, prestige, and aggregate income
+                </div>
+              </div>
+            </Link>
+
+            <Link href="/simulation-system/progression" className={styles.systemCard}>
+              <div className={styles.systemCardIcon} style={{ backgroundColor: '#13c2c2' }}>
+                <RiseOutlined />
+              </div>
+              <div className={styles.systemCardContent}>
+                <div className={styles.systemCardTitle}>成长 / 反馈模拟器</div>
+                <div className={styles.systemCardDesc}>
+                  通用「付出→反馈」引擎：经验、技能熟练度、挂机时长奖励等
                 </div>
               </div>
             </Link>

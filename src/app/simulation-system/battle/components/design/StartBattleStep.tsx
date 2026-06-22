@@ -1,11 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { message } from 'antd';
+import type { BattleSession } from '@keco/battle-core';
 import {
   BattleArena,
   type BattleArenaConfig,
   type BattleArenaUiState,
 } from '../BattleArena/BattleArena';
+import { BattleProgressionPanel } from '../BattleProgressionPanel';
+import { importBattleSessionToProgression } from '../../lib/progression/importBattleToProgression';
+import {
+  loadBattleProgressionConfig,
+  useBattleProgressionRuntime,
+} from '../../lib/progression/useBattleProgressionRuntime';
 import styles from './StartBattleStep.module.css';
 
 type Props = {
@@ -78,12 +86,45 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
     enemyMaxMp: arenaConfig.enemyMaxMp,
   }));
 
+  const progressionConfig = useMemo(() => loadBattleProgressionConfig(), []);
+  const skillNames = useMemo(
+    () => Object.fromEntries(arenaConfig.skills.map((s) => [s.id, s.name])),
+    [arenaConfig.skills]
+  );
+
+  const { trackStates, rewardSummaryLines, reset, ingestSession } = useBattleProgressionRuntime(
+    progressionConfig,
+    skillNames
+  );
+
+  useEffect(() => {
+    reset();
+  }, [reset]);
+
   const handleLogLinesChange = useCallback((lines: string[]) => {
     setLogLines(lines);
   }, []);
 
   const handleBattleStateChange = useCallback((state: BattleArenaUiState) => {
     setBattleUi(state);
+  }, []);
+
+  const handleSessionChange = useCallback(
+    (session: BattleSession) => {
+      ingestSession(session);
+    },
+    [ingestSession]
+  );
+
+  const handleBattleReset = useCallback(() => {
+    reset();
+  }, [reset]);
+
+  const handleImportProgression = useCallback((session: BattleSession) => {
+    const rec = importBattleSessionToProgression(session);
+    message.success(
+      `已导入本场战斗的成长贡献（${rec.contributions.length} 条事件，对手：${rec.enemyName}）`
+    );
   }, []);
 
   useEffect(() => {
@@ -107,6 +148,11 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
             ))
           )}
         </div>
+        <BattleProgressionPanel
+          config={progressionConfig}
+          trackStates={trackStates}
+          skillNames={skillNames}
+        />
       </aside>
 
       <section className={styles.rightCol}>
@@ -118,6 +164,10 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
               hideInternalLog
               onLogLinesChange={handleLogLinesChange}
               onBattleStateChange={handleBattleStateChange}
+              onSessionChange={handleSessionChange}
+              onBattleReset={handleBattleReset}
+              rewardSummaryLines={rewardSummaryLines}
+              onImportProgression={handleImportProgression}
               onStop={onStop}
             />
           </div>

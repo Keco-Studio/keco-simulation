@@ -9,8 +9,8 @@
 }
 
 .logPanel {
-  width: 260px;
-  min-width: 260px;
+  width: 280px;
+  min-width: 280px;
   flex-shrink: 0;
   border-right: 1px solid #f0f0f0;
   background: #fafafa;
