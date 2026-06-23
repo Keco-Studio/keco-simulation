@@ -43,7 +43,7 @@ import {
   readBattleWizardPreferences,
   writeBattleWizardPreferences,
 } from './lib/battleWizardPreferencesStorage';
-import type { BattleProgressionSource } from './lib/battleProgressionSource';
+import type { EffectiveBattleLoadout } from '@/lib/characterProgression/types';
 import {
   type BattleUnitConfigSource,
   type BattleUnitImportBinding,
@@ -89,7 +89,6 @@ export default function BattleSimulatorPage() {
   const [monsterConfigSource, setMonsterConfigSource] = useState<BattleUnitConfigSource>({
     kind: 'manual',
   });
-  const [progressionSource, setProgressionSource] = useState<BattleProgressionSource>('simulator');
   const [monsterInitialElement, setMonsterInitialElement] = useState<Element | null>(null);
   const [skillList, setSkillList] = useState<Skill[]>(() => readBattleSkillsForInitialRender());
   const [playerSkillIds, setPlayerSkillIds] = useState<string[]>([]);
@@ -101,6 +100,7 @@ export default function BattleSimulatorPage() {
   const [wizardStep, setWizardStep] = useState<WizardStep>(1);
   const [skillSheetLabel, setSkillSheetLabel] = useState('Battle skills');
   const [loginOpen, setLoginOpen] = useState(false);
+  const [cloudSkillLevels, setCloudSkillLevels] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const saved = readBattleWizardPreferences();
@@ -115,7 +115,6 @@ export default function BattleSimulatorPage() {
       setMonsterImportHistory(saved.monsterImportHistory);
       setPlayerConfigSource(saved.playerConfigSource);
       setMonsterConfigSource(saved.monsterConfigSource);
-      setProgressionSource(saved.progressionSource);
     }
     setPrefsHydrated(true);
   }, []);
@@ -163,7 +162,6 @@ export default function BattleSimulatorPage() {
       monsterImportHistory,
       playerConfigSource,
       monsterConfigSource,
-      progressionSource,
     });
     savedPrefsRef.current = readBattleWizardPreferences();
   }, [
@@ -177,7 +175,6 @@ export default function BattleSimulatorPage() {
     monsterImportHistory,
     playerConfigSource,
     monsterConfigSource,
-    progressionSource,
   ]);
 
   const defaultLoadoutIds = useCallback(
@@ -242,10 +239,34 @@ export default function BattleSimulatorPage() {
       enemySkillIds: enemyLoadout,
       skills: skillList,
       monsterInitialElement,
-      progressionSource,
+      progressionSource: 'cloud',
     }),
-    [playerConfig, monsterConfig, monsterInitialElement, skillList, progressionSource],
+    [playerConfig, monsterConfig, monsterInitialElement, skillList],
   );
+
+  const handleCloudLoadoutApplied = useCallback((loadout: EffectiveBattleLoadout) => {
+    setCloudSkillLevels(loadout.skillLevels);
+    setPlayerConfig((prev) => ({
+      ...prev,
+      name: loadout.character.name,
+      hp: loadout.character.stats.maxHp,
+      atk: loadout.character.stats.atk,
+      def: loadout.character.stats.def,
+      spd: loadout.character.stats.spd,
+      mp: loadout.character.stats.maxMp,
+    }));
+    if (loadout.skills.length === 0) return;
+    setSkillList((prev) => {
+      const byId = new Map(prev.map((s) => [s.id, s]));
+      for (const skill of loadout.skills) byId.set(skill.id, skill);
+      return [...byId.values()];
+    });
+    setPlayerSkillIds(loadout.skills.map((s) => s.id).slice(0, 6));
+  }, []);
+
+  const handleCloudSkillLevelsChange = useCallback((skillLevels: Record<string, number>) => {
+    setCloudSkillLevels(skillLevels);
+  }, []);
 
   const resolveLoadouts = useCallback(() => {
     const fallback = defaultLoadoutIds();
@@ -561,8 +582,9 @@ export default function BattleSimulatorPage() {
           onDeleteMonsterBinding={handleDeleteMonsterBinding}
           onStartBattle={handleStartBattle}
           onRunBatchSimulation={handleRunBatchSimulation}
-          progressionSource={progressionSource}
-          onProgressionSourceChange={setProgressionSource}
+          onCloudLoadoutApplied={handleCloudLoadoutApplied}
+          cloudSkillLevels={cloudSkillLevels}
+          onCloudSkillLevelsChange={handleCloudSkillLevelsChange}
         />
       ) : null}
 

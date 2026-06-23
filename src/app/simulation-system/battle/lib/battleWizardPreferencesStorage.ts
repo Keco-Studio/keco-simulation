@@ -162,13 +162,15 @@ export function readBattleWizardPreferences(): BattleWizardPreferences | null {
     monsterImportHistory: [],
     playerConfigSource: { kind: 'manual' },
     monsterConfigSource: { kind: 'manual' },
-    progressionSource: 'simulator',
+    progressionSource: 'cloud',
   });
 }
 
-export function writeBattleWizardPreferences(input: Omit<BattleWizardPreferences, 'version'>): void {
+export function writeBattleWizardPreferences(
+  input: Omit<BattleWizardPreferences, 'version' | 'progressionSource'>,
+): void {
   if (typeof window === 'undefined') return;
-  const payload = buildPreferencesFromPartial(input);
+  const payload = buildPreferencesFromPartial({ ...input, progressionSource: 'cloud' });
   try {
     localStorage.setItem(BATTLE_WIZARD_PREFERENCES_STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -189,10 +191,10 @@ export function readInitialBattleWizardState(): Omit<BattleWizardPreferences, 'v
       monsterImportHistory: [],
       playerConfigSource: { kind: 'manual' },
       monsterConfigSource: { kind: 'manual' },
-      progressionSource: 'simulator',
+      progressionSource: 'cloud',
     };
   }
-  const { version: _v, ...rest } = saved;
+  const { version: _v, progressionSource: _ps, ...rest } = saved;
   return rest;
 }
 

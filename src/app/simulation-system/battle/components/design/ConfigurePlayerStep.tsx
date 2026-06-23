@@ -27,8 +27,8 @@ import {
   type UnitImportResult,
 } from '../../lib/battleUnitImportHistory';
 import { ElementGlyph } from '../ElementGlyph';
-import type { BattleProgressionSource } from '../../lib/battleProgressionSource';
-import { BattleProgressionSettingsCard } from './BattleProgressionSettingsCard';
+import type { EffectiveBattleLoadout } from '@/lib/characterProgression/types';
+import { BattleCloudProgressionPanel } from './BattleCloudProgressionPanel';
 import { SkillCard } from './SkillCard';
 import styles from './ConfigurePlayerStep.module.css';
 
@@ -62,8 +62,9 @@ type Props = {
   onDeleteMonsterBinding: (bindingId: string) => void;
   onStartBattle: () => void;
   onRunBatchSimulation: (runs: number) => BatchMapBattleSummary | null;
-  progressionSource: BattleProgressionSource;
-  onProgressionSourceChange: (source: BattleProgressionSource) => void;
+  onCloudLoadoutApplied?: (loadout: EffectiveBattleLoadout) => void;
+  cloudSkillLevels?: Record<string, number>;
+  onCloudSkillLevelsChange?: (skillLevels: Record<string, number>) => void;
 };
 
 const ELEMENTS: Element[] = ['fire', 'water', 'thunder', 'grass', 'ice'];
@@ -250,8 +251,9 @@ export function ConfigurePlayerStep({
   onDeleteMonsterBinding,
   onStartBattle,
   onRunBatchSimulation,
-  progressionSource,
-  onProgressionSourceChange,
+  onCloudLoadoutApplied,
+  cloudSkillLevels = {},
+  onCloudSkillLevelsChange,
 }: Props) {
   const [selectedElement, setSelectedElement] = useState<string>('all');
   const [batchRuns, setBatchRuns] = useState<number | null>(BATCH_MAP_BATTLE_LIMITS.defaultRuns);
@@ -299,9 +301,9 @@ export function ConfigurePlayerStep({
     <div className={styles.root}>
       <div className={styles.contentRow}>
         <aside className={styles.sidebar}>
-        <BattleProgressionSettingsCard
-          value={progressionSource}
-          onChange={onProgressionSourceChange}
+        <BattleCloudProgressionPanel
+          onLoadoutApplied={onCloudLoadoutApplied}
+          onSkillLevelsChange={onCloudSkillLevelsChange}
         />
 
         <div className={styles.skillsCard}>
@@ -413,10 +415,13 @@ export function ConfigurePlayerStep({
         <div className={styles.grid}>
           {displayedSkills.map((skill) => {
             const selected = activeLoadoutIds.includes(skill.id);
+            const cloudLevel = cloudSkillLevels[skill.id] ?? 0;
             return (
               <SkillCard
                 key={skill.id}
                 skill={skill}
+                allocatedLevel={cloudLevel}
+                alwaysShowLevel
                 selectable={!loadoutFull || selected}
                 selected={selected}
                 onClick={() => handleSkillClick(skill.id)}
@@ -441,6 +446,9 @@ export function ConfigurePlayerStep({
               activeLoadoutChips.map((skill) => (
                 <span key={skill.id} className={styles.chip}>
                   {skill.name}
+                  <span className={styles.chipLevel}>
+                    Lv.{cloudSkillLevels[skill.id] ?? 0}
+                  </span>
                   <button
                     type="button"
                     className={styles.chipRemove}

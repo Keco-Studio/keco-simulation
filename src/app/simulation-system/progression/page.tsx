@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-/** Legacy entry — run simulation lives on /progression/simulate. */
+/** Character progression is configured in the battle wizard (step 2). */
 export default function ProgressionPage() {
-  redirect('/simulation-system/progression/simulate');
+  redirect('/simulation-system/battle');
 }

@@ -1,9 +1,17 @@
-export type BattleProgressionSource = 'simulator' | 'disabled';
+export type BattleProgressionSource = 'cloud';
 
-export function isBattleProgressionEnabled(source: BattleProgressionSource | undefined): boolean {
-  return source !== 'disabled';
+export function isBattleProgressionEnabled(_source: BattleProgressionSource | undefined): boolean {
+  return true;
 }
 
-export function sanitizeBattleProgressionSource(raw: unknown): BattleProgressionSource {
-  return raw === 'disabled' ? 'disabled' : 'simulator';
+export function isSimulatorProgression(_source: BattleProgressionSource | undefined): boolean {
+  return false;
+}
+
+export function isCloudProgression(_source: BattleProgressionSource | undefined): boolean {
+  return true;
+}
+
+export function sanitizeBattleProgressionSource(_raw: unknown): BattleProgressionSource {
+  return 'cloud';
 }

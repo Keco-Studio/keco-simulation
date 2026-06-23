@@ -213,15 +213,14 @@ export default function SimulationSystemPage() {
               </div>
             </Link>
 
-            <Link href="/simulation-system/progression/simulate" className={styles.systemCard}>
+            <Link href="/simulation-system/battle" className={styles.systemCard}>
               <div className={styles.systemCardIcon} style={{ backgroundColor: '#13c2c2' }}>
                 <RiseOutlined />
               </div>
               <div className={styles.systemCardContent}>
-                <div className={styles.systemCardTitle}>Progression / feedback simulator</div>
+                <div className={styles.systemCardTitle}>Character progression</div>
                 <div className={styles.systemCardDesc}>
-                  Generic effort→feedback engine: EXP, skill proficiency, idle playtime rewards, and
-                  more
+                  Cloud EXP, level, and skill points — configured in the battle player step
                 </div>
               </div>
             </Link>

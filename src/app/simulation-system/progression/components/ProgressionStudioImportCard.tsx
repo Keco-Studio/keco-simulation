@@ -13,7 +13,7 @@ import {
   PROGRESSION_RULE_COLUMNS,
 } from '@/lib/progression/studio/columnKeys';
 import {
-  readProgressionStudioBinding,
+  readLegacyRuleSimulateBinding,
   parseProgressionSimulateSearchParams,
   type ProgressionStudioBinding,
 } from '../lib/progressionStudioBindingStorage';
@@ -31,7 +31,7 @@ export function ProgressionStudioImportCard({ onImported }: Props) {
   const { userProfile, isAuthenticated, isLoading: authLoading } = useAuth();
   const supabaseReady = Boolean(supabase && isAuthenticated && userProfile?.id);
 
-  const savedBinding = useMemo(() => readProgressionStudioBinding(), []);
+  const savedBinding = useMemo(() => readLegacyRuleSimulateBinding(), []);
 
   const [tracksLibraryId, setTracksLibraryId] = useState<string | undefined>(
     savedBinding?.tracksLibraryId,
