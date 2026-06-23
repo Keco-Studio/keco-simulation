@@ -8,7 +8,9 @@ import {
 import { loadStudioLibraryTableData } from '@/app/simulation-system/battle/lib/localTableSkillSource/simTablePickerData';
 import { draftToFlatRow } from '@/app/simulation-system/battle/lib/localTableSkillSource/battleSkillDrafts';
 import { flatRowToSkill } from '@/app/simulation-system/battle/lib/skills/skillTableCodec';
+import { cellValueToString } from '@/app/simulation-system/battle/lib/localTableSkillSource/cellDisplayValue';
 import { getLibraryAssetsWithProperties } from '@studio/lib/services/libraryAssetsService';
+import type { SimTableRow } from '@/lib/simLocalTables/types';
 import type { CharLevelCurveRow, SkillLevelCurveRow, StudioProgressionBundle } from '../types';
 import { mapStudioAssetToCharacter } from './mapStudioRowToCharacter';
 
@@ -20,21 +22,21 @@ export interface StudioLibraryBinding {
   skillLevelCurveLibraryId: string;
 }
 
-function cellInt(values: Record<string, string>, key: string, fallback = 0): number {
-  const raw = (values[key] ?? '').trim();
+function cellInt(values: Record<string, unknown>, key: string, fallback = 0): number {
+  const raw = cellValueToString(values[key]).trim();
   if (!raw) return fallback;
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) ? n : fallback;
 }
 
-function cellFloat(values: Record<string, string>, key: string): number | undefined {
-  const raw = (values[key] ?? '').trim();
+function cellFloat(values: Record<string, unknown>, key: string): number | undefined {
+  const raw = cellValueToString(values[key]).trim();
   if (!raw) return undefined;
   const n = Number.parseFloat(raw);
   return Number.isFinite(n) ? n : undefined;
 }
 
-function parseCharLevelCurve(rows: { values: Record<string, string> }[]): CharLevelCurveRow[] {
+function parseCharLevelCurve(rows: SimTableRow[]): CharLevelCurveRow[] {
   return rows
     .map((row) => ({
       level: cellInt(row.values, 'level'),
@@ -45,10 +47,10 @@ function parseCharLevelCurve(rows: { values: Record<string, string> }[]): CharLe
     .sort((a, b) => a.level - b.level);
 }
 
-function parseSkillLevelCurve(rows: { values: Record<string, string> }[]): SkillLevelCurveRow[] {
+function parseSkillLevelCurve(rows: SimTableRow[]): SkillLevelCurveRow[] {
   return rows
-    .map((row) => {
-      const skillId = (row.values.skill_id ?? '').trim();
+    .map((row): SkillLevelCurveRow | null => {
+      const skillId = cellValueToString(row.values.skill_id).trim();
       const level = cellInt(row.values, 'level');
       const costSp = cellInt(row.values, 'cost_sp');
       if (!skillId || level < 1 || costSp < 1) return null;
@@ -59,7 +61,7 @@ function parseSkillLevelCurve(rows: { values: Record<string, string> }[]): Skill
         powerBonus: cellFloat(row.values, 'power_bonus'),
         mpCostDelta: cellInt(row.values, 'mp_cost_delta', 0) || undefined,
         cooldownDelta: cellInt(row.values, 'cooldown_delta', 0) || undefined,
-      } satisfies SkillLevelCurveRow;
+      };
     })
     .filter((r): r is SkillLevelCurveRow => r !== null);
 }
@@ -67,7 +69,7 @@ function parseSkillLevelCurve(rows: { values: Record<string, string> }[]): Skill
 function importSkillsFromStudioTable(
   tableId: string,
   columns: { key: string; label: string }[],
-  rows: { id: string; values: Record<string, string> }[],
+  rows: SimTableRow[],
 ): { skills: Record<string, Skill>; skillIdByAssetId: Map<string, string> } {
   const skills: Record<string, Skill> = {};
   const skillIdByAssetId = new Map<string, string>();
@@ -76,7 +78,7 @@ function importSkillsFromStudioTable(
   if (!idColumnKey) return { skills, skillIdByAssetId };
 
   for (const row of rows) {
-    const skillIdValue = (row.values[idColumnKey] ?? '').trim();
+    const skillIdValue = cellValueToString(row.values[idColumnKey]).trim();
     if (!skillIdValue) continue;
     const draft = buildDraftFromTableRow({
       tableId,
