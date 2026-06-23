@@ -6,12 +6,21 @@ import styles from './SkillCard.module.css';
 
 type Props = {
   skill: Skill;
+  allocatedLevel?: number;
+  alwaysShowLevel?: boolean;
   selected?: boolean;
   selectable?: boolean;
   onClick?: () => void;
 };
 
-export function SkillCard({ skill, selected = false, selectable = false, onClick }: Props) {
+export function SkillCard({
+  skill,
+  allocatedLevel = 0,
+  alwaysShowLevel = false,
+  selected = false,
+  selectable = false,
+  onClick,
+}: Props) {
   return (
     <article
       className={`${styles.card} ${selectable ? styles.cardSelectable : ''} ${selected ? styles.cardSelected : ''}`}
@@ -31,7 +40,12 @@ export function SkillCard({ skill, selected = false, selectable = false, onClick
     >
       <div className={styles.cardHead}>
         <span className={styles.name}>{skill.name}</span>
-        <span className={styles.mp}>mp {skill.mpCost}</span>
+        <div className={styles.headRight}>
+          {alwaysShowLevel || allocatedLevel > 0 ? (
+            <span className={styles.level}>Lv.{allocatedLevel}</span>
+          ) : null}
+          <span className={styles.mp}>mp {skill.mpCost}</span>
+        </div>
       </div>
       <div className={styles.tags}>
         <span className={styles.tag}>power {skill.power}</span>

@@ -1,28 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import type { BattleSession } from '@keco/battle-core';
+import { useAuth } from '@studio/lib/contexts/AuthContext';
+import { useSupabase } from '@studio/lib/SupabaseContext';
+import {
+  applyCloudBattleKillExp,
+  isCloudKillExpEligible,
+} from '../../lib/progression/cloudBattleProgression';
+import { readCloudProgressionStudioBinding } from '@/app/simulation-system/progression/lib/progressionStudioBindingStorage';
+import { importStudioProgressionBundle } from '@/lib/characterProgression/studio/importStudioProgressionBundle';
+import { loadUserProgression } from '@/lib/characterProgression/supabaseProgressionStorage';
 import {
   BattleArena,
   type BattleArenaConfig,
   type BattleArenaUiState,
 } from '../BattleArena/BattleArena';
-import { BattleProgressionPanel } from '../BattleProgressionPanel';
-import { importBattleSessionToProgression } from '../../lib/progression/importBattleToProgression';
-import {
-  loadBattleProgressionConfig,
-  useBattleProgressionRuntime,
-} from '../../lib/progression/useBattleProgressionRuntime';
-import {
-  grantsToFloatRewards,
-  type ProgressionRewardFxHandler,
-} from '../../lib/progression/formatGrantFloatText';
-import {
-  buildProgressionGrantLogLines,
-  PROGRESSION_BATTLE_LOG_HEADER,
-} from '../../lib/progression/formatProgressionBattleLog';
-import { isBattleProgressionEnabled } from '../../lib/battleProgressionSource';
 import styles from './StartBattleStep.module.css';
 
 type Props = {
@@ -81,9 +75,9 @@ function FighterBars({
 
 export function StartBattleStep({ arenaConfig, onStop }: Props) {
   const logBodyRef = useRef<HTMLDivElement>(null);
-  const progressionRewardFxRef = useRef<ProgressionRewardFxHandler | null>(null);
-  const appendBattleLogRef = useRef<(line: string) => void>(() => {});
-  const progressionHeaderLoggedRef = useRef(false);
+  const cloudKillAppliedRef = useRef(false);
+  const supabase = useSupabase();
+  const { userProfile } = useAuth();
   const [logLines, setLogLines] = useState<string[]>([]);
   const [battleUi, setBattleUi] = useState<BattleArenaUiState>(() => ({
     tick: 0,
@@ -98,80 +92,69 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
     enemyMaxMp: arenaConfig.enemyMaxMp,
   }));
 
-  const progressionEnabled = isBattleProgressionEnabled(arenaConfig.progressionSource);
-  const progressionConfig = useMemo(
-    () => (progressionEnabled ? loadBattleProgressionConfig() : null),
-    [progressionEnabled]
-  );
-  const skillNames = useMemo(
-    () => Object.fromEntries(arenaConfig.skills.map((s) => [s.id, s.name])),
-    [arenaConfig.skills]
-  );
-
-  const { trackStates, rewardSummaryLines, reset, ingestSession } = useBattleProgressionRuntime(
-    progressionConfig,
-    skillNames,
-    { enabled: progressionEnabled }
-  );
-
-  useEffect(() => {
-    if (progressionEnabled) reset();
-  }, [progressionEnabled, reset]);
-
-  const handleLogLinesChange = useCallback(
-    (lines: string[]) => {
-      setLogLines(lines);
-      if (
-        progressionEnabled &&
-        !progressionHeaderLoggedRef.current &&
-        lines.length > 0 &&
-        lines[0]?.startsWith('BT auto')
-      ) {
-        progressionHeaderLoggedRef.current = true;
-        appendBattleLogRef.current(PROGRESSION_BATTLE_LOG_HEADER);
-      }
-    },
-    [progressionEnabled]
-  );
-
-  const handleRegisterLogAppender = useCallback((append: (line: string) => void) => {
-    appendBattleLogRef.current = append;
+  const handleLogLinesChange = useCallback((lines: string[]) => {
+    setLogLines(lines);
   }, []);
 
   const handleBattleStateChange = useCallback((state: BattleArenaUiState) => {
     setBattleUi(state);
   }, []);
 
-  const handleSessionChange = useCallback(
-    (session: BattleSession) => {
-      if (!progressionEnabled || !progressionConfig) return;
-      const { grants, trackStates: states } = ingestSession(session);
-      if (grants.length === 0) return;
-      const floats = grantsToFloatRewards(grants, progressionConfig, skillNames);
-      progressionRewardFxRef.current?.(floats);
-      const growthLines = buildProgressionGrantLogLines(
-        grants,
-        progressionConfig,
-        states,
-        skillNames
-      );
-      for (const line of growthLines) {
-        appendBattleLogRef.current(line);
+  const applyCloudKillExp = useCallback(
+    async (session: BattleSession) => {
+      if (cloudKillAppliedRef.current) return;
+      if (!isCloudKillExpEligible(session)) return;
+      if (!supabase || !userProfile?.id) {
+        message.warning('Sign in to persist progression');
+        return;
+      }
+      const binding = readCloudProgressionStudioBinding();
+      if (!binding) {
+        message.warning('Import Studio libraries in step 2 first');
+        return;
+      }
+      cloudKillAppliedRef.current = true;
+      try {
+        const [prog, bundle] = await Promise.all([
+          loadUserProgression(supabase, userProfile.id),
+          importStudioProgressionBundle(supabase, {
+            projectId: binding.projectId ?? '',
+            charactersLibraryId: binding.charactersLibraryId!,
+            skillsLibraryId: binding.skillsLibraryId!,
+            charLevelCurveLibraryId: binding.charLevelCurveLibraryId!,
+            skillLevelCurveLibraryId: binding.skillLevelCurveLibraryId!,
+          }),
+        ]);
+        if (!prog) return;
+        const result = await applyCloudBattleKillExp(session, {
+          supabase,
+          userId: userProfile.id,
+          playerLevel: prog.level,
+          charLevelCurve: bundle.charLevelCurve,
+        });
+        if (!result) return;
+        if (result.leveledUp) {
+          message.success(`Level up! You gained ${result.spGranted} skill points`);
+        } else if (result.expGained > 0) {
+          message.info(`+${result.expGained} EXP`);
+        }
+      } catch (err) {
+        cloudKillAppliedRef.current = false;
+        message.error(err instanceof Error ? err.message : 'Failed to save cloud EXP');
       }
     },
-    [ingestSession, progressionConfig, progressionEnabled, skillNames]
+    [supabase, userProfile?.id],
+  );
+
+  const handleSessionChange = useCallback(
+    (session: BattleSession) => {
+      void applyCloudKillExp(session);
+    },
+    [applyCloudKillExp],
   );
 
   const handleBattleReset = useCallback(() => {
-    progressionHeaderLoggedRef.current = false;
-    if (progressionEnabled) reset();
-  }, [progressionEnabled, reset]);
-
-  const handleImportProgression = useCallback((session: BattleSession) => {
-    const rec = importBattleSessionToProgression(session);
-    message.success(
-      `Imported battle progression contributions (${rec.contributions.length} events, opponent: ${rec.enemyName})`
-    );
+    cloudKillAppliedRef.current = false;
   }, []);
 
   useEffect(() => {
@@ -189,28 +172,15 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
             <div className={styles.logLine}>Waiting for battle events…</div>
           ) : (
             logLines.map((line, i) => (
-              <div
-                key={i}
-                className={
-                  line.includes('[growth]') ? `${styles.logLine} ${styles.logLineGrowth}` : styles.logLine
-                }
-              >
+              <div key={i} className={styles.logLine}>
                 {line}
               </div>
             ))
           )}
         </div>
-        {progressionEnabled && progressionConfig ? (
-          <BattleProgressionPanel
-            config={progressionConfig}
-            trackStates={trackStates}
-            skillNames={skillNames}
-          />
-        ) : (
-          <div className={styles.progressionDisabled}>
-            Progression feedback is disabled for this battle. Re-enable it in wizard step 2.
-          </div>
-        )}
+        <div className={styles.progressionDisabled}>
+          Kill EXP saves to your account on victory. Upgrade skills in step 2.
+        </div>
       </aside>
 
       <section className={styles.rightCol}>
@@ -222,12 +192,8 @@ export function StartBattleStep({ arenaConfig, onStop }: Props) {
               hideInternalLog
               onLogLinesChange={handleLogLinesChange}
               onBattleStateChange={handleBattleStateChange}
-              onSessionChange={progressionEnabled ? handleSessionChange : undefined}
+              onSessionChange={handleSessionChange}
               onBattleReset={handleBattleReset}
-              onRegisterLogAppender={progressionEnabled ? handleRegisterLogAppender : undefined}
-              rewardSummaryLines={progressionEnabled ? rewardSummaryLines : undefined}
-              onImportProgression={progressionEnabled ? handleImportProgression : undefined}
-              progressionRewardFxRef={progressionEnabled ? progressionRewardFxRef : undefined}
               onStop={onStop}
             />
           </div>

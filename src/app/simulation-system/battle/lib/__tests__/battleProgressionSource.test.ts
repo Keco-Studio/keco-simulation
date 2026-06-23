@@ -1,19 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   isBattleProgressionEnabled,
+  isCloudProgression,
+  isSimulatorProgression,
   sanitizeBattleProgressionSource,
 } from '../battleProgressionSource';
 
 describe('battleProgressionSource', () => {
-  it('sanitizes unknown values to simulator', () => {
-    expect(sanitizeBattleProgressionSource('disabled')).toBe('disabled');
-    expect(sanitizeBattleProgressionSource('other')).toBe('simulator');
-    expect(sanitizeBattleProgressionSource(undefined)).toBe('simulator');
+  it('always uses cloud progression', () => {
+    expect(sanitizeBattleProgressionSource('simulator')).toBe('cloud');
+    expect(sanitizeBattleProgressionSource('disabled')).toBe('cloud');
+    expect(sanitizeBattleProgressionSource(undefined)).toBe('cloud');
   });
 
-  it('detects enabled state', () => {
-    expect(isBattleProgressionEnabled('simulator')).toBe(true);
-    expect(isBattleProgressionEnabled('disabled')).toBe(false);
-    expect(isBattleProgressionEnabled(undefined)).toBe(true);
+  it('cloud mode is always enabled', () => {
+    expect(isBattleProgressionEnabled('cloud')).toBe(true);
+    expect(isCloudProgression('cloud')).toBe(true);
+    expect(isSimulatorProgression('cloud')).toBe(false);
   });
 });

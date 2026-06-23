@@ -162,13 +162,15 @@ export function readBattleWizardPreferences(): BattleWizardPreferences | null {
     monsterImportHistory: [],
     playerConfigSource: { kind: 'manual' },
     monsterConfigSource: { kind: 'manual' },
-    progressionSource: 'simulator',
+    progressionSource: 'cloud',
   });
 }
 
-export function writeBattleWizardPreferences(input: Omit<BattleWizardPreferences, 'version'>): void {
+export function writeBattleWizardPreferences(
+  input: Omit<BattleWizardPreferences, 'version' | 'progressionSource'>,
+): void {
   if (typeof window === 'undefined') return;
-  const payload = buildPreferencesFromPartial(input);
+  const payload = buildPreferencesFromPartial({ ...input, progressionSource: 'cloud' });
   try {
     localStorage.setItem(BATTLE_WIZARD_PREFERENCES_STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -176,7 +178,10 @@ export function writeBattleWizardPreferences(input: Omit<BattleWizardPreferences
   }
 }
 
-export function readInitialBattleWizardState(): Omit<BattleWizardPreferences, 'version'> {
+export function readInitialBattleWizardState(): Omit<
+  BattleWizardPreferences,
+  'version' | 'progressionSource'
+> {
   const saved = readBattleWizardPreferences();
   if (!saved) {
     return {
@@ -189,17 +194,20 @@ export function readInitialBattleWizardState(): Omit<BattleWizardPreferences, 'v
       monsterImportHistory: [],
       playerConfigSource: { kind: 'manual' },
       monsterConfigSource: { kind: 'manual' },
-      progressionSource: 'simulator',
     };
   }
-  const { version: _v, ...rest } = saved;
+  const { version: _v, progressionSource: _ps, ...rest } = saved;
   return rest;
 }
 
-let initialStateCache: Omit<BattleWizardPreferences, 'version'> | null = null;
+let initialStateCache: Omit<BattleWizardPreferences, 'version' | 'progressionSource'> | null =
+  null;
 
 /** Single read per page load for React initial state (avoids repeated localStorage parse). */
-export function readInitialBattleWizardStateOnce(): Omit<BattleWizardPreferences, 'version'> {
+export function readInitialBattleWizardStateOnce(): Omit<
+  BattleWizardPreferences,
+  'version' | 'progressionSource'
+> {
   if (!initialStateCache) {
     initialStateCache = readInitialBattleWizardState();
   }
