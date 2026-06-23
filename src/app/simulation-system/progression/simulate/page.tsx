@@ -24,6 +24,7 @@ import {
   type ProgressionStudioBinding,
 } from '../lib/progressionStudioBindingStorage';
 import { ProgressionStudioImportCard } from '../components/ProgressionStudioImportCard';
+import { ProgressionStudioConfigTables } from '../components/ProgressionStudioConfigTables';
 import SimulateTab from '../components/SimulateTab';
 import styles from '../Progression.module.css';
 
@@ -39,10 +40,15 @@ export default function ProgressionSimulatePage() {
 
   const reloadLocalState = useCallback(() => {
     const s = readProgressionState();
-    setConfig(s.config);
+    const b = readProgressionStudioBinding();
+    setBinding(b);
+    if (!b) {
+      setConfig(DEFAULT_CONFIG);
+    } else {
+      setConfig(s.config);
+    }
     setProfile(s.profile);
     setBattleImports(s.battleImports);
-    setBinding(readProgressionStudioBinding());
   }, []);
 
   useEffect(() => {
@@ -122,6 +128,9 @@ export default function ProgressionSimulatePage() {
         <Suspense fallback={null}>
           <ProgressionStudioImportCard onImported={handleStudioImported} />
         </Suspense>
+        <div style={{ marginTop: 16 }}>
+          <ProgressionStudioConfigTables config={config} usingBuiltInDefault={!binding} />
+        </div>
         <div style={{ marginTop: 16 }}>
           <SimulateTab
             config={config}
