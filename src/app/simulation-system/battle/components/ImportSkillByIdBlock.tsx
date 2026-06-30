@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { Button, Select, message } from 'antd';
 import { ImportOutlined } from '@ant-design/icons';
 import { useSupabase } from '@studio/lib/SupabaseContext';
@@ -36,18 +36,41 @@ type Props = {
   /** When false, parent supplies the section heading (e.g. modal create-by-id view). */
   showSectionTitle?: boolean;
   confirmButtonLabel?: string;
+  /** Reports the number of currently selected (but not yet imported) skill ids. */
+  onSelectionChange?: (count: number) => void;
 };
 
-export function ImportSkillByIdBlock({
-  disabled = false,
-  tables,
-  tablesLoading,
-  supabaseReady,
-  existingDrafts,
-  onImportDraft,
-  showSectionTitle = true,
-  confirmButtonLabel = 'Import selected',
-}: Props) {
+/**
+ * Imperative handle so a parent "Validate & apply" can flush a selection the
+ * user configured but never explicitly imported, instead of silently dropping it.
+ */
+export type ImportSkillByIdBlockHandle = {
+  hasPendingSelection: () => boolean;
+  /**
+   * Commit the current selection. Returns the outcome and, when committed, the
+   * accepted drafts so the caller can validate them immediately:
+   * - 'committed' + drafts when rows were imported,
+   * - 'interactive' when a column-mapping decision is required (modal opened),
+   * - 'none' when there is nothing to commit.
+   */
+  commit: () => Promise<{ status: 'committed' | 'interactive' | 'none'; drafts: BattleSkillDraft[] }>;
+};
+
+export const ImportSkillByIdBlock = forwardRef<ImportSkillByIdBlockHandle, Props>(
+  function ImportSkillByIdBlock(
+    {
+      disabled = false,
+      tables,
+      tablesLoading,
+      supabaseReady,
+      existingDrafts,
+      onImportDraft,
+      showSectionTitle = true,
+      confirmButtonLabel = 'Import selected',
+      onSelectionChange,
+    }: Props,
+    ref,
+  ) {
   const supabase = useSupabase();
   const [tableId, setTableId] = useState<string | undefined>();
   const [columns, setColumns] = useState<TableColumnInfo[]>([]);
@@ -129,18 +152,20 @@ export function ImportSkillByIdBlock({
   }, []);
 
   const finishImport = useCallback(
-    async (resolutions: Record<string, BattleSkillColumnMappingKey>) => {
-      if (!tableId || !idColumnKey || selectedIds.length === 0) return;
+    async (
+      resolutions: Record<string, BattleSkillColumnMappingKey>,
+    ): Promise<{ status: 'committed' | 'interactive' | 'none'; drafts: BattleSkillDraft[] }> => {
+      if (!tableId || !idColumnKey || selectedIds.length === 0) return { status: 'none', drafts: [] };
       const loaded = await loadTableRows(supabaseReady ? supabase : null, tableId);
       if (!loaded) {
         message.error('Failed to load table');
-        return;
+        return { status: 'none', drafts: [] };
       }
       const plan = planImportColumnMapping(loaded.columns, resolutions);
       if (plan.ambiguities.length > 0) {
         setPendingAmbiguities(plan.ambiguities);
         setPendingResolutions(resolutions);
-        return;
+        return { status: 'interactive', drafts: [] };
       }
 
       const drafts: BattleSkillDraft[] = [];
@@ -169,14 +194,14 @@ export function ImportSkillByIdBlock({
       }
       if (drafts.length === 0) {
         message.error('No rows imported');
-        return;
+        return { status: 'none', drafts: [] };
       }
 
       const { accepted, rejected } = partitionDraftsBySkillId(drafts, existingDrafts);
       reportImportRejections(rejected);
 
       if (accepted.length === 0) {
-        return;
+        return { status: 'none', drafts: [] };
       }
 
       onImportDraft(accepted.length === 1 ? accepted[0]! : accepted);
@@ -187,6 +212,7 @@ export function ImportSkillByIdBlock({
       );
       setSkillIdValues([]);
       setPendingAmbiguities(null);
+      return { status: 'committed', drafts: accepted };
     },
     [
       tableId,
@@ -200,19 +226,41 @@ export function ImportSkillByIdBlock({
     ],
   );
 
+  const commitSelection = useCallback(async (): Promise<{
+    status: 'committed' | 'interactive' | 'none';
+    drafts: BattleSkillDraft[];
+  }> => {
+    if (!tableId || !idColumnKey || selectedIds.length === 0) return { status: 'none', drafts: [] };
+    const plan = planImportColumnMapping(columns, {});
+    if (plan.ambiguities.length > 0) {
+      setPendingAmbiguities(plan.ambiguities);
+      setPendingResolutions({});
+      return { status: 'interactive', drafts: [] };
+    }
+    return finishImport({});
+  }, [tableId, idColumnKey, selectedIds.length, columns, finishImport]);
+
   const handleImportClick = useCallback(() => {
     if (!tableId || !idColumnKey || selectedIds.length === 0) {
       message.warning('Select table, id column, and at least one skill id');
       return;
     }
-    const plan = planImportColumnMapping(columns, {});
-    if (plan.ambiguities.length > 0) {
-      setPendingAmbiguities(plan.ambiguities);
-      setPendingResolutions({});
-      return;
-    }
-    void finishImport({});
-  }, [tableId, idColumnKey, selectedIds.length, columns, finishImport]);
+    void commitSelection();
+  }, [tableId, idColumnKey, selectedIds.length, commitSelection]);
+
+  useEffect(() => {
+    onSelectionChange?.(selectedIds.length);
+  }, [selectedIds.length, onSelectionChange]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      hasPendingSelection: () =>
+        Boolean(tableId && idColumnKey) && selectedIds.length > 0,
+      commit: commitSelection,
+    }),
+    [tableId, idColumnKey, selectedIds.length, commitSelection],
+  );
 
   const handleMappingConfirm = useCallback(
     (resolutions: Record<string, BattleSkillColumnMappingKey>) => {
@@ -310,4 +358,4 @@ export function ImportSkillByIdBlock({
       />
     </>
   );
-}
+});

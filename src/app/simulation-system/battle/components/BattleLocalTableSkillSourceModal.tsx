@@ -24,13 +24,16 @@ export function BattleLocalTableSkillSourceModal({
   onSkillsApplied,
 }: Props) {
   const panelRef = useRef<BattleLocalTableSkillSourcePanelHandle>(null);
-  const [draftCount, setDraftCount] = useState(0);
+  const [canApply, setCanApply] = useState(false);
   const [applying, setApplying] = useState(false);
 
   const handleApply = useCallback(async () => {
     setApplying(true);
     try {
-      const result = await panelRef.current?.runValidate(false);
+      // applyWithPending flushes any in-progress configuration (a pending
+      // attribute draft or a selected-but-not-imported import-by-id selection)
+      // before validating, so the user's work is never silently dropped.
+      const result = await panelRef.current?.applyWithPending();
       if (result?.ok) onClose();
     } finally {
       setApplying(false);
@@ -81,7 +84,7 @@ export function BattleLocalTableSkillSourceModal({
             modalOpen={open}
             disabled={disabled}
             onSkillsApplied={onSkillsApplied}
-            onDraftsChange={setDraftCount}
+            onCanApplyChange={setCanApply}
           />
         </div>
         <div className={styles.footer}>
@@ -100,7 +103,7 @@ export function BattleLocalTableSkillSourceModal({
           <button
             type="button"
             className={styles.applyBtn}
-            disabled={disabled || draftCount === 0 || applying}
+            disabled={disabled || !canApply || applying}
             onClick={handleApply}
           >
             {applying ? 'Applying…' : 'Validate & apply'}
