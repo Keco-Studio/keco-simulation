@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button, Collapse, Select, Tag, message } from 'antd';
 import {
@@ -47,7 +47,7 @@ import {
   type TableColumnInfo,
 } from '../lib/localTableSkillSource/simTablePickerData';
 import type { SimTableRow } from '@/lib/simLocalTables/types';
-import { ImportSkillByIdBlock } from './ImportSkillByIdBlock';
+import { ImportSkillByIdBlock, type ImportSkillByIdBlockHandle } from './ImportSkillByIdBlock';
 import styles from './BattleLocalTableSkillSourcePanel.module.css';
 
 const FIELD_OPTIONS = BATTLE_SKILL_MAPPING_FIELDS.map((f) => ({
@@ -57,6 +57,14 @@ const FIELD_OPTIONS = BATTLE_SKILL_MAPPING_FIELDS.map((f) => ({
 
 export type BattleLocalTableSkillSourcePanelHandle = {
   runValidate: (silent?: boolean) => Promise<SkillDraftValidationResult>;
+  /**
+   * Apply flow used by the modal footer: first commit any in-progress
+   * configuration (a pending attribute draft or a selected-but-not-imported
+   * import-by-id selection) so it is never silently dropped, then validate.
+   * Returns null when the work was deferred to an interactive sub-step (e.g. a
+   * column-mapping modal) and the caller should not close yet.
+   */
+  applyWithPending: () => Promise<SkillDraftValidationResult | null>;
   refreshTables: () => Promise<void>;
 };
 
@@ -70,6 +78,11 @@ type Props = {
   /** When modal opens, reset to home view */
   modalOpen?: boolean;
   onDraftsChange?: (count: number) => void;
+  /**
+   * Reports whether "Validate & apply" should be enabled: true when there are
+   * committed drafts OR an in-progress configuration that apply can flush.
+   */
+  onCanApplyChange?: (canApply: boolean) => void;
 };
 
 function FieldBindingRow({
@@ -353,7 +366,7 @@ function SkillDraftEditor({
 
 export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkillSourcePanelHandle, Props>(
   function BattleLocalTableSkillSourcePanel(
-    { disabled = false, onSkillsApplied, layout = 'embedded', modalOpen = false, onDraftsChange },
+    { disabled = false, onSkillsApplied, layout = 'embedded', modalOpen = false, onDraftsChange, onCanApplyChange },
     ref,
   ) {
     const supabase = useSupabase();
@@ -370,6 +383,16 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
     const [drafts, setDrafts] = useState<BattleSkillDraft[]>(() => loadBattleSkillDrafts());
     const [validating, setValidating] = useState(false);
     const [lastResult, setLastResult] = useState<SkillDraftValidationResult | null>(null);
+
+    /** Synchronous mirror of `drafts` so apply-after-commit reads fresh values. */
+    const draftsRef = useRef<BattleSkillDraft[]>(drafts);
+    useEffect(() => {
+      draftsRef.current = drafts;
+    }, [drafts]);
+
+    /** Import-by-id sub-block, so apply can flush an un-imported selection. */
+    const importByIdRef = useRef<ImportSkillByIdBlockHandle>(null);
+    const [importByIdSelectionCount, setImportByIdSelectionCount] = useState(0);
 
     const refreshTables = useCallback(async () => {
       setTablesLoading(true);
@@ -404,6 +427,18 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
     useEffect(() => {
       onDraftsChange?.(drafts.length);
     }, [drafts.length, onDraftsChange]);
+
+    // Apply is enabled when there is something committed OR something in progress
+    // that apply can flush (pending attribute draft / import-by-id selection).
+    const pendingAttributeReady =
+      modalView === 'createAttributes' &&
+      !!pendingDraft &&
+      hasAnchorIdBinding(attributeBindingsFromDraftFields(pendingDraft.fields));
+    useEffect(() => {
+      const canApply =
+        drafts.length > 0 || pendingAttributeReady || importByIdSelectionCount > 0;
+      onCanApplyChange?.(canApply);
+    }, [drafts.length, pendingAttributeReady, importByIdSelectionCount, onCanApplyChange]);
 
     const updateDraftField = useCallback(
       (draftId: string, fieldKey: BattleSkillColumnMappingKey, ref: LocalTableCellRef | undefined) => {
@@ -464,12 +499,12 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
       message.error(`Skipped ${rejected.length} skill(s): ${preview}${more}`);
     }, []);
 
-    const confirmPendingCreate = useCallback(async () => {
-      if (!pendingDraft) return;
+    const confirmPendingCreate = useCallback(async (): Promise<BattleSkillDraft[]> => {
+      if (!pendingDraft) return [];
       const bindings = attributeBindingsFromDraftFields(pendingDraft.fields);
       if (!hasAnchorIdBinding(bindings)) {
         message.warning('Map Skill id to a table and column first.');
-        return;
+        return [];
       }
 
       setPendingImporting(true);
@@ -486,7 +521,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           const loaded = await loadTableRows(supabaseReady ? supabase : null, tableId);
           if (!loaded) {
             message.error('Failed to load one or more tables.');
-            return;
+            return [];
           }
           rowsByTable.set(tableId, loaded.rows);
           columnsByTable.set(tableId, loaded.columns);
@@ -500,13 +535,13 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
 
         if (built.length === 0) {
           message.warning('No rows with a non-empty skill id in the anchor column.');
-          return;
+          return [];
         }
 
-        const { accepted, rejected } = partitionDraftsBySkillId(built, drafts);
+        const { accepted, rejected } = partitionDraftsBySkillId(built, draftsRef.current);
         reportImportRejections(rejected);
 
-        if (accepted.length === 0) return;
+        if (accepted.length === 0) return [];
 
         setDrafts((prev) => [...prev, ...accepted]);
         setExpandedDraftKey(accepted[accepted.length - 1]!.draftId);
@@ -520,6 +555,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
             ? `Imported 1 skill from "${anchorTableName}".`
             : `Imported ${accepted.length} skills from "${anchorTableName}".`,
         );
+        return accepted;
       } finally {
         setPendingImporting(false);
       }
@@ -527,7 +563,6 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
       pendingDraft,
       supabase,
       supabaseReady,
-      drafts,
       tables,
       reportImportRejections,
     ]);
@@ -552,12 +587,13 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
     }, []);
 
     const runValidate = useCallback(
-      async (silent = false) => {
+      async (silent = false, draftsOverride?: BattleSkillDraft[]) => {
         setValidating(true);
         try {
+          const sourceDrafts = draftsOverride ?? draftsRef.current;
           const live = await validateSkillDraftsFromLiveTables(
             supabaseReady ? supabase : null,
-            drafts,
+            sourceDrafts,
           );
           setDrafts(live.refreshedDrafts);
           setLastResult(live);
@@ -578,8 +614,45 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
           setValidating(false);
         }
       },
-      [drafts, onSkillsApplied, supabase, supabaseReady],
+      [onSkillsApplied, supabase, supabaseReady],
     );
+
+    /**
+     * Modal "Validate & apply": flush any in-progress configuration the user
+     * built but never explicitly added, so it is not silently dropped (Bug 4),
+     * then validate everything in one step. Returns null when an interactive
+     * sub-step (column-mapping modal) was triggered, signalling the caller to
+     * keep the modal open.
+     */
+    const applyWithPending = useCallback(async (): Promise<SkillDraftValidationResult | null> => {
+      // 1. A pending create-by-attributes draft with a usable id binding.
+      if (
+        modalView === 'createAttributes' &&
+        pendingDraft &&
+        hasAnchorIdBinding(attributeBindingsFromDraftFields(pendingDraft.fields))
+      ) {
+        const committed = await confirmPendingCreate();
+        if (committed.length === 0) return null; // nothing usable / load failure
+        return runValidate(false, [...draftsRef.current, ...committed]);
+      }
+
+      // 2. A selected-but-not-imported import-by-id selection.
+      if (importByIdRef.current?.hasPendingSelection()) {
+        const { status, drafts: committed } = await importByIdRef.current.commit();
+        if (status === 'interactive') return null; // mapping modal opened
+        if (status === 'committed') {
+          return runValidate(false, [...draftsRef.current, ...committed]);
+        }
+        // 'none' → fall through and validate whatever is already committed.
+      }
+
+      if (draftsRef.current.length === 0) {
+        message.warning('Configure and add at least one skill before applying.');
+        return null;
+      }
+
+      return runValidate(false);
+    }, [modalView, pendingDraft, confirmPendingCreate, runValidate]);
 
     useEffect(() => {
       if (isModal) return;
@@ -595,9 +668,10 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
       ref,
       () => ({
         runValidate,
+        applyWithPending,
         refreshTables,
       }),
-      [runValidate, refreshTables],
+      [runValidate, applyWithPending, refreshTables],
     );
 
     const collapseItems = useMemo(
@@ -756,6 +830,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
             skills to the list.
           </p>
           <ImportSkillByIdBlock
+            ref={importByIdRef}
             disabled={disabled}
             tables={tables}
             tablesLoading={tablesLoading}
@@ -764,6 +839,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
             onImportDraft={handleImportDraft}
             showSectionTitle={false}
             confirmButtonLabel="Add skills"
+            onSelectionChange={setImportByIdSelectionCount}
           />
           {studioSignInHint}
           {tablesWarning}
