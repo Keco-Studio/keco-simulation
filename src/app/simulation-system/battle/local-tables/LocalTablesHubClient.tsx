@@ -11,7 +11,6 @@ import { listLibraries } from '@studio/lib/services/libraryService';
 import { listProjects } from '@studio/lib/services/projectService';
 import type { SimTableMeta } from '@/lib/simLocalTables/types';
 import { SIM_LOCAL_WORKSPACE_TABLE_ID } from '@/lib/simLocalTables/constants';
-import { parseMarkdownTablesToLocalTableDrafts } from '@/lib/simLocalTables/importDocumentTables';
 import { BATTLE_SKILLS_SHEET_HEADERS } from '@/app/simulation-system/battle/lib/skills/battleSkillsSheetSpec';
 import {
   buildSkillSheetEmptyRow,
@@ -28,8 +27,6 @@ export default function LocalTablesHubClient() {
   const [metas, setMetas] = useState<SimTableMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [importText, setImportText] = useState('');
   const [workspaceProjectId, setWorkspaceProjectId] = useState<string>('');
   const [form] = Form.useForm<{
     name: string;
@@ -177,22 +174,6 @@ export default function LocalTablesHubClient() {
     });
   };
 
-  const handleImportDocumentTables = async () => {
-    const drafts = parseMarkdownTablesToLocalTableDrafts(importText);
-    if (drafts.length === 0) {
-      message.error('No markdown tables found');
-      return;
-    }
-    for (const draft of drafts) {
-      await putTableMeta(draft.meta);
-      await putTableRows(draft.meta.id, draft.rows);
-    }
-    message.success(`Imported ${drafts.length} table${drafts.length === 1 ? '' : 's'}`);
-    setImportOpen(false);
-    setImportText('');
-    await refresh();
-  };
-
   return (
     <div style={{ padding: '16px 24px 32px', maxWidth: 960 }}>
       <Typography.Title level={3} style={{ marginTop: 0 }}>
@@ -243,7 +224,6 @@ export default function LocalTablesHubClient() {
         <Button type="primary" onClick={() => setOpen(true)}>
           New table
         </Button>
-        <Button onClick={() => setImportOpen(true)}>Import document tables</Button>
         <Button onClick={() => void refresh()} loading={loading}>
           Refresh
         </Button>
@@ -362,25 +342,6 @@ export default function LocalTablesHubClient() {
             </Typography.Paragraph>
           ) : null}
         </Form>
-      </Modal>
-
-      <Modal
-        title="Import document tables"
-        open={importOpen}
-        onCancel={() => setImportOpen(false)}
-        onOk={() => void handleImportDocumentTables()}
-        okText="Import"
-        width={720}
-      >
-        <Typography.Paragraph type="secondary">
-          Paste Markdown content with one or more tables. Each table is saved as an independent local table.
-        </Typography.Paragraph>
-        <Input.TextArea
-          rows={12}
-          value={importText}
-          onChange={(e) => setImportText(e.target.value)}
-          placeholder={'## Characters\n| id | name |\n| --- | --- |\n| c1 | Hero |'}
-        />
       </Modal>
     </div>
   );
