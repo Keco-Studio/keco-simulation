@@ -61,6 +61,10 @@ import { AddNewRowForm } from './components/AddNewRowForm';
 import { AddColumnModal, type AddColumnFormPayload } from './components/AddColumnModal';
 import { FormulaCellPanel } from './components/FormulaCellPanel';
 import { FormulaCell } from './components/FormulaCell';
+import {
+  LIBRARY_NO_DATA_MESSAGE,
+  shouldShowLibraryNoDataState,
+} from './utils/libraryEmptyState';
 import assetTableIcon from '@studio/assets/images/AssetTableIcon.svg';
 import libraryAssetTableAddIcon from '@studio/assets/images/LibraryAssetTableAddIcon.svg';
 import libraryAssetTableSelectIcon from '@studio/assets/images/LibraryAssetTableSelectIcon2.svg';
@@ -1179,6 +1183,10 @@ export function LibraryAssetsTable({
     resolvedRows.length > 0 && resolvedRows.every((row) => selectedRowIds.has(row.id));
   const headerHasSomeRowsSelected =
     selectedRowIds.size > 0 && !headerAllRowsSelected;
+  const showNoDataState = shouldShowLibraryNoDataState({
+    propertyCount: activeProperties.length,
+    rowCount: resolvedRows.length,
+  });
 
   const handleToggleSelectAllRows = (checked: boolean) => {
     if (checked) {
@@ -1263,6 +1271,13 @@ export function LibraryAssetsTable({
             scratchColumnOps={scratchColumnOps}
           />
           <tbody className={styles.body}>
+            {showNoDataState ? (
+              <tr className={styles.noDataRow}>
+                <td className={styles.noDataCell} colSpan={totalColumns + 1}>
+                  {LIBRARY_NO_DATA_MESSAGE}
+                </td>
+              </tr>
+            ) : null}
             {resolvedRows.map((row, index) => {
               const isRowHovered = hoveredRowId === row.id;
               const isRowSelected = selectedRowIds.has(row.id);

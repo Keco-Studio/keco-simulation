@@ -11,6 +11,7 @@ import { useCloudProgression } from '@/app/simulation-system/progression/lib/use
 import { resolveUpgradeCost } from '@/lib/characterProgression/merge';
 import type { EffectiveBattleLoadout } from '@/lib/characterProgression/types';
 import type { CloudProgressionStudioBinding } from '@/app/simulation-system/progression/lib/progressionStudioBindingStorage';
+import { buildBattleProgressionSummary } from './battleProgressionSummary';
 import styles from './BattleCloudProgressionPanel.module.css';
 
 type Props = {
@@ -160,6 +161,11 @@ export function BattleCloudProgressionPanel({
           cloud.studioBundle.charLevelCurve,
         )
       : null;
+  const progressionSummary = buildBattleProgressionSummary({
+    progression: cloud.progression,
+    characterName: boundCharacter?.name,
+    nextNeed: expBar?.nextNeed,
+  });
 
   const skillRows = useMemo(() => {
     const skills = cloud.studioBundle?.skills ?? {};
@@ -317,18 +323,20 @@ export function BattleCloudProgressionPanel({
             ]}
           />
 
-          {cloud.progression && cloud.binding ? (
+          {progressionSummary && cloud.binding ? (
             <>
               <div className={styles.statusRow}>
-                {boundCharacter ? (
-                  <>
-                    <strong>{boundCharacter.name}</strong> · Lv.{cloud.progression.level} · EXP{' '}
-                    {cloud.progression.exp}
-                    {expBar?.nextNeed != null ? ` / ${expBar.nextNeed}` : ''}
-                  </>
-                ) : (
-                  <>Lv.{cloud.progression.level} · EXP {cloud.progression.exp}</>
-                )}
+                {progressionSummary.title ? (
+                  <strong className={styles.summaryTitle}>{progressionSummary.title}</strong>
+                ) : null}
+                <span className={styles.summaryTokens}>
+                  {progressionSummary.tokens.map((token) => (
+                    <span key={token.label} className={styles.summaryToken}>
+                      <span className={styles.summaryLabel}>{token.label}</span>
+                      <strong>{token.value}</strong>
+                    </span>
+                  ))}
+                </span>
               </div>
               {expBar ? (
                 <Progress
@@ -338,7 +346,6 @@ export function BattleCloudProgressionPanel({
                   showInfo={false}
                 />
               ) : null}
-              <div className={styles.spRow}>Skill points: {cloud.progression.skillPoints}</div>
             </>
           ) : null}
 
