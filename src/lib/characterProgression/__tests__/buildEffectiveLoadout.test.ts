@@ -5,6 +5,7 @@ import type {
   UserProgression,
   UserSkillLevel,
 } from '../types';
+import { mapStudioAssetToCharacter } from '../studio/mapStudioRowToCharacter';
 import type { Skill } from '@/app/simulation-system/battle/types';
 
 const fireball: Skill = {
@@ -61,6 +62,91 @@ describe('buildEffectiveLoadout', () => {
     expect(loadout.skills).toHaveLength(1);
     expect(loadout.skills[0].power).toBeCloseTo(1.5);
     expect(loadout.skillLevels).toEqual({ fireball: 1 });
+  });
+
+  it('matches character skill display names to studio skill ids', () => {
+    const loadout = buildEffectiveLoadout({
+      progression,
+      skillLevels: [],
+      studio: {
+        ...studio,
+        characters: {
+          'asset-1': {
+            ...studio.characters['asset-1'],
+            skillIds: ['Fireball'],
+          },
+        },
+      },
+    });
+
+    expect(loadout.skills.map((s) => s.id)).toEqual(['fireball']);
+  });
+
+  it('builds battle skills after imported character skill text is split', () => {
+    const mappedCharacter = mapStudioAssetToCharacter(
+      {
+        id: 'asset-1',
+        name: 'Hero',
+        propertyValues: {
+          character_id: 'hero',
+          name: 'Hero',
+          skill_ids: 'fireball, heal',
+        },
+      },
+      new Map(),
+      new Map([
+        ['fireball', 'fireball'],
+        ['heal', 'heal'],
+      ]),
+    );
+
+    const loadout = buildEffectiveLoadout({
+      progression,
+      skillLevels: [],
+      studio: {
+        ...studio,
+        characters: {
+          'asset-1': mappedCharacter!,
+        },
+        skills: {
+          ...studio.skills,
+          heal: {
+            ...fireball,
+            id: 'heal',
+            name: 'Minor Heal',
+            type: 'heal',
+          },
+        },
+      },
+    });
+
+    expect(loadout.skills.map((s) => s.id)).toEqual(['fireball', 'heal']);
+  });
+
+  it('falls back to all imported studio skills when a character has no explicit skill ids', () => {
+    const heal: Skill = {
+      ...fireball,
+      id: 'heal',
+      name: 'Minor Heal',
+      type: 'heal',
+    };
+
+    const loadout = buildEffectiveLoadout({
+      progression,
+      skillLevels: [],
+      studio: {
+        ...studio,
+        characters: {
+          'asset-1': {
+            ...studio.characters['asset-1'],
+            skillIds: [],
+          },
+        },
+        skills: { fireball, heal },
+      },
+    });
+
+    expect(loadout.skills.map((s) => s.id)).toEqual(['fireball', 'heal']);
   });
 
   it('throws when bound character asset is missing', () => {

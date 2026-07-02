@@ -12,6 +12,7 @@ import { resolveUpgradeCost } from '@/lib/characterProgression/merge';
 import type { EffectiveBattleLoadout } from '@/lib/characterProgression/types';
 import type { CloudProgressionStudioBinding } from '@/app/simulation-system/progression/lib/progressionStudioBindingStorage';
 import { buildBattleProgressionSummary } from './battleProgressionSummary';
+import { buildCloudLoadoutSyncKey } from './cloudLoadoutSyncKey';
 import styles from './BattleCloudProgressionPanel.module.css';
 
 type Props = {
@@ -64,9 +65,11 @@ export function BattleCloudProgressionPanel({
 
   const lastLoadoutKeyRef = useRef<string | null>(null);
   const loadoutKey = useMemo(() => {
-    if (!cloud.effectiveLoadout || !cloud.progression) return null;
-    const skillPart = cloud.skillLevels.map((s) => `${s.skillId}:${s.level}`).join(',');
-    return `${cloud.progression.characterAssetId}:${cloud.progression.level}:${cloud.progression.exp}:${skillPart}`;
+    return buildCloudLoadoutSyncKey({
+      progression: cloud.progression,
+      effectiveLoadout: cloud.effectiveLoadout,
+      skillLevels: cloud.skillLevels,
+    });
   }, [cloud.effectiveLoadout, cloud.progression, cloud.skillLevels]);
 
   useEffect(() => {

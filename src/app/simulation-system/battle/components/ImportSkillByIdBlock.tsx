@@ -24,6 +24,10 @@ import {
   type TableColumnInfo,
 } from '../lib/localTableSkillSource/simTablePickerData';
 import { ImportSkillHeaderMappingModal } from './ImportSkillHeaderMappingModal';
+import {
+  importByIdEmptySourceMessage,
+  shouldWarnEmptyImportSource,
+} from './importSkillByIdFlow';
 import styles from './BattleLocalTableSkillSourcePanel.module.css';
 
 type Props = {
@@ -38,6 +42,8 @@ type Props = {
   confirmButtonLabel?: string;
   /** Reports the number of currently selected (but not yet imported) skill ids. */
   onSelectionChange?: (count: number) => void;
+  /** Modal footer can own commit/apply, while embedded usage keeps an explicit button. */
+  showCommitButton?: boolean;
 };
 
 /**
@@ -68,6 +74,7 @@ export const ImportSkillByIdBlock = forwardRef<ImportSkillByIdBlockHandle, Props
       showSectionTitle = true,
       confirmButtonLabel = 'Import selected',
       onSelectionChange,
+      showCommitButton = true,
     }: Props,
     ref,
   ) {
@@ -230,6 +237,19 @@ export const ImportSkillByIdBlock = forwardRef<ImportSkillByIdBlockHandle, Props
     status: 'committed' | 'interactive' | 'none';
     drafts: BattleSkillDraft[];
   }> => {
+    if (
+      selectedIds.length === 0 &&
+      shouldWarnEmptyImportSource({
+        tableSelected: Boolean(tableId),
+        tableLoading,
+        idsLoading,
+        columnCount: columns.length,
+        idOptionCount: idOptions.length,
+      })
+    ) {
+      message.warning(importByIdEmptySourceMessage);
+      return { status: 'none', drafts: [] };
+    }
     if (!tableId || !idColumnKey || selectedIds.length === 0) return { status: 'none', drafts: [] };
     const plan = planImportColumnMapping(columns, {});
     if (plan.ambiguities.length > 0) {
@@ -238,7 +258,16 @@ export const ImportSkillByIdBlock = forwardRef<ImportSkillByIdBlockHandle, Props
       return { status: 'interactive', drafts: [] };
     }
     return finishImport({});
-  }, [tableId, idColumnKey, selectedIds.length, columns, finishImport]);
+  }, [
+    tableId,
+    idColumnKey,
+    selectedIds.length,
+    tableLoading,
+    idsLoading,
+    columns,
+    idOptions.length,
+    finishImport,
+  ]);
 
   const handleImportClick = useCallback(() => {
     if (!tableId || !idColumnKey || selectedIds.length === 0) {
@@ -337,17 +366,19 @@ export const ImportSkillByIdBlock = forwardRef<ImportSkillByIdBlockHandle, Props
             notFoundContent={idOptions.length === 0 ? 'No ids in this column' : undefined}
           />
         </div>
-        <Button
-          type="primary"
-          icon={<ImportOutlined />}
-          disabled={disabled || !tableId || !idColumnKey || selectedIds.length === 0}
-          onClick={handleImportClick}
-          block
-        >
-          {selectedIds.length > 1
-            ? `${confirmButtonLabel} (${selectedIds.length})`
-            : confirmButtonLabel}
-        </Button>
+        {showCommitButton ? (
+          <Button
+            type="primary"
+            icon={<ImportOutlined />}
+            disabled={disabled || !tableId || !idColumnKey || selectedIds.length === 0}
+            onClick={handleImportClick}
+            block
+          >
+            {selectedIds.length > 1
+              ? `${confirmButtonLabel} (${selectedIds.length})`
+              : confirmButtonLabel}
+          </Button>
+        ) : null}
       </div>
 
       <ImportSkillHeaderMappingModal

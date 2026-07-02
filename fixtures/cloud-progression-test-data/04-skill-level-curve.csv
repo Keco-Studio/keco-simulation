@@ -1,0 +1,8 @@
+skill_id,level,cost_sp,power_bonus,mp_cost_delta,cooldown_delta
+fireball,1,1,0.1,,
+fireball,2,2,0.2,-1,
+fireball,3,3,0.3,,-1
+heal,1,1,0.05,,
+heal,2,2,0.1,-1,
+arc_spark,1,1,0.08,,
+arc_spark,2,2,0.15,-1,

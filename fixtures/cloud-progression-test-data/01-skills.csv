@@ -1,0 +1,5 @@
+id,name,type,power,mpCost,maxCooldown,description,attachElement,attachStrength,attachDuration
+fireball,Fireball,attack,1.2,10,3,Basic fire attack,fire,weak,2
+heal,Minor Heal,heal,0.8,8,2,Restore HP,,,
+arc_spark,Arc Spark,attack,1.35,4,2,Lightning strike,thunder,weak,2
+strike,Strike,attack,1,0,0,Basic attack with no extra effects,,,

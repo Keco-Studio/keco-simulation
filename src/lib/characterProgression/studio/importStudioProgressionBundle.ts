@@ -12,7 +12,7 @@ import { cellValueToString } from '@/app/simulation-system/battle/lib/localTable
 import { getLibraryAssetsWithProperties } from '@studio/lib/services/libraryAssetsService';
 import type { SimTableRow } from '@/lib/simLocalTables/types';
 import type { CharLevelCurveRow, SkillLevelCurveRow, StudioProgressionBundle } from '../types';
-import { mapStudioAssetToCharacter } from './mapStudioRowToCharacter';
+import { mapStudioAssetToCharacter, normalizeSkillReferenceKey } from './mapStudioRowToCharacter';
 
 export interface StudioLibraryBinding {
   projectId: string;
@@ -114,10 +114,15 @@ export async function importStudioProgressionBundle(
     skillsData.columns,
     skillsData.rows,
   );
+  const skillIdByReferenceValue = new Map<string, string>();
+  for (const skill of Object.values(skills)) {
+    skillIdByReferenceValue.set(normalizeSkillReferenceKey(skill.id), skill.id);
+    skillIdByReferenceValue.set(normalizeSkillReferenceKey(skill.name), skill.id);
+  }
 
   const characters: StudioProgressionBundle['characters'] = {};
   for (const asset of characterAssets) {
-    const mapped = mapStudioAssetToCharacter(asset, skillIdByAssetId);
+    const mapped = mapStudioAssetToCharacter(asset, skillIdByAssetId, skillIdByReferenceValue);
     if (mapped) characters[asset.id] = mapped;
   }
 

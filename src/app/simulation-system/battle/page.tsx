@@ -17,6 +17,7 @@ import {
   loadBattleSkillsForBattlePage,
   readBattleSkillsForInitialRender,
   refreshBattleSkillsFromLiveTableDrafts,
+  saveBattleSkillsToStorage,
 } from './lib/skills/battleSkillsStorage';
 import { readActiveModuleSkillsSync } from './lib/skills/battleSkillModulesStorage';
 import { SIM_LOCAL_TABLE_ROWS_UPDATED_EVENT } from '@/lib/simLocalTables/simLocalTablesEvents';
@@ -44,6 +45,7 @@ import {
   writeBattleWizardPreferences,
 } from './lib/battleWizardPreferencesStorage';
 import type { EffectiveBattleLoadout } from '@/lib/characterProgression/types';
+import { mergeCloudLoadoutSkills } from './lib/cloudLoadoutSkills';
 import {
   type BattleUnitConfigSource,
   type BattleUnitImportBinding,
@@ -101,6 +103,11 @@ export default function BattleSimulatorPage() {
   const [skillSheetLabel, setSkillSheetLabel] = useState('Battle skills');
   const [loginOpen, setLoginOpen] = useState(false);
   const [cloudSkillLevels, setCloudSkillLevels] = useState<Record<string, number>>({});
+  const skillListRef = useRef<Skill[]>([]);
+
+  useEffect(() => {
+    skillListRef.current = skillList;
+  }, [skillList]);
 
   useEffect(() => {
     const saved = readBattleWizardPreferences();
@@ -256,11 +263,10 @@ export default function BattleSimulatorPage() {
       mp: loadout.character.stats.maxMp,
     }));
     if (loadout.skills.length === 0) return;
-    setSkillList((prev) => {
-      const byId = new Map(prev.map((s) => [s.id, s]));
-      for (const skill of loadout.skills) byId.set(skill.id, skill);
-      return [...byId.values()];
-    });
+    const mergedSkills = mergeCloudLoadoutSkills(skillListRef.current, loadout.skills);
+    saveBattleSkillsToStorage(DEFAULT_BATTLE_SKILL_MODULE_ID, mergedSkills);
+    setSkillList(mergedSkills);
+    setSkillSheetLabel('Cloud progression');
     setPlayerSkillIds(loadout.skills.map((s) => s.id).slice(0, 6));
   }, []);
 

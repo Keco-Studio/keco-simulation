@@ -28,6 +28,18 @@ import {
   type CloudProgressionStudioBinding,
 } from './progressionStudioBindingStorage';
 
+export function buildSafeEffectiveLoadout(input: {
+  progression: UserProgression | null;
+  studioBundle: StudioProgressionBundle | null;
+  skillLevels: UserSkillLevel[];
+}): EffectiveBattleLoadout | null {
+  const { progression, studioBundle, skillLevels } = input;
+  const characterAssetId = progression?.characterAssetId;
+  if (!progression || !studioBundle || !characterAssetId) return null;
+  if (!studioBundle.characters[characterAssetId]) return null;
+  return buildEffectiveLoadout({ progression, skillLevels, studio: studioBundle });
+}
+
 export function useCloudProgression() {
   const supabase = useSupabase();
   const { userProfile, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -154,10 +166,11 @@ export function useCloudProgression() {
     [supabase, userId, studioBundle, progression, skillLevels],
   );
 
-  const effectiveLoadout: EffectiveBattleLoadout | null =
-    progression && studioBundle && progression.characterAssetId
-      ? buildEffectiveLoadout({ progression, skillLevels, studio: studioBundle })
-      : null;
+  const effectiveLoadout = buildSafeEffectiveLoadout({
+    progression,
+    studioBundle,
+    skillLevels,
+  });
 
   return {
     authLoading,
