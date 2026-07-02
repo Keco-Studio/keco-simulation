@@ -140,8 +140,12 @@ export function BattleCloudProgressionPanel({
         skillLevelCurve: labelFor(skillLevelCurveLibraryId),
       },
     };
-    await cloud.importStudioBinding(next);
-    message.success('Studio libraries imported');
+    try {
+      await cloud.importStudioBinding(next);
+      message.success('Studio libraries imported');
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Failed to import Studio libraries');
+    }
   };
 
   const characterOptions = cloud.studioBundle

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSafeEffectiveLoadout } from '../useCloudProgression';
+import { buildSafeEffectiveLoadout, planProgressionLevelSettlement } from '../useCloudProgression';
 import type {
   StudioProgressionBundle,
   UserProgression,
@@ -31,5 +31,36 @@ describe('buildSafeEffectiveLoadout', () => {
         skillLevels: [],
       }),
     ).toBeNull();
+  });
+});
+
+describe('planProgressionLevelSettlement', () => {
+  it('plans a level and SP settlement when stored exp already crosses the imported curve', () => {
+    const result = planProgressionLevelSettlement(
+      { ...progression, characterAssetId: 'hero-1', level: 1, exp: 110, skillPoints: 0 },
+      [
+        { level: 1, needExp: 0, grantSp: 0 },
+        { level: 2, needExp: 100, grantSp: 1 },
+      ],
+    );
+
+    expect(result).toEqual({
+      level: 2,
+      skillPoints: 1,
+      levelsGained: 1,
+      spGranted: 1,
+    });
+  });
+
+  it('does not plan a remote update when stored exp is below the next threshold', () => {
+    const result = planProgressionLevelSettlement(
+      { ...progression, characterAssetId: 'hero-1', level: 1, exp: 80, skillPoints: 0 },
+      [
+        { level: 1, needExp: 0, grantSp: 0 },
+        { level: 2, needExp: 100, grantSp: 1 },
+      ],
+    );
+
+    expect(result).toBeNull();
   });
 });

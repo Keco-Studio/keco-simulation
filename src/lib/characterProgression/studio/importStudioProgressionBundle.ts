@@ -36,6 +36,75 @@ function cellFloat(values: Record<string, unknown>, key: string): number | undef
   return Number.isFinite(n) ? n : undefined;
 }
 
+type StudioTableColumn = { key: string; label: string };
+type StudioCharacterAsset = {
+  id: string;
+  name?: string | null;
+  propertyValues: Record<string, unknown>;
+};
+
+function normalizeStudioColumnKey(value: string): string {
+  return value
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[-\s]+/g, '_')
+    .toLowerCase();
+}
+
+const CURVE_COLUMN_ALIASES: Record<string, string> = {
+  needexp: 'need_exp',
+  need_exp: 'need_exp',
+  required_exp: 'need_exp',
+  requiredexp: 'need_exp',
+  grantsp: 'grant_sp',
+  grant_sp: 'grant_sp',
+  skillid: 'skill_id',
+  skill_id: 'skill_id',
+  costsp: 'cost_sp',
+  cost_sp: 'cost_sp',
+  powerbonus: 'power_bonus',
+  power_bonus: 'power_bonus',
+  mpcostdelta: 'mp_cost_delta',
+  mp_cost_delta: 'mp_cost_delta',
+  cooldowndelta: 'cooldown_delta',
+  cooldown_delta: 'cooldown_delta',
+};
+
+function semanticColumnKey(column: StudioTableColumn): string {
+  const label = normalizeStudioColumnKey(column.label);
+  const key = normalizeStudioColumnKey(column.key);
+  if (label) return CURVE_COLUMN_ALIASES[label] ?? label;
+  return CURVE_COLUMN_ALIASES[key] ?? key;
+}
+
+function remapRowsByColumns(
+  columns: StudioTableColumn[],
+  rows: SimTableRow[],
+): SimTableRow[] {
+  const fieldKeyToSemantic = new Map<string, string>();
+  for (const column of columns) {
+    const semantic = semanticColumnKey(column);
+    if (semantic && semantic !== 'name') fieldKeyToSemantic.set(column.key, semantic);
+  }
+
+  return rows.map((row) => {
+    const values: Record<string, unknown> = {};
+    for (const [fieldKey, raw] of Object.entries(row.values)) {
+      values[fieldKeyToSemantic.get(fieldKey) ?? fieldKey] = raw;
+    }
+    return { ...row, values };
+  });
+}
+
+function hasMeaningfulStudioValue(value: unknown): boolean {
+  return cellValueToString(value).trim().length > 0;
+}
+
+function hasImportableCharacterAsset(asset: StudioCharacterAsset): boolean {
+  if (hasMeaningfulStudioValue(asset.name)) return true;
+  return Object.values(asset.propertyValues).some(hasMeaningfulStudioValue);
+}
+
 function parseCharLevelCurve(rows: SimTableRow[]): CharLevelCurveRow[] {
   return rows
     .map((row) => ({
@@ -45,6 +114,13 @@ function parseCharLevelCurve(rows: SimTableRow[]): CharLevelCurveRow[] {
     }))
     .filter((r) => r.level >= 1)
     .sort((a, b) => a.level - b.level);
+}
+
+export function parseCharLevelCurveFromStudioTable(
+  columns: StudioTableColumn[],
+  rows: SimTableRow[],
+): CharLevelCurveRow[] {
+  return parseCharLevelCurve(remapRowsByColumns(columns, rows));
 }
 
 function parseSkillLevelCurve(rows: SimTableRow[]): SkillLevelCurveRow[] {
@@ -64,6 +140,13 @@ function parseSkillLevelCurve(rows: SimTableRow[]): SkillLevelCurveRow[] {
       };
     })
     .filter((r): r is SkillLevelCurveRow => r !== null);
+}
+
+export function parseSkillLevelCurveFromStudioTable(
+  columns: StudioTableColumn[],
+  rows: SimTableRow[],
+): SkillLevelCurveRow[] {
+  return parseSkillLevelCurve(remapRowsByColumns(columns, rows));
 }
 
 function importSkillsFromStudioTable(
@@ -97,6 +180,21 @@ function importSkillsFromStudioTable(
   return { skills, skillIdByAssetId };
 }
 
+export function validateStudioProgressionBundle(bundle: StudioProgressionBundle): void {
+  if (Object.keys(bundle.characters).length === 0) {
+    throw new Error('Characters library is empty or has no valid character rows.');
+  }
+  if (Object.keys(bundle.skills).length === 0) {
+    throw new Error('Skills library is empty or has no valid skill rows.');
+  }
+  if (bundle.charLevelCurve.length === 0) {
+    throw new Error('Character level curve library is empty or has no valid level rows.');
+  }
+  if (bundle.skillLevelCurve.length === 0) {
+    throw new Error('Skill level curve library is empty or has no valid upgrade rows.');
+  }
+}
+
 export async function importStudioProgressionBundle(
   supabase: SupabaseClient,
   binding: StudioLibraryBinding,
@@ -107,6 +205,13 @@ export async function importStudioProgressionBundle(
     loadStudioLibraryTableData(supabase, binding.skillLevelCurveLibraryId),
     getLibraryAssetsWithProperties(supabase, binding.charactersLibraryId),
   ]);
+
+  const importableCharacterAssets = (characterAssets as StudioCharacterAsset[]).filter(
+    hasImportableCharacterAsset,
+  );
+  if (importableCharacterAssets.length === 0) {
+    throw new Error('Characters library is empty or has no valid character rows.');
+  }
 
   const skillsTableId = `studio:${binding.skillsLibraryId}`;
   const { skills, skillIdByAssetId } = importSkillsFromStudioTable(
@@ -121,15 +226,23 @@ export async function importStudioProgressionBundle(
   }
 
   const characters: StudioProgressionBundle['characters'] = {};
-  for (const asset of characterAssets) {
+  for (const asset of importableCharacterAssets) {
     const mapped = mapStudioAssetToCharacter(asset, skillIdByAssetId, skillIdByReferenceValue);
     if (mapped) characters[asset.id] = mapped;
   }
 
-  return {
+  const bundle: StudioProgressionBundle = {
     characters,
     skills,
-    charLevelCurve: parseCharLevelCurve(charCurveData.rows),
-    skillLevelCurve: parseSkillLevelCurve(skillCurveData.rows),
+    charLevelCurve: parseCharLevelCurveFromStudioTable(
+      charCurveData.columns,
+      charCurveData.rows,
+    ),
+    skillLevelCurve: parseSkillLevelCurveFromStudioTable(
+      skillCurveData.columns,
+      skillCurveData.rows,
+    ),
   };
+  validateStudioProgressionBundle(bundle);
+  return bundle;
 }
