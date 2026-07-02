@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@studio/lib/contexts/AuthContext';
 import { useSupabase } from '@studio/lib/SupabaseContext';
 import {
+  applyBattleExp,
   bindCharacter,
   ensureUserProgression,
   listUserSkillLevels,
@@ -14,8 +15,13 @@ import {
   importStudioProgressionBundle,
   type StudioLibraryBinding,
 } from '@/lib/characterProgression/studio/importStudioProgressionBundle';
-import { buildEffectiveLoadout, resolveUpgradeCost } from '@/lib/characterProgression/merge';
+import {
+  accrueCharacterExp,
+  buildEffectiveLoadout,
+  resolveUpgradeCost,
+} from '@/lib/characterProgression/merge';
 import type {
+  CharLevelCurveRow,
   EffectiveBattleLoadout,
   StudioProgressionBundle,
   UserProgression,
@@ -40,6 +46,20 @@ export function buildSafeEffectiveLoadout(input: {
   return buildEffectiveLoadout({ progression, skillLevels, studio: studioBundle });
 }
 
+export function planProgressionLevelSettlement(
+  progression: Pick<UserProgression, 'level' | 'exp' | 'skillPoints'>,
+  curve: CharLevelCurveRow[],
+): { level: number; skillPoints: number; levelsGained: number; spGranted: number } | null {
+  const accrued = accrueCharacterExp(progression, 0, curve);
+  if (!accrued.leveledUp) return null;
+  return {
+    level: accrued.progression.level,
+    skillPoints: accrued.progression.skillPoints,
+    levelsGained: accrued.levelsGained,
+    spGranted: accrued.spGranted,
+  };
+}
+
 export function useCloudProgression() {
   const supabase = useSupabase();
   const { userProfile, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -54,6 +74,23 @@ export function useCloudProgression() {
 
   const userId = userProfile?.id;
   const ready = Boolean(supabase && isAuthenticated && userId);
+
+  const settleProgressionIfNeeded = useCallback(
+    async (current: UserProgression, curve: CharLevelCurveRow[]): Promise<UserProgression> => {
+      if (!supabase || !userId) return current;
+      const settlement = planProgressionLevelSettlement(current, curve);
+      if (!settlement) return current;
+      const result = await applyBattleExp(
+        supabase,
+        userId,
+        0,
+        curve,
+        current.updatedAt,
+      );
+      return result.progression;
+    },
+    [supabase, userId],
+  );
 
   const reload = useCallback(async () => {
     if (!supabase || !userId) {
@@ -83,6 +120,8 @@ export function useCloudProgression() {
           skillLevelCurveLibraryId: savedBinding.skillLevelCurveLibraryId!,
         });
         setStudioBundle(bundle);
+        const settled = await settleProgressionIfNeeded(prog, bundle.charLevelCurve);
+        if (settled !== prog) setProgression(settled);
       } else {
         setStudioBundle(null);
       }
@@ -91,7 +130,7 @@ export function useCloudProgression() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, userId]);
+  }, [supabase, userId, settleProgressionIfNeeded]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -110,8 +149,6 @@ export function useCloudProgression() {
       setImporting(true);
       setError(null);
       try {
-        writeCloudProgressionStudioBinding(nextBinding);
-        setBinding(nextBinding);
         const bundle = await importStudioProgressionBundle(supabase, {
           projectId: nextBinding.projectId ?? '',
           charactersLibraryId: nextBinding.charactersLibraryId!,
@@ -119,7 +156,14 @@ export function useCloudProgression() {
           charLevelCurveLibraryId: nextBinding.charLevelCurveLibraryId!,
           skillLevelCurveLibraryId: nextBinding.skillLevelCurveLibraryId!,
         });
+        writeCloudProgressionStudioBinding(nextBinding);
+        setBinding(nextBinding);
         setStudioBundle(bundle);
+        if (userId) {
+          const current = progression ?? (await ensureUserProgression(supabase, userId));
+          const settled = await settleProgressionIfNeeded(current, bundle.charLevelCurve);
+          setProgression(settled);
+        }
         notifyProgressionConfigUpdated();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to import Studio libraries');
@@ -128,19 +172,22 @@ export function useCloudProgression() {
         setImporting(false);
       }
     },
-    [supabase],
+    [progression, settleProgressionIfNeeded, supabase, userId],
   );
 
   const selectCharacter = useCallback(
     async (characterAssetId: string, characterLibraryId: string) => {
       if (!supabase || !userId) return;
       setError(null);
-      const next = await bindCharacter(supabase, userId, characterAssetId, characterLibraryId);
+      let next = await bindCharacter(supabase, userId, characterAssetId, characterLibraryId);
+      if (studioBundle) {
+        next = await settleProgressionIfNeeded(next, studioBundle.charLevelCurve);
+      }
       setProgression(next);
       notifyProgressionConfigUpdated();
       return next;
     },
-    [supabase, userId],
+    [settleProgressionIfNeeded, studioBundle, supabase, userId],
   );
 
   const upgradeSkill = useCallback(
