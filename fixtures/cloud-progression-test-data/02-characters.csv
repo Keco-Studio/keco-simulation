@@ -1,0 +1,3 @@
+character_id,name,hp,atk,def,spd,mp,skill_ids
+hero_knight,Knight,120,14,8,6,40,"fireball, heal"
+hero_mage,Mage,80,18,4,7,80,"fireball, arc_spark"

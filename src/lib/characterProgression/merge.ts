@@ -140,6 +140,23 @@ function skillLevelCurveMap(
   );
 }
 
+function normalizeSkillLookupKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+}
+
+function buildSkillLookup(skills: Record<string, Skill>): Map<string, Skill> {
+  const lookup = new Map<string, Skill>();
+  for (const skill of Object.values(skills)) {
+    lookup.set(skill.id, skill);
+    lookup.set(normalizeSkillLookupKey(skill.id), skill);
+    lookup.set(normalizeSkillLookupKey(skill.name), skill);
+  }
+  return lookup;
+}
+
 /** Build effective loadout for BattleArena. */
 export function buildEffectiveLoadout(input: {
   progression: UserProgression;
@@ -158,23 +175,28 @@ export function buildEffectiveLoadout(input: {
   }
 
   const levelBySkillId = new Map(skillLevels.map((s) => [s.skillId, s.level]));
+  const skillLookup = buildSkillLookup(studio.skills);
   const skillLevelsOut: Record<string, number> = {};
   const skills: Skill[] = [];
+  const baseSkillIds =
+    character.skillIds.length > 0
+      ? character.skillIds
+      : [...new Set([...Object.keys(studio.skills), ...skillLevels.map((s) => s.skillId)])];
 
-  for (const skillId of character.skillIds) {
-    const base = studio.skills[skillId];
+  for (const skillId of baseSkillIds) {
+    const base = studio.skills[skillId] ?? skillLookup.get(normalizeSkillLookupKey(skillId));
     if (!base) continue;
 
-    const allocatedLevel = levelBySkillId.get(skillId) ?? 0;
+    const allocatedLevel = levelBySkillId.get(base.id) ?? levelBySkillId.get(skillId) ?? 0;
     if (allocatedLevel > 0) {
-      skillLevelsOut[skillId] = allocatedLevel;
+      skillLevelsOut[base.id] = allocatedLevel;
     }
 
     skills.push(
       applyLevelBonus(
         base,
         allocatedLevel,
-        skillLevelCurveMap(skillId, studio.skillLevelCurve),
+        skillLevelCurveMap(base.id, studio.skillLevelCurve),
       ),
     );
   }

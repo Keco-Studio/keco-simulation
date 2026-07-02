@@ -48,6 +48,7 @@ import {
 } from '../lib/localTableSkillSource/simTablePickerData';
 import type { SimTableRow } from '@/lib/simLocalTables/types';
 import { ImportSkillByIdBlock, type ImportSkillByIdBlockHandle } from './ImportSkillByIdBlock';
+import { canApplySkillImport } from './importSkillByIdFlow';
 import styles from './BattleLocalTableSkillSourcePanel.module.css';
 
 const FIELD_OPTIONS = BATTLE_SKILL_MAPPING_FIELDS.map((f) => ({
@@ -435,8 +436,11 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
       !!pendingDraft &&
       hasAnchorIdBinding(attributeBindingsFromDraftFields(pendingDraft.fields));
     useEffect(() => {
-      const canApply =
-        drafts.length > 0 || pendingAttributeReady || importByIdSelectionCount > 0;
+      const canApply = canApplySkillImport({
+        draftCount: drafts.length,
+        pendingAttributeReady,
+        importByIdSelectionCount,
+      });
       onCanApplyChange?.(canApply);
     }, [drafts.length, pendingAttributeReady, importByIdSelectionCount, onCanApplyChange]);
 
@@ -647,7 +651,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
       }
 
       if (draftsRef.current.length === 0) {
-        message.warning('Configure and add at least one skill before applying.');
+        message.warning('Select at least one skill before applying.');
         return null;
       }
 
@@ -840,6 +844,7 @@ export const BattleLocalTableSkillSourcePanel = forwardRef<BattleLocalTableSkill
             showSectionTitle={false}
             confirmButtonLabel="Add skills"
             onSelectionChange={setImportByIdSelectionCount}
+            showCommitButton={false}
           />
           {studioSignInHint}
           {tablesWarning}

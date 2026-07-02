@@ -15,10 +15,39 @@ function cellInt(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+export function normalizeSkillReferenceKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+}
+
+function splitSkillReferenceText(value: string): string[] {
+  return value
+    .split(/[,，;\n\r]+/g)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function resolveSkillReferenceText(
+  value: string,
+  skillIdByReferenceValue: Map<string, string>,
+): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return skillIdByReferenceValue.get(normalizeSkillReferenceKey(trimmed)) ?? trimmed;
+}
+
+function pushSkillId(skillIds: string[], skillId: string | null): void {
+  if (!skillId || skillIds.includes(skillId)) return;
+  skillIds.push(skillId);
+}
+
 /** Map one Studio character asset row to simulation character config. */
 export function mapStudioAssetToCharacter(
   asset: { id: string; name?: string | null; propertyValues: Record<string, unknown> },
   skillIdByAssetId: Map<string, string>,
+  skillIdByReferenceValue: Map<string, string> = new Map(),
 ): StudioCharacterRow | null {
   const pv = asset.propertyValues;
   const characterId =
@@ -30,11 +59,28 @@ export function mapStudioAssetToCharacter(
   for (const ref of refs) {
     const fromAsset = skillIdByAssetId.get(ref.assetId);
     if (fromAsset) {
-      skillIds.push(fromAsset);
+      pushSkillId(skillIds, fromAsset);
       continue;
     }
+    const fromReferenceAsset = skillIdByReferenceValue.get(normalizeSkillReferenceKey(ref.assetId));
+    if (fromReferenceAsset) {
+      pushSkillId(skillIds, fromReferenceAsset);
+      continue;
+    }
+
+    const splitAssetIds = splitSkillReferenceText(ref.assetId);
+    if (splitAssetIds.length > 1) {
+      for (const item of splitAssetIds) {
+        pushSkillId(skillIds, resolveSkillReferenceText(item, skillIdByReferenceValue));
+      }
+      continue;
+    }
+
     const display = ref.displayValue?.trim();
-    if (display) skillIds.push(display);
+    if (display) {
+      const fromDisplay = skillIdByReferenceValue.get(normalizeSkillReferenceKey(display));
+      pushSkillId(skillIds, fromDisplay ?? display);
+    }
   }
 
   return {
