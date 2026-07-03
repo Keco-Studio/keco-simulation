@@ -3,6 +3,7 @@ import type { BattleSession } from '@keco/battle-core';
 import { calcKillExp } from '@/lib/characterProgression/merge';
 import { applyBattleExp } from '@/lib/characterProgression/supabaseProgressionStorage';
 import type { CharLevelCurveRow } from '@/lib/characterProgression/types';
+import { notifyProgressionConfigUpdated } from '@/app/simulation-system/progression/lib/progressionStudioBindingStorage';
 
 /** P1 default when monster_exp Studio library is not wired yet. */
 export const DEFAULT_KILL_BASE_EXP = 50;
@@ -59,10 +60,12 @@ export async function applyCloudBattleKillExp(
     expRateMultiplier: input.expRateMultiplier,
   });
 
-  return applyBattleExp(
+  const result = await applyBattleExp(
     input.supabase,
     input.userId,
     gainedExp,
     input.charLevelCurve,
   );
+  notifyProgressionConfigUpdated();
+  return result;
 }

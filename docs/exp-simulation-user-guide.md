@@ -1,41 +1,31 @@
-# keco-simulation EXP 养成系统 — 新用户手册
+# keco-simulation 用户使用手册
 
-> **适用功能**：击杀获得 EXP → 升级得 SP → 手动升级技能 → 再战斗（完整闭环）  
-> **入口**：Battle Simulator — `/simulation-system/battle`  
-> **面向**：策划 / 测试 / 首次使用者  
-> **更新**：2026-07-01
+> **面向**：策划 / 测试 / 首次使用者
+> **主入口**：`/simulation-system`
+> **重点入口**：Battle Simulator — `/simulation-system/battle`
+> **更新**：2026-07-03
 
 ---
 
 ## 1. 这是什么？
 
-EXP 养成系统是 keco-simulation **战斗模拟器**里的云端角色成长模块，与 Economy Calculator 等离线推演工具**不是同一套系统**。
+`keco-simulation` 是独立的模拟系统前端，当前主要用于：
 
-| 层级 | 存什么 | 在哪 |
-|------|--------|------|
-| **配置（共享）** | 角色模板、技能定义、升级曲线 | Keco Studio 项目库 |
-| **养成（个人）** | level / exp / skill_points / 各技能已点等级 | Supabase 云端（按登录账号隔离） |
+| 模块 | 入口 | 用途 |
+|------|------|------|
+| Battle simulator | `/simulation-system/battle` | 回合制 PVE 战斗、技能验证、批量胜率测试、云端 EXP/SP 养成 |
+| Battle skills | `/simulation-system/battle/skills` | 本浏览器技能表编辑、导入/导出 `.xlsx`、恢复内置技能 |
+| Project tables (Studio) | `/simulation-system/battle/studio-libraries` | 在 simulation 内查看/编辑 Keco Studio 项目库 |
+| Local tables | `/simulation-system/battle/local-tables` | IndexedDB 本地表、技能表模板、Studio 库链接/工作区 |
+| Economy simulator | `/simulation-system/economy/overview` | 离线经济数值推演：角色、装备、关卡、竞技场、声望、汇总计算 |
 
-核心规则：
-
-- **EXP 唯一来源**：战斗胜利并击杀敌人（P1 默认 baseExp = 50）
-- **SP 唯一来源**：角色升级时发放（由 `char_level_curve` 表配置）
-- **技能升级**：手动消耗 SP；只改你的云端存档，**不会写回 Studio**
-- **跨设备同步**：同一 Supabase 账号登录即可
-
-架构示意：
-
-```
-Studio 配置 ──Import──► keco-simulation ──读写──► Supabase 养成（user_id）
-                              │
-                              └──► 战斗合并 effectiveSkill / effectiveCharacter
-```
+注意：`/simulation-system/progression` 和 `/simulation-system/progression/simulate` 现在都会重定向到 Battle。角色 EXP、等级、SP、技能加点都在 Battle Step 2 左侧面板里完成。
 
 ---
 
-## 2. 开始之前
+## 2. 启动与登录
 
-### 2.1 启动应用
+### 2.1 本地启动
 
 ```bash
 cd keco-simulation
@@ -43,16 +33,21 @@ npm install
 npm run dev
 ```
 
-浏览器打开：**http://localhost:3001/simulation-system/battle**
+浏览器打开：
 
-也可从 Keco Studio（端口 3000）侧边栏 iframe 进入；Studio 需配置：
+- 总入口：`http://localhost:3001/simulation-system`
+- 战斗入口：`http://localhost:3001/simulation-system/battle`
 
-- `NEXT_PUBLIC_SIMULATION_ENABLED=true`
-- `NEXT_PUBLIC_SIMULATION_ORIGIN=http://localhost:3001`
+### 2.2 与 Keco Studio 一起使用
 
-### 2.2 环境变量（`.env.local`）
+如果从 Keco Studio（默认 `3000`）侧边栏 iframe 进入 simulation，需要在 Studio 侧配置：
 
-必须与 **Keco Studio 使用同一 Supabase 项目**：
+```env
+NEXT_PUBLIC_SIMULATION_ENABLED=true
+NEXT_PUBLIC_SIMULATION_ORIGIN=http://localhost:3001
+```
+
+如果要在 simulation 内打开 Studio 项目库，需要在 `keco-simulation/.env.local` 使用与 Studio 相同的 Supabase 项目：
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=...
@@ -61,260 +56,284 @@ NEXT_PUBLIC_APP_URL=http://localhost:3001
 NEXT_PUBLIC_KECO_STUDIO_ORIGIN=http://localhost:3000
 ```
 
-修改 `.env.local` 后需 **重启** `npm run dev`。
+修改 `.env.local` 后需要重启 `npm run dev`。
 
 ### 2.3 登录
 
-Battle 页右上角点击账号区域 → **Sign in**，使用与 Keco Studio **相同的账号**。
+Battle、Project tables、Local tables 里访问 Studio 项目库时，需要使用与 Keco Studio 相同的 Supabase 账号登录。
 
 未登录时：
 
-- 无法列出 Studio 项目库
-- 击杀 EXP **不会保存**到云端
+- 无法列出 Studio 项目和库；
+- Battle 胜利后的 EXP 不会保存到云端；
+- Local tables 仍可使用本地 IndexedDB 草稿表。
 
 ---
 
-## 3. 三步向导总览
+## 3. Battle Simulator 快速流程
 
-战斗页分为 3 步：
+Battle 页是三步向导：
 
-```
-Step 1  Configure skill   → 导入 / 选择技能表
-Step 2  Configure player  → 配置玩家 / 敌人 + 【EXP 养成面板】
-Step 3  Start battle      → 开战，胜利后自动结算 EXP
+```text
+Step 1 Configure skill  ->  Step 2 Configure player  ->  Step 3 Start battle
 ```
 
-| 目标 | 最少需要 |
+### Step 1 — Configure skill
+
+目标：准备本场战斗可用技能列表。
+
+可选方式：
+
+1. **Import skills**：打开技能来源弹窗，选择 Local table 或 Keco Studio library。
+2. **Create local table**：跳转到 Local tables 创建技能表。
+3. **Use the default skill sheet instead**：使用内置默认技能，适合快速试玩。
+
+技能来源弹窗有两种常用模式：
+
+| 模式 | 适合场景 |
 |------|----------|
-| 只打一场战斗 | Step 1 有技能 + Step 2 配好双方属性 |
-| **完整 EXP 闭环** | 登录 + Step 2 导入四库 + 绑定角色 + 开战 |
+| Import by id | 表里一行就是一个技能，按 `id` 批量导入 |
+| Bind attributes | 从表格列里绑定技能字段，点击 `Validate & apply` 后应用 |
 
-> `/simulation-system/progression` 已重定向到 Battle Step 2。独立 Progression 推演页与战斗云端养成是两套系统，新用户以 Battle 向导为准。
+至少需要 `id` 和 `name`。技能 ID 是战斗代码键，建议使用字母、数字、下划线。
 
----
+### Step 2 — Configure player
 
-## 4. 快速上手（完整 EXP 闭环）
+目标：配置玩家、敌人、技能装配和可选的云端养成。
 
-### Step 1 — 导入技能
+左侧包含：
 
-1. 进入 **Battle → Step 1: Configure skill**
-2. 点击 **Import skills**
-3. 任选一种来源：
-   - **Keco Studio**：从项目 Skills 库导入（需登录）
-   - **Local tables**：浏览器 IndexedDB 本地表
-   - **Use default sheet**：内置示例技能（最快试玩）
-4. 确认技能列表有内容 → **Continue**
+- **Character progression**：云端 EXP/SP 养成，完整闭环需要配置这里；
+- **Skills**：显示当前技能表，可再次 Configure skills；
+- **Player**：玩家属性，可手动编辑或从表行 Import；
+- **Enemy**：敌人属性，可手动编辑或从表行 Import，并可设置初始元素。
 
-### Step 2 — 配置养成（重点）
+右侧包含：
 
-左侧 **Character progression** 面板是 EXP 系统的核心。
+- Player / Enemy 技能装配切换；
+- 每方最多选择 6 个技能；
+- 按元素筛选技能；
+- 底部显示当前装配；
+- **Batch simulation**：输入战斗次数，点击 Run batch 统计胜场、平局、逃跑或超时；
+- **Start battle**：进入 Step 3。
 
-#### 4.1 导入四库
+玩家和敌人 Import 后会出现在数据源下拉里：
 
-展开 **Studio library setup**，依次选择 4 个 Studio 库：
+| 数据源 | 行为 |
+|--------|------|
+| Manual (editable) | 当前页面手动编辑 |
+| Linked to table row | 只读；来源表行更新后，回到页面会同步刷新 |
 
-| 下拉项 | 建什么库 | 用途 |
-|--------|----------|------|
-| Characters | 角色模板库 | 基础属性 + 初始技能引用 |
-| Skills | 技能库 | 技能定义（可与 Step 1 共用同一库） |
-| Level curve | `char_level_curve` | 每级累计 EXP 门槛 + 升级发 SP |
-| Skill curve | `skill_level_curve` | 每技能每级耗 SP + 属性加成 |
+### Step 3 — Start battle
 
-选齐后点击 **Import libraries**（必须点；只选下拉不算导入）。
+目标：实际运行地图战斗。
 
-#### 4.2 绑定角色
+页面左侧显示 Battle logs，右侧显示地图和双方 HP/MP 状态。点击 **Stop battle** 返回 Step 2。
 
-导入成功后：
+如果满足云端养成条件，玩家胜利后会自动结算击杀 EXP：
 
-1. **Character** 下拉选一个角色（如 Knight）
-2. 左侧显示 **Lv / EXP / SP** 和 EXP 进度条
-3. 右侧玩家属性、技能卡同步该角色的基础数值
+- 未升级：提示 `+x EXP`；
+- 升级：提示 `Level up! You gained x skill points`；
+- 未登录：提示需要登录；
+- 未导入四库：提示先在 Step 2 导入 Studio libraries。
 
-#### 4.3 分配技能点（有 SP 时）
-
-在 **Skill upgrades** 区域：
-
-- 每个技能显示当前等级，如 `Fireball · Lv.0`
-- 点击 **+1 (x SP)** 消耗技能点升级
-- SP 为 0 时提示：需先通过战斗获得 EXP 并升级
-
-#### 4.4 配置敌人（右侧）
-
-- **Enemy** 卡片可 Import 敌人属性，或用手动默认值
-- 敌人初始元素在 UI 里手动选（暂不从 Studio 导入）
-- 为玩家 / 敌人勾选本场要用的技能
-
-完成后点击 **Start battle** 进入 Step 3。
-
-### Step 3 — 战斗与 EXP 结算
-
-1. 地图上进行回合制 PVE 战斗
-2. **玩家胜利** 后自动结算击杀 EXP：
-   - 未升级：提示 `+50 EXP`（默认 baseExp）
-   - 升级：提示 `Level up! You gained x skill points`
-3. 点击 **Stop battle** 返回 Step 2，可继续加点、再开一场
-
-左下角说明：**Kill EXP saves to your account on victory. Upgrade skills in step 2.**
+同一场战斗只会结算一次 EXP。
 
 ---
 
-## 5. EXP 怎么算？
+## 4. 完整 EXP/SP 养成闭环
 
-当前 P1 默认（敌人等级默认 1，baseExp 默认 50）：
+EXP 养成是 Battle 内的云端角色成长模块，与 Economy Simulator 的离线推演不是同一套系统。
 
+| 层级 | 存什么 | 在哪 |
+|------|--------|------|
+| 共享配置 | 角色模板、技能定义、角色升级曲线、技能升级曲线 | Keco Studio 项目库 |
+| 个人养成 | level / exp / skill_points / 各技能已点等级 | Supabase，按登录账号隔离 |
+
+核心规则：
+
+- **EXP 来源**：玩家胜利并击杀敌人；
+- **SP 来源**：角色升级时由 `char_level_curve.grant_sp` 发放；
+- **技能升级**：手动消耗 SP，只写入个人云端存档；
+- **不会写回 Studio**：Studio 只存共享配置，不存个人等级和 EXP。
+
+### 4.1 Studio 最少建库
+
+完整验证建议同一 Studio 项目下准备 5 个库：
+
+| 库名示例 | 用途 | 是否必须 |
+|----------|------|----------|
+| `Skills` | 战斗技能 + 四库 Skills | 必须 |
+| `Characters` | 角色模板、基础属性、初始技能引用 | 必须 |
+| `CharLevelCurve` | 角色等级、累计 EXP 门槛、升级发 SP | 必须 |
+| `SkillLevelCurve` | 技能升级消耗和加成 | 必须 |
+| `Enemies` | 敌人属性 Import | 可选，但推荐 |
+
+不要在 Studio 的 Skills 或 Characters 表里加入 `level`、`exp`、`skill_points`、技能当前等级等个人养成字段。
+
+完整列定义见：[studio-progression-four-libraries-import-guide.md](./studio-progression-four-libraries-import-guide.md)。
+
+### 4.2 Step 2 导入四库
+
+在 Battle Step 2 左侧 **Character progression** 面板中：
+
+1. 展开 **Studio library setup**；
+2. 选择 `Characters`、`Skills`、`Level curve`、`Skill curve` 四个库；
+3. 点击 **Import libraries**；
+4. 在 **Character** 下拉中绑定角色；
+5. 确认左侧显示角色名、Lv、EXP、SP 和进度条。
+
+只选下拉不算导入，必须点击 **Import libraries**。
+
+### 4.3 用 SP 升级技能
+
+绑定角色后，**Skill upgrades** 会显示该角色可升级技能：
+
+```text
+Fireball · Lv.0    +1 (1 SP)
+Heal · Lv.0        +1 (1 SP)
 ```
+
+点击 `+1 (x SP)` 会消耗个人 SP，并把技能等级保存到云端。SP 为 0 时，需要先通过战斗获得 EXP 并升级。
+
+技能等级会同步到右侧技能卡和底部装配标签，例如 `Lv.2`。
+
+### 4.4 战斗结算
+
+进入 Step 3 后，玩家胜利时会按当前 P1 规则结算击杀经验：
+
+```text
 最终 EXP = baseExp × 等级差倍率 × rate
 ```
 
-等级差倍率（玩家等级 vs 怪物等级）：
+当前敌人默认 `baseExp = 50`。
+
+等级差倍率：
 
 | 情况 | 倍率 |
 |------|------|
-| 怪物更高 | 最多 ×1.5（每高 1 级 +5%） |
+| 怪物等级更高 | 每高 1 级 +5%，最多 ×1.5 |
 | 同级 | ×1.0 |
-| 怪物更低 | 最少 ×0.05（每低 1 级 -15%） |
+| 怪物等级更低 | 每低 1 级 -15%，最少 ×0.05 |
 
-最低获得 **1 EXP**。
-
-升级判定：累计 EXP 达到 `char_level_curve` 中下一级的 `need_exp` 阈值即升级，并按 `grant_sp` 发放 SP。
+最低获得 1 EXP。累计 EXP 达到 `char_level_curve` 中下一级 `need_exp` 后升级，并按该级 `grant_sp` 发放 SP。
 
 ---
 
-## 6. Studio 配表最小清单
+## 5. 数据表与编辑入口
 
-在同一 Studio 项目下建议至少建 **5 个 Library**：
+### 5.1 Battle Skills
 
-| 库名（示例） | 最少内容 |
-|-------------|----------|
-| `Skills` | ≥1 行：`id` + `name` |
-| `Characters` | ≥1 角色：`name`, `hp/atk/def/spd/mp`, `skill_ids` 引用 Skills |
-| `Enemies` | ≥1 敌人（Step 2 Import 用，可选） |
-| `CharLevelCurve` | 至少 Lv.1 和 Lv.2 |
-| `SkillLevelCurve` | 每个可升级技能 ≥1 行 |
+入口：`/simulation-system/battle/skills`
 
-**禁止**：在 Studio 技能 / 角色表里加 `level`、`exp`、`skill_points`、技能当前等级等养成字段。
+用途：
 
-### 示例：`CharLevelCurve`
+- 新增、清空、重置技能表；
+- 导入/导出 `.xlsx`；
+- 编辑结果保存在当前浏览器；
+- Battle Step 1/2 会读取已保存的技能表。
 
-| level | need_exp | grant_sp |
-|-------|----------|----------|
-| 1 | 0 | 0 |
-| 2 | 100 | 1 |
-| 3 | 300 | 2 |
+XLSX 的 Sheet 名为 `Battle skills`，推荐表头：
 
-语义：Lv.1、EXP=80，击杀 +30 → EXP=110 ≥ 100 → 升到 Lv.2，SP +1。
-
-### 示例：`SkillLevelCurve`
-
-| skill_id | level | cost_sp | power_bonus |
-|----------|-------|---------|-------------|
-| fireball | 1 | 1 | 0.1 |
-| fireball | 2 | 2 | 0.2 |
-
-语义：云端 `fireball` Lv.2 时，战斗伤害 = Studio 基础 power + 曲线加成。
-
-完整列定义与别名见：[studio-progression-four-libraries-import-guide.md](./studio-progression-four-libraries-import-guide.md)
-
----
-
-## 7. 两种使用模式
-
-### 模式 A — 纯战斗试玩（无云端养成）
-
-1. Step 1 用默认技能或本地导入
-2. Step 2 **跳过**左侧 Character progression
-3. 手动配玩家 / 敌人 → 开战
-
-适合：测技能数值、跑批量模拟；**不保存 EXP**。
-
-### 模式 B — 完整 EXP 养成（推荐）
-
-1. 登录
-2. Step 1 导入 Skills
-3. Step 2 四库 Import → 绑定 Character → 用 SP 加点
-4. Step 3 战斗胜利 → EXP 写云端 → 回 Step 2 继续
-
-适合：验证升级曲线、SP 分配、跨设备存档。
-
----
-
-## 8. Step 2 左侧面板说明
-
-```
-Character progression
-├── Studio library setup（折叠）
-│   ├── Characters / Skills / Level curve / Skill curve
-│   └── [Import libraries]
-├── 状态行：角色名 · Lv.x · EXP a/b · SP n
-├── EXP 进度条
-├── Character 下拉（绑定角色）
-└── Skill upgrades
-    └── Fireball · Lv.0  [+1 (1 SP)]
+```text
+id, name, type, power, MP, maxCooldown, description,
+attachElement, attachStrength, attachTurns,
+dotDamage, dotTurns, freezeTurns,
+specialEffect, specialEffectValue, specialEffectDuration,
+reactionTriggers
 ```
 
-常见提示：
+### 5.2 Project tables (Studio)
 
-| 提示 | 含义 |
+入口：`/simulation-system/battle/studio-libraries`
+
+当前有两种打开方式：
+
+| 环境 | 行为 |
 |------|------|
-| Sign in to sync progression | 未登录，无法云端同步 |
-| Click Import libraries to enable… | 四库已选但未点 Import |
-| No skill points yet… | SP=0，需先战斗升级 |
-| Insufficient skill points | SP 不够升级 |
-| Import Studio libraries in step 2 first | Step 3 胜利但未在 Step 2 导入四库 |
+| 配置了 `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 在 simulation 内使用复制过来的 Studio 项目库 UI，可登录后选择项目 |
+| 只配置了 `NEXT_PUBLIC_KECO_STUDIO_ORIGIN` | 通过 iframe 打开 Studio，需要手动输入 project UUID |
+
+这个入口适合直接查看或编辑 Studio 项目库，和 Keco Studio 使用同一份 Supabase 数据。
+
+### 5.3 Local tables
+
+入口：`/simulation-system/battle/local-tables`
+
+Local tables 支持三类工作方式：
+
+| 方式 | 数据位置 | 用途 |
+|------|----------|------|
+| Blank / Skill battle template | 当前浏览器 IndexedDB | simulation 专用草稿表、技能导入模板 |
+| Link all Keco Studio projects | Supabase Studio 库 | 在 local-table 编辑器中链接并编辑 Studio 库 |
+| Studio workspace | Supabase Studio 库 | 选择一个项目后，在同一界面切换该项目的所有库 |
+
+未链接 Studio 的本地表不会自动写入 Supabase。链接或 workspace 模式使用 Studio 实时数据，需登录并有对应项目权限。
 
 ---
 
-## 9. 常见问题
+## 6. 常见使用模式
 
-**Q：左侧显示 Lv.1 · EXP 0 · SP 0，但没法加点？**  
-A：这是账号默认云端数据。必须 **Import libraries** 并 **绑定 Character** 后，Skill upgrades 才会出现可点按钮。
+### 模式 A — 快速打一场
 
-**Q：打赢了没加 EXP？**  
-A：检查：① 是否登录；② Step 2 是否已 Import libraries；③ 是否 **玩家胜利**；④ 同一场战斗只结算一次。
+1. 打开 `/simulation-system/battle`；
+2. Step 1 使用默认技能或导入技能；
+3. Step 2 手动配置玩家和敌人；
+4. 给双方各选至少 1 个技能；
+5. 点击 **Start battle**。
 
-**Q：Studio 里改了技能 power，战斗会变吗？**  
-A：会。Studio 配置是共享只读的；**技能加点等级**存在云端，合并后生效。
+这种模式不要求登录，也不会保存 EXP。
 
-**Q：养成会写回 Studio 吗？**  
-A：**不会**。EXP / SP / 技能等级只写 Supabase。
+### 模式 B — 用 Studio 配置打一场
 
-**Q：和 Economy Calculator 的 EXP 一样吗？**  
-A：**不一样**。Economy 是离线经济推演；EXP 养成是 Battle + Supabase 云端存档。
+1. 登录 simulation；
+2. Step 1 从 Studio 或 Local table 导入 Skills；
+3. Step 2 分别 Import Player / Enemy 表行；
+4. 选择双方技能；
+5. 可先 Run batch 看胜率，再 Start battle。
+
+### 模式 C — 完整云端养成
+
+1. 登录 simulation；
+2. Step 1 导入 Skills；
+3. Step 2 左侧导入四库；
+4. 绑定 Character；
+5. 给玩家和敌人选择技能；
+6. Step 3 战斗胜利获得 EXP；
+7. 回 Step 2 用 SP 升级技能；
+8. 再开战观察技能等级带来的变化。
 
 ---
 
-## 10. 推荐第一次体验（约 15 分钟）
+## 7. Economy Simulator
 
-1. 启动 simulation（3001）+ studio（3000），确认 Supabase 一致
-2. 在 Studio 建最小 5 库（或用已有项目）
-3. 登录 simulation → Battle Step 1 导入 Skills
-4. Step 2 四库 Import → 绑定角色 → 选 2～3 个技能
-5. Step 3 开战至胜利 → 看到 `+50 EXP`
-6. 多打几场直到升级 → 回 Step 2 用 SP 点 `+1`
-7. 再开战，观察技能伤害 / MP 变化
+Economy 模块入口在 `/simulation-system/economy/overview`。
+
+它用于离线经济数值推演，包括角色成长、装备、竞技场、关卡、声望和总收益计算。它不读写 Battle 云端养成存档，也不参与 Step 3 的 EXP 结算。
+
+如果目标是验证“战斗胜利 -> EXP -> 升级 -> SP -> 技能加点 -> 再战斗”的闭环，请使用 Battle Simulator。
 
 ---
 
-## 11. 相关文档
+## 8. 常见问题
+
+| 问题 | 处理方式 |
+|------|----------|
+| 看不到 Studio 项目库 | 确认已登录 simulation，且 `.env.local` 使用与 Studio 相同的 Supabase URL 和 anon key |
+| Step 1 没有技能 | 使用默认技能，或去 Battle Skills / Local tables 创建并导入 |
+| 点击了四库下拉但不能绑定角色 | 需要点击 **Import libraries**，只选下拉不会导入 |
+| 左侧显示 Lv.1 / EXP 0 / SP 0，但没法加点 | 需要导入四库并绑定 Character；SP 为 0 时先通过战斗升级 |
+| 打赢了没有 EXP | 检查是否登录、是否导入四库、是否玩家胜利、是否同一场已经结算过 |
+| 玩家/敌人属性不能编辑 | 当前数据源是 Linked to table row；切回 Manual (editable) 才能手动改 |
+| Studio 改了技能 power，Battle 会变吗 | 会。重新导入/刷新来源后，Studio 配置会和云端技能等级合并生效 |
+| 养成会写回 Studio 吗 | 不会。EXP、SP、技能等级只保存到个人 Supabase 存档 |
+| Local table 会写回 Studio 吗 | 只有链接 Studio 或 workspace 模式才操作 Studio 数据；普通本地表只在当前浏览器 |
+
+---
+
+## 9. 相关文档
 
 | 文档 | 内容 |
 |------|------|
-| [studio-progression-four-libraries-import-guide.md](./studio-progression-four-libraries-import-guide.md) | Studio 四库列定义、别名、操作流程 |
-| [superpowers/specs/2026-06-23-character-exp-skill-points-cloud-sync-design.md](./superpowers/specs/2026-06-23-character-exp-skill-points-cloud-sync-design.md) | 工程 Spec |
-| `new-design.md`（monorepo 根目录） | 策划案 v2.1 |
-
-
-
-如何使用gpt
-1. 打开vpn（随云） 连接
-2. 访问https://chatgpt.com/
-3. 用谷歌账号登录（现在不确定是否需要手机账号登陆）
-如果gpt不行（需要手机号）
-用claude 地址https://claude.ai/ 其他步骤一样
-
-如果都不行 下载codex（不确定是否能成功安装）
-cmd运行pm install -g @openai/codex
-用codex --version查看是否成功安装
-参考https://doc.penguinsaichat.dpdns.org/的教程做
-登录用生成的密钥登录（免手机号）
-密钥分组选择gpt 在密钥有个界面可以直接帮你配置cc-siwtch
+| [studio-progression-four-libraries-import-guide.md](./studio-progression-four-libraries-import-guide.md) | Studio 配表、技能/角色/四库列定义 |
+| [superpowers/specs/2026-06-23-character-exp-skill-points-cloud-sync-design.md](./superpowers/specs/2026-06-23-character-exp-skill-points-cloud-sync-design.md) | 云端 EXP/SP 工程设计说明 |

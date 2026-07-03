@@ -42,6 +42,41 @@ function mapSkillLevelRow(row: SkillLevelRow): UserSkillLevel {
   };
 }
 
+type SupabaseRequestError = {
+  code?: string;
+  message?: string;
+};
+
+function getRequestErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (
+    error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof (error as SupabaseRequestError).message === 'string'
+  ) {
+    return (error as SupabaseRequestError).message!;
+  }
+  return 'Supabase request failed';
+}
+
+function throwRequestError(error: unknown): never {
+  if (error instanceof Error) throw error;
+  throw new Error(getRequestErrorMessage(error));
+}
+
+function isMissingResetSkillRpcError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const requestError = error as SupabaseRequestError;
+  const message = requestError.message ?? '';
+  return (
+    requestError.code === 'PGRST202' ||
+    requestError.code === '42883' ||
+    (message.includes('sim_reset_skill') &&
+      (message.includes('schema cache') || message.includes('Could not find the function')))
+  );
+}
+
 export async function loadUserProgression(
   supabase: SupabaseClient,
   userId: string,
@@ -51,7 +86,7 @@ export async function loadUserProgression(
     .select('*')
     .eq('user_id', userId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) throwRequestError(error);
   return data ? mapProgressionRow(data as ProgressionRow) : null;
 }
 
@@ -168,6 +203,66 @@ export async function upgradeSkill(
   return mapSkillLevelRow(data as SkillLevelRow);
 }
 
+export async function resetSkill(
+  supabase: SupabaseClient,
+  skillId: string,
+  userId?: string,
+): Promise<UserSkillLevel> {
+  const { data, error } = await supabase.rpc('sim_reset_skill', {
+    p_skill_id: skillId,
+  });
+  if (error) {
+    if (userId && isMissingResetSkillRpcError(error)) {
+      return resetSkillWithTables(supabase, userId, skillId);
+    }
+    throwRequestError(error);
+  }
+  return mapSkillLevelRow(data as SkillLevelRow);
+}
+
+async function resetSkillWithTables(
+  supabase: SupabaseClient,
+  userId: string,
+  skillId: string,
+): Promise<UserSkillLevel> {
+  const { data: existingData, error: existingError } = await supabase
+    .from(SKILL_LEVELS_TABLE)
+    .select('*')
+    .eq('user_id', userId)
+    .eq('skill_id', skillId)
+    .maybeSingle();
+  if (existingError) throwRequestError(existingError);
+  if (!existingData) return { skillId, level: 0, spentSp: 0 };
+
+  const existing = existingData as SkillLevelRow;
+  const current = await loadUserProgression(supabase, userId);
+  if (!current) {
+    throw new Error('User progression row not found');
+  }
+
+  const { error: progressionError } = await supabase
+    .from(PROGRESSION_TABLE)
+    .update({
+      skill_points: current.skillPoints + existing.spent_sp,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .select('*')
+    .single();
+  if (progressionError) throwRequestError(progressionError);
+
+  const { error: deleteError } = await supabase
+    .from(SKILL_LEVELS_TABLE)
+    .delete()
+    .eq('user_id', userId)
+    .eq('skill_id', skillId)
+    .select('*')
+    .maybeSingle();
+  if (deleteError) throwRequestError(deleteError);
+
+  return { skillId: existing.skill_id, level: 0, spentSp: 0 };
+}
+
 export async function listUserSkillLevels(
   supabase: SupabaseClient,
   userId: string,
@@ -176,6 +271,6 @@ export async function listUserSkillLevels(
     .from(SKILL_LEVELS_TABLE)
     .select('*')
     .eq('user_id', userId);
-  if (error) throw error;
+  if (error) throwRequestError(error);
   return (data ?? []).map((row) => mapSkillLevelRow(row as SkillLevelRow));
 }

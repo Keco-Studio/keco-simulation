@@ -9,6 +9,7 @@ import {
   ensureUserProgression,
   listUserSkillLevels,
   loadUserProgression,
+  resetSkill as resetSkillRemote,
   upgradeSkill as upgradeSkillRemote,
 } from '@/lib/characterProgression/supabaseProgressionStorage';
 import {
@@ -58,6 +59,14 @@ export function planProgressionLevelSettlement(
     levelsGained: accrued.levelsGained,
     spGranted: accrued.spGranted,
   };
+}
+
+export function getResetSkillReadinessError(input: {
+  hasSupabase: boolean;
+  userId: string | null | undefined;
+}): string | null {
+  if (!input.hasSupabase || !input.userId) return 'Not ready to reset skills';
+  return null;
 }
 
 export function useCloudProgression() {
@@ -213,6 +222,29 @@ export function useCloudProgression() {
     [supabase, userId, studioBundle, progression, skillLevels],
   );
 
+  const resetSkill = useCallback(
+    async (skillId: string) => {
+      const readinessError = getResetSkillReadinessError({
+        hasSupabase: Boolean(supabase),
+        userId,
+      });
+      if (readinessError || !supabase || !userId) {
+        throw new Error(readinessError ?? 'Not ready to reset skills');
+      }
+
+      const row = await resetSkillRemote(supabase, skillId, userId);
+      const [nextProg, nextLevels] = await Promise.all([
+        loadUserProgression(supabase, userId),
+        listUserSkillLevels(supabase, userId),
+      ]);
+      if (nextProg) setProgression(nextProg);
+      setSkillLevels(nextLevels);
+      notifyProgressionConfigUpdated();
+      return row;
+    },
+    [supabase, userId],
+  );
+
   const effectiveLoadout = buildSafeEffectiveLoadout({
     progression,
     studioBundle,
@@ -235,6 +267,7 @@ export function useCloudProgression() {
     importStudioBinding,
     selectCharacter,
     upgradeSkill,
+    resetSkill,
   };
 }
 

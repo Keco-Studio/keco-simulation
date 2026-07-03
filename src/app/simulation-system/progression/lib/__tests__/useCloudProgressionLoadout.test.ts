@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildSafeEffectiveLoadout, planProgressionLevelSettlement } from '../useCloudProgression';
+import {
+  buildSafeEffectiveLoadout,
+  getResetSkillReadinessError,
+  planProgressionLevelSettlement,
+} from '../useCloudProgression';
 import type {
   StudioProgressionBundle,
   UserProgression,
@@ -62,5 +66,20 @@ describe('planProgressionLevelSettlement', () => {
     );
 
     expect(result).toBeNull();
+  });
+});
+
+describe('getResetSkillReadinessError', () => {
+  it('does not block reset requests based on the local skill level snapshot', () => {
+    expect(getResetSkillReadinessError({ hasSupabase: true, userId: 'user-1' })).toBeNull();
+  });
+
+  it('blocks reset requests until cloud progression is ready', () => {
+    expect(getResetSkillReadinessError({ hasSupabase: false, userId: 'user-1' })).toBe(
+      'Not ready to reset skills',
+    );
+    expect(getResetSkillReadinessError({ hasSupabase: true, userId: null })).toBe(
+      'Not ready to reset skills',
+    );
   });
 });

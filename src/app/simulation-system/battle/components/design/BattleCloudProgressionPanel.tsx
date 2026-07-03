@@ -54,6 +54,7 @@ export function BattleCloudProgressionPanel({
     cloud.binding?.skillLevelCurveLibraryId,
   );
   const [upgradingId, setUpgradingId] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!cloud.binding) return;
@@ -196,6 +197,7 @@ export function BattleCloudProgressionPanel({
       };
     });
   }, [cloud.studioBundle, cloud.skillLevels, cloud.progression?.characterAssetId, boundCharacter]);
+  const hasAllocatedSkills = skillRows.some((row) => row.allocated > 0);
 
   const handleUpgrade = async (skillId: string, name: string, nextLevel: number, cost: number) => {
     if (!cloud.progression || cloud.progression.skillPoints < cost) {
@@ -210,6 +212,18 @@ export function BattleCloudProgressionPanel({
       message.error(err instanceof Error ? err.message : 'Upgrade failed');
     } finally {
       setUpgradingId(null);
+    }
+  };
+
+  const handleReset = async (skillId: string, name: string) => {
+    setResettingId(skillId);
+    try {
+      await cloud.resetSkill(skillId);
+      message.success(`${name} reset; spent SP refunded`);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Reset failed');
+    } finally {
+      setResettingId(null);
     }
   };
 
@@ -405,7 +419,9 @@ export function BattleCloudProgressionPanel({
               <>
                 {cloud.progression.skillPoints === 0 ? (
                   <p className={styles.mutedHint}>
-                    No skill points yet. Gain SP by leveling up from battle EXP.
+                    {hasAllocatedSkills
+                      ? 'No unspent skill points. Reset an upgraded skill to reclaim SP.'
+                      : 'No skill points yet. Gain SP by leveling up from battle EXP.'}
                   </p>
                 ) : null}
                 {skillRows.map((row) => (
@@ -413,22 +429,40 @@ export function BattleCloudProgressionPanel({
                     <span className={styles.skillName}>
                       {row.name} · Lv.{row.allocated}
                     </span>
-                    {row.cost != null ? (
-                      <Button
-                        type="link"
-                        size="small"
-                        className={styles.upgradeBtn}
-                        disabled={!cloud.progression || cloud.progression.skillPoints < row.cost}
-                        loading={upgradingId === row.skillId}
-                        onClick={() =>
-                          void handleUpgrade(row.skillId, row.name, row.allocated + 1, row.cost!)
-                        }
-                      >
-                        +1 ({row.cost} SP)
-                      </Button>
-                    ) : (
-                      <span className={styles.maxLabel}>Max</span>
-                    )}
+                    <span className={styles.skillActions}>
+                      {row.allocated > 0 ? (
+                        <Button
+                          type="link"
+                          size="small"
+                          className={styles.upgradeBtn}
+                          disabled={upgradingId === row.skillId}
+                          loading={resettingId === row.skillId}
+                          onClick={() => void handleReset(row.skillId, row.name)}
+                        >
+                          Reset
+                        </Button>
+                      ) : null}
+                      {row.cost != null ? (
+                        <Button
+                          type="link"
+                          size="small"
+                          className={styles.upgradeBtn}
+                          disabled={
+                            !cloud.progression ||
+                            cloud.progression.skillPoints < row.cost ||
+                            resettingId === row.skillId
+                          }
+                          loading={upgradingId === row.skillId}
+                          onClick={() =>
+                            void handleUpgrade(row.skillId, row.name, row.allocated + 1, row.cost!)
+                          }
+                        >
+                          +1 ({row.cost} SP)
+                        </Button>
+                      ) : (
+                        <span className={styles.maxLabel}>Max</span>
+                      )}
+                    </span>
                   </div>
                 ))}
               </>
