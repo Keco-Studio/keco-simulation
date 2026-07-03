@@ -110,6 +110,13 @@
   white-space: nowrap;
 }
 
+.skillActions {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
 .upgradeBtn {
   padding: 0;
   font-size: 11px;

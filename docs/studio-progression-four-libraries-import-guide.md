@@ -23,7 +23,7 @@
 | **战斗 · 玩家属性** | Battle Step 2 玩家卡片「Import」 | 1（任意，常用 Characters） | 玩家 HP/ATK/DEF/SPD/MP |
 | **战斗 · 敌人属性** | Battle Step 2 敌人卡片「Import」 | 1（任意，常用 Enemies / Monsters） | 敌人 HP/ATK/DEF/SPD/MP |
 | **战斗 · 云端养成** | Battle Step 2 左侧「Import libraries」 | **4** | 角色模板 + 技能 + 两条升级曲线 |
-| **成长推演**（独立页） | Progression → Import from Studio | 2 | Tracks + Rules 推演规则 |
+| **成长推演**（历史功能） | 当前 Progression 页面已重定向到 Battle | 0 | 新用户不需要建 Tracks / Rules |
 
 下面按表逐一说明**表头（列键）**和**参考示例**。
 
@@ -240,9 +240,11 @@ char_level_curve                    ──按 level 独立查表
 
 ---
 
-## 五、成长推演双库（Progression 模块，可选）
+## 五、成长推演双库（历史功能，当前可不建）
 
-与战斗云端养成**不是同一套系统**。用于 **Progression 推演页**试算规则，入口：Progression → **Import from Studio**。
+与战斗云端养成**不是同一套系统**。当前 `/simulation-system/progression` 和 `/simulation-system/progression/simulate` 都已重定向到 Battle，普通用户不需要新建 Tracks / Rules 两个库。
+
+下面列定义仅用于理解旧版 Progression 推演数据，或将来恢复独立推演页时参考。
 
 | # | UI 名称 | 库用途 |
 |---|---------|--------|
@@ -281,19 +283,19 @@ char_level_curve                    ──按 level 独立查表
 
 ---
 
-## 七、推荐建库清单（最小可跑）
+## 七、推荐建库清单（当前最小可跑）
 
-在同一 Studio 项目下建议建 **6～7 个 Library**：
+在同一 Studio 项目下建议建 **4～5 个 Library**：
 
 | 库名（示例） | 用于 | 最少行数 |
 |-------------|------|----------|
 | `Skills` | Step 1 技能 + 四库 Skills | ≥ 1 技能（`id` + `name`） |
 | `Characters` | 四库角色 + 可选玩家 Import | ≥ 1 角色 |
-| `Enemies` | 敌人 Import | ≥ 1 敌人 |
 | `CharLevelCurve` | 四库角色升级 | ≥ Lv.1 + Lv.2 |
 | `SkillLevelCurve` | 四库技能升级 | 每个可升级技能 ≥ 1 行 |
-| `ProgressTracks` | 推演（可选） | 按推演需求 |
-| `ProgressRules` | 推演（可选） | 按推演需求 |
+| `Enemies` | 敌人 Import | 可选，建议 ≥ 1 敌人 |
+
+`ProgressTracks` / `ProgressRules` 属于历史独立推演页，不在当前 Battle 养成闭环里使用。
 
 ---
 
@@ -334,6 +336,5 @@ char_level_curve                    ──按 level 独立查表
 
 | 文档 | 内容 |
 |------|------|
-| `new-design.md` | 策划案 v2.1（玩法、表规范） |
-| `keco-simulation-battle-poc-import-data-field-statistics.md` | 全项目导入字段统计 |
-| `docs/superpowers/specs/2026-06-23-character-exp-skill-points-cloud-sync-design.md` | 云端养成工程 Spec |
+| [exp-simulation-user-guide.md](./exp-simulation-user-guide.md) | 当前用户使用手册 |
+| [superpowers/specs/2026-06-23-character-exp-skill-points-cloud-sync-design.md](./superpowers/specs/2026-06-23-character-exp-skill-points-cloud-sync-design.md) | 云端养成工程 Spec |
